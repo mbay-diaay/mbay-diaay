@@ -12,7 +12,27 @@ Guide court pour Moha (31 octobre 2026). Aucun secret ici : uniquement le flux s
 
 Les deux doivent « voir » le même repo : GitHub pour le push, Vercel pour le build après chaque push sur `main`.
 
-On ne peut pas reconstituer ici *comment* le compte a déjà été connecté historiquement. Vérifier l’état actuel (sections ci-dessous) et reprendre le flux si quelque chose manque.
+### « Je ne vois pas mbay-diaay » dans le menu Teams (cas fréquent)
+
+Sur Vercel, le menu en haut à gauche (Teams…) liste des **teams Vercel**, pas les organisations GitHub.
+
+Exemple typique d’écran :
+
+- **Moha's projects** (Hobby) ← team perso  
+- **Darlyn** (Pro)  
+- **nootec's projects** (Pro)  
+- **+ Create Team**
+
+**Il n’y a pas** de ligne `mbay-diaay` tant que personne n’a créé une **team Vercel** avec ce nom. C’est normal : l’org GitHub https://github.com/mbay-diaay existe déjà, mais Vercel ne la crée pas automatiquement.
+
+**Deux façons de continuer (choisir une) :**
+
+| Option | Quand | Quoi faire |
+|---|---|---|
+| **A — Simple (recommandé pour démarrer)** | Tu veux juste voir le site | Rester sur **Moha's projects** → **Add New Project** → importer le repo GitHub `mbay-diaay/mbay-diaay` (après avoir accordé l’accès org, §3) |
+| **B — Team dédiée** | Tu veux une team « Mbay Diaay » visible dans le menu | Cliquer **+ Create Team** → nommer p.ex. `Mbay Diaay` → puis depuis **cette** team → Add New Project → même repo |
+
+Tant que le repo n’apparaît pas à l’import : ce n’est **pas** un problème de team manquante, c’est l’**accès Vercel → org GitHub** (§3) qui manque.
 
 ---
 
