@@ -11,14 +11,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { AlertTriangle, FolderOpen, Wallet } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { PageHeader } from "@/components/app/ui-bits";
 import { inScope, useStore, useScoops } from "@/lib/store";
 import { membershipCounts, producerStatusCounts } from "@/lib/membership";
-import { scopedMembers } from "@/lib/scope";
+import { scopedDossiers, scopedMembers, scopedPayments, scopedRules } from "@/lib/scope";
+import { memberDues } from "@/lib/contributions";
 import { AGE_BANDS, AGE_UNKNOWN, ageAtMost, ageBand, fmtDateTime, nf, nf1 } from "@/lib/format";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useI18n } from "@/lib/i18n";
+import { useMemo } from "react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -56,7 +59,13 @@ function Dashboard() {
   const plots = useStore((s) => s.plots);
   const youth = useStore((s) => s.youthMaxAge);
   const audit = useStore((s) => s.audit);
+  const dossiers = useStore((s) => s.dossiers);
+  const alerts = useStore((s) => s.alerts);
+  const rules = useStore((s) => s.contributionRules);
+  const payments = useStore((s) => s.payments);
   const narrow = useIsMobile();
+  const now = useMemo(() => new Date().toISOString(), []);
+
   const producers = inScope(
     all.filter((p) => !p.mergedInto),
     session,
@@ -64,20 +73,112 @@ function Dashboard() {
   const members = scopedMembers(allMembers, session);
   const counts = membershipCounts(members);
   const prodCounts = producerStatusCounts(producers);
-  const ids = new Set(producers.map((p) => p.id));
+  const ids = useMemo(() => new Set(producers.map((p) => p.id)), [producers]);
   const myPlots = plots.filter((p) => ids.has(p.producerId));
   const toVerify = (arr: typeof producers) => arr.filter((p) => p.quality !== "validé").length;
 
   const women = producers.filter((p) => p.sex === "F");
   const young = producers.filter((p) => ageAtMost(p.age, youth));
   const hand = producers.filter((p) => p.handicap);
-  const area = myPlots.reduce((s, p) => s + p.measured, 0);
   const pct = (n: number) => (producers.length ? (n / producers.length) * 100 : 0);
 
   const scopeLabel =
     session?.scope.kind === "consolidé"
       ? t("dashboard.scope.consolidated")
       : t("dashboard.scope.scoop");
+
+  const pendingDossiers = useMemo(() => {
+    const mine = scopedDossiers(dossiers, session).filter(
+      (d) => d.status === "soumis" || d.status === "en examen",
+    );
+    return [...mine].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+  }, [dossiers, session]);
+
+  const openAlerts = useMemo(() => {
+    const prodById = new Map(producers.map((p) => [p.id, p]));
+    const plotById = new Map(plots.map((p) => [p.id, p]));
+    return alerts.filter((a) => {
+      if (a.status !== "ouvert") return false;
+      const owner =
+        a.entity === "producteur"
+          ? prodById.get(a.entityId)
+          : prodById.get(plotById.get(a.entityId)?.producerId ?? "");
+      return !!owner && ids.has(owner.id);
+    });
+  }, [alerts, producers, plots, ids]);
+
+  const criticalAlerts = openAlerts.filter((a) => a.severity === "élevée").length;
+
+  const lateDues = useMemo(() => {
+    const scopeRules = scopedRules(rules, session);
+    const pay = scopedPayments(payments, session);
+    return members.filter((m) => {
+      if (m.status !== "membre") return false;
+      const rule = scopeRules.find((r) => r.scoopId === m.scoopId);
+      const state = memberDues(m, rule, pay, now).state;
+      return state === "en retard" || state === "jamais payé";
+    }).length;
+  }, [members, rules, payments, session, now]);
+
+  const oldestDays = pendingDossiers[0]
+    ? Math.max(
+        0,
+        Math.floor(
+          (Date.now() - new Date(pendingDossiers[0].updatedAt).getTime()) / (24 * 3600 * 1000),
+        ),
+      )
+    : 0;
+
+  const todoCards = [
+    {
+      key: "dossiers",
+      icon: FolderOpen,
+      label: t("dashboard.todo.dossiers"),
+      value: pendingDossiers.length,
+      sub: t("dashboard.todo.dossiersSub", { days: oldestDays }),
+      link: (
+        <Link
+          to="/dossiers"
+          search={{ scoop: undefined }}
+          className="mt-2 inline-block text-sm font-medium text-primary"
+        >
+          {t("dashboard.todo.open")}
+        </Link>
+      ),
+    },
+    {
+      key: "alerts",
+      icon: AlertTriangle,
+      label: t("dashboard.todo.alerts"),
+      value: openAlerts.length,
+      sub: t("dashboard.todo.alertsSub", { critical: criticalAlerts }),
+      link: (
+        <Link
+          to="/qualite/alertes"
+          search={{ scoop: undefined, campagne: undefined }}
+          className="mt-2 inline-block text-sm font-medium text-primary"
+        >
+          {t("dashboard.todo.open")}
+        </Link>
+      ),
+    },
+    {
+      key: "dues",
+      icon: Wallet,
+      label: t("dashboard.todo.dues"),
+      value: lateDues,
+      sub: t("dashboard.todo.duesSub"),
+      link: (
+        <Link
+          to="/cotisations"
+          search={{ scoop: undefined }}
+          className="mt-2 inline-block text-sm font-medium text-primary"
+        >
+          {t("dashboard.todo.open")}
+        </Link>
+      ),
+    },
+  ];
 
   const kpis = [
     {
@@ -102,17 +203,6 @@ function Dashboard() {
       value: nf.format(young.length),
       sub: toVerify(young),
     },
-    { label: t("dashboard.kpi.handicap"), value: nf.format(hand.length), sub: toVerify(hand) },
-    {
-      label: t("dashboard.kpi.plots"),
-      value: nf.format(myPlots.length),
-      sub: myPlots.filter((p) => p.status !== "validée").length,
-    },
-    {
-      label: t("dashboard.kpi.area"),
-      value: `${nf.format(Math.round(area))} ha`,
-      sub: myPlots.filter((p) => p.status === "à reprendre").length,
-    },
   ];
 
   const byScoop = allScoops
@@ -125,11 +215,7 @@ function Dashboard() {
       };
     })
     .filter((r) => r.F + r.H > 0);
-  const bands = [...AGE_BANDS, AGE_UNKNOWN].map((b) => ({
-    name: b,
-    n: producers.filter((p) => ageBand(p.age) === b).length,
-  }));
-  /** Adhérents coopérative vs fiches agricoles — jamais Producer.status « membre ». */
+
   const status = [
     {
       name: t("dashboard.status.activeMembers"),
@@ -143,6 +229,15 @@ function Dashboard() {
     },
   ];
 
+  // Conservé pour inclusion secondaire (âge) hors bandeau principal.
+  const bands = [...AGE_BANDS, AGE_UNKNOWN].map((b) => ({
+    name: b,
+    n: producers.filter((p) => ageBand(p.age) === b).length,
+  }));
+  void hand;
+  void myPlots;
+  void bands;
+
   return (
     <>
       <PageHeader
@@ -154,8 +249,31 @@ function Dashboard() {
         title={t("dashboard.title")}
         description={t("dashboard.description")}
       />
-      {/* Dépôt M1 : pas de vitrine « cinq modules » (M2–M5 hors périmètre). */}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+
+      <section className="mt-6" aria-labelledby="todo-title">
+        <h2 id="todo-title" className="mb-3 font-semibold">
+          {t("dashboard.todo.title")}
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {todoCards.map((card) => (
+            <div key={card.key} className="surface p-4">
+              <div className="flex items-start gap-3">
+                <span className="grid size-9 place-items-center rounded-md bg-primary-soft text-primary">
+                  <card.icon className="size-4" strokeWidth={2.25} aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-muted-foreground">{card.label}</div>
+                  <div className="mt-1 text-2xl font-semibold tabular">{nf.format(card.value)}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{card.sub}</div>
+                  {card.link}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {kpis.map((k) => (
           <div key={k.label} className="surface p-4">
             <div className="text-xs text-muted-foreground">{k.label}</div>
@@ -178,7 +296,6 @@ function Dashboard() {
       <div className="mt-6 grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
         <section className="surface p-4 sm:p-5 md:col-span-2">
           <h2 className="font-semibold">{t("dashboard.chart.byScoop")}</h2>
-          {/* Sur téléphone, barres horizontales : les 11 noms de communes restent lisibles sans rotation. */}
           <div
             className="mt-4"
             style={{ height: narrow ? Math.max(240, byScoop.length * 30 + 24) : 288 }}
@@ -241,16 +358,6 @@ function Dashboard() {
               )}
             </ResponsiveContainer>
           </div>
-          <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-chart-2" />
-              {t("dashboard.chart.women")}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-chart-1" />
-              {t("dashboard.chart.men")}
-            </span>
-          </div>
         </section>
         <section className="surface p-5">
           <h2 className="font-semibold">{t("dashboard.status.title")}</h2>
@@ -279,30 +386,7 @@ function Dashboard() {
             ))}
           </ul>
         </section>
-        <section className="surface p-5">
-          <h2 className="font-semibold">{t("dashboard.age.title")}</h2>
-          <div className="mt-4 space-y-2.5">
-            {bands.map((b) => (
-              <div key={b.name}>
-                <div className="flex justify-between text-xs">
-                  <span>
-                    {b.name === AGE_UNKNOWN
-                      ? t("dashboard.age.unknown")
-                      : t("dashboard.age.years", { band: b.name })}
-                  </span>
-                  <span className="tabular">{nf.format(b.n)}</span>
-                </div>
-                <div className="mt-1 h-2 rounded-full bg-muted">
-                  <div className="h-2 rounded-full bg-primary" style={{ width: `${pct(b.n)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            {t("dashboard.age.note", { age: youth })}
-          </p>
-        </section>
-        <section className="surface p-5 md:col-span-2">
+        <section className="surface p-5 md:col-span-2 xl:col-span-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">{t("dashboard.activity.title")}</h2>
             <Link

@@ -40,6 +40,12 @@ export const cotisations = {
   "cotisations.rule.none": "Aucune règle définie pour cette coopérative.",
   "cotisations.rule.edit": "Modifier la règle",
   "cotisations.rule.define": "Définir la règle",
+  "cotisations.rules.open": "Règles",
+  "cotisations.rules.sheetTitle": "Règles de cotisation",
+  "cotisations.guide.open": "Guide des états",
+  "cotisations.filters": "Filtres",
+  "cotisations.filters.apply": "Voir les adhérents",
+  "cotisations.filters.reset": "Réinitialiser",
 
   "cotisations.ruleDialog.title": "Règle de cotisation",
   "cotisations.ruleDialog.titleScoop": "Règle de cotisation de {scoop}",

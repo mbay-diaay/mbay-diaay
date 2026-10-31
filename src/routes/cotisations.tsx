@@ -12,6 +12,8 @@ import {
   MinusCircle,
   Pencil,
   Search,
+  Settings2,
+  SlidersHorizontal,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -57,7 +59,7 @@ import { useFormat } from "@/hooks/use-format";
 import { useTouched } from "@/hooks/use-touched";
 import { useAuditedCsvExport } from "@/hooks/use-audited-csv-export";
 import { ReasonDialog } from "@/components/app/ReasonDialog";
-import { KpiGrid, Money } from "@/components/app/Kpi";
+import { KpiGrid } from "@/components/app/Kpi";
 import { useI18n, type MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -120,6 +122,12 @@ const PERIODICITY_LABEL: Record<Periodicity, MessageKey> = {
 };
 const ALL = "tous";
 const OTHER = "__autre";
+const DUE_RANK: Record<DueState, number> = {
+  "jamais payé": 0,
+  "en retard": 1,
+  "à jour": 2,
+  "non exigible": 3,
+};
 
 interface Row {
   member: Member;
@@ -143,6 +151,9 @@ function Contributions() {
   const [payFor, setPayFor] = useState<Row | null>(null);
   const [voidFor, setVoidFor] = useState<{ row: Row; paymentId?: string } | null>(null);
   const [ruleFor, setRuleFor] = useState<{ id: string; name: string } | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const now = useMemo(() => new Date().toISOString(), []);
 
   const payments = useMemo(() => scopedPayments(allPayments, session), [allPayments, session]);
@@ -170,7 +181,10 @@ function Contributions() {
             name: `${member.firstName} ${member.lastName}`,
           };
         })
-        .sort((a, b) => a.name.localeCompare(b.name, "fr")),
+        .sort(
+          (a, b) =>
+            DUE_RANK[a.dues.state] - DUE_RANK[b.dues.state] || a.name.localeCompare(b.name, "fr"),
+        ),
     [members, session, g.scoop, scopeRules, payments, now],
   );
 
@@ -239,61 +253,33 @@ function Contributions() {
         title={t("cotisations.title")}
         description={t("cotisations.description")}
         actions={
-          <Button variant="outline" onClick={exportCsv} disabled={!shown.length}>
-            <Download className="size-4" />
-            {t("cotisations.export")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setGuideOpen(true)}>
+              <Info className="size-4" />
+              {t("cotisations.guide.open")}
+            </Button>
+            <Button variant="outline" onClick={() => setRulesOpen(true)}>
+              <Settings2 className="size-4" />
+              {t("cotisations.rules.open")}
+            </Button>
+            <Button variant="outline" onClick={exportCsv} disabled={!shown.length}>
+              <Download className="size-4" />
+              {t("cotisations.export")}
+            </Button>
+          </div>
         }
       />
 
-      <section className="surface mb-4 p-4" aria-labelledby="cotisations-guide-title">
-        <div className="flex flex-wrap items-start gap-3">
-          <span
-            className="grid size-9 shrink-0 place-items-center rounded-md bg-info-bg text-info-fg"
-            aria-hidden
-          >
-            <Info className="size-4" strokeWidth={2.25} />
-          </span>
-          <div className="min-w-0 flex-1 space-y-3">
-            <div>
-              <h2 id="cotisations-guide-title" className="text-sm font-semibold">
-                {t("cotisations.guide.title")}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">{t("cotisations.guide.lead")}</p>
-            </div>
-            <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {STATES.map((s) => (
-                <li key={s}>
-                  <StatusMark
-                    tone={STATE_TONE[s]}
-                    icon={STATE_ICON[s]}
-                    label={
-                      <span className="block">
-                        <span className="block">{t(STATE_LABEL[s])}</span>
-                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                          {t(`cotisations.guide.state.${s}`)}
-                        </span>
-                      </span>
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-            <p className="text-xs text-muted-foreground">{t("cotisations.guide.action")}</p>
-          </div>
-        </div>
-      </section>
-
       <KpiGrid cols={4} from="xl">
         <KpiTile
-          label={t("cotisations.kpi.expected")}
-          value={<Money size="kpi" amount={totals.expected} />}
-          sub={t("cotisations.kpi.expectedSub.autre", { count: rows.length })}
-        />
-        <KpiTile
-          label={t("cotisations.kpi.collected")}
-          value={<Money size="kpi" amount={totals.collected} />}
-          sub={t("cotisations.kpi.collectedSub")}
+          label={t("cotisations.kpi.late")}
+          value={nf.format(totals.late)}
+          sub={
+            totals.late === 0
+              ? t("cotisations.kpi.lateSub.zero")
+              : t("cotisations.kpi.activeHint", { count: rows.length })
+          }
+          tone={totals.late ? "warning" : "neutral"}
         />
         <KpiTile
           label={t("cotisations.kpi.rate")}
@@ -307,87 +293,103 @@ function Contributions() {
                 : "neutral"
           }
         />
-        <KpiTile
-          label={t("cotisations.kpi.late")}
-          value={nf.format(totals.late)}
-          sub={
-            totals.late === 0
-              ? t("cotisations.kpi.lateSub.zero")
-              : t("cotisations.kpi.lateSub.autre", { count: totals.late })
-          }
-          tone={totals.late ? "warning" : "neutral"}
-        />
       </KpiGrid>
 
-      <div className="mb-4 space-y-2">
-        {scoops.map((s) => {
-          const rule = scopeRules.find((r) => r.scoopId === s.id);
-          return (
-            <section key={s.id} className="surface flex flex-wrap items-center gap-x-4 gap-y-3 p-4">
-              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-primary">
-                <Wallet className="size-5" />
-              </div>
-              <div className="min-w-0 flex-1 basis-60">
-                <h2 className="text-sm font-semibold">
-                  {manyScoops
-                    ? t("cotisations.rule.titleScoop", { scoop: s.name })
-                    : t("cotisations.rule.title")}
-                </h2>
-                {rule ? (
-                  <>
-                    <p className="mt-0.5 text-sm">
-                      {rule.periodicity === "annuelle"
-                        ? t("cotisations.rule.summary.annuelle", {
-                            amount: nf.format(rule.amount),
-                            date: formatDate(
-                              new Date(
-                                Date.UTC(
-                                  2000,
-                                  Number(rule.dueDate.slice(0, 2)) - 1,
-                                  Number(rule.dueDate.slice(3)),
+      <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{t("cotisations.rules.sheetTitle")}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-3">
+            {scoops.map((s) => {
+              const rule = scopeRules.find((r) => r.scoopId === s.id);
+              return (
+                <section key={s.id} className="rounded-md border p-4">
+                  <h3 className="text-sm font-semibold">
+                    {manyScoops
+                      ? t("cotisations.rule.titleScoop", { scoop: s.name })
+                      : t("cotisations.rule.title")}
+                  </h3>
+                  {rule ? (
+                    <>
+                      <p className="mt-1 text-sm">
+                        {rule.periodicity === "annuelle"
+                          ? t("cotisations.rule.summary.annuelle", {
+                              amount: nf.format(rule.amount),
+                              date: formatDate(
+                                new Date(
+                                  Date.UTC(
+                                    2000,
+                                    Number(rule.dueDate.slice(0, 2)) - 1,
+                                    Number(rule.dueDate.slice(3)),
+                                  ),
                                 ),
+                                { day: "numeric", month: "long", timeZone: "UTC" },
                               ),
-                              { day: "numeric", month: "long", timeZone: "UTC" },
-                            ),
-                          })
-                        : t("cotisations.rule.summary.mensuelle", {
-                            amount: nf.format(rule.amount),
-                          })}
+                            })
+                          : t("cotisations.rule.summary.mensuelle", {
+                              amount: nf.format(rule.amount),
+                            })}
+                      </p>
+                      <div className="mt-2">
+                        <Pill tone={rule.confirmed ? "success" : "warning"}>
+                          {rule.confirmed
+                            ? t("cotisations.rule.confirmed")
+                            : t("cotisations.rule.toConfirm")}
+                        </Pill>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t("cotisations.rule.none")}
                     </p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      <Pill
-                        tone={rule.confirmed ? "success" : "warning"}
-                        className="whitespace-normal"
-                      >
-                        {rule.confirmed
-                          ? t("cotisations.rule.confirmed")
-                          : t("cotisations.rule.toConfirm")}
-                      </Pill>
-                      <span className="text-xs text-muted-foreground">
-                        {t("cotisations.rule.since", { year: rule.startYear })}
+                  )}
+                  {canManage && (
+                    <Button
+                      variant="outline"
+                      className="mt-3 w-full"
+                      onClick={() => {
+                        setRulesOpen(false);
+                        setRuleFor({ id: s.id, name: s.name });
+                      }}
+                    >
+                      <Pencil className="size-4" />
+                      {rule ? t("cotisations.rule.edit") : t("cotisations.rule.define")}
+                    </Button>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={guideOpen} onOpenChange={setGuideOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{t("cotisations.guide.title")}</SheetTitle>
+          </SheetHeader>
+          <p className="mt-3 text-sm text-muted-foreground">{t("cotisations.guide.lead")}</p>
+          <ul className="mt-4 space-y-3">
+            {STATES.map((s) => (
+              <li key={s}>
+                <StatusMark
+                  tone={STATE_TONE[s]}
+                  icon={STATE_ICON[s]}
+                  label={
+                    <span className="block">
+                      <span className="block">{t(STATE_LABEL[s])}</span>
+                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                        {t(`cotisations.guide.state.${s}`)}
                       </span>
-                    </div>
-                  </>
-                ) : (
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {t("cotisations.rule.none")}
-                  </p>
-                )}
-              </div>
-              {canManage && (
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => setRuleFor({ id: s.id, name: s.name })}
-                >
-                  <Pencil className="size-4" />
-                  {rule ? t("cotisations.rule.edit") : t("cotisations.rule.define")}
-                </Button>
-              )}
-            </section>
-          );
-        })}
-      </div>
+                    </span>
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        </SheetContent>
+      </Sheet>
 
       {noRuleAtAll ? (
         <div className="surface">
@@ -409,10 +411,43 @@ function Contributions() {
         </div>
       ) : (
         <>
-          <div className="surface mb-3 p-3">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="surface mb-3 flex flex-wrap items-center gap-2 p-3">
+            <div className="relative min-w-0 flex-1 basis-48">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label={t("cotisations.search.aria")}
+                placeholder={t("cotisations.search.placeholder")}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setFiltersOpen(true)}
+              aria-expanded={filtersOpen}
+            >
+              <SlidersHorizontal className="size-4" />
+              {t("cotisations.filters")}
+              {state !== ALL && (
+                <span className="rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground tabular">
+                  1
+                </span>
+              )}
+            </Button>
+            {state !== ALL && (
+              <FilterPill active onClick={() => setState(ALL)} count={countOf(state as DueState)}>
+                {t(STATE_LABEL[state as DueState])}
+              </FilterPill>
+            )}
+          </div>
+          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+              <SheetHeader>
+                <SheetTitle>{t("cotisations.filters")}</SheetTitle>
+              </SheetHeader>
               <div
-                className="flex min-w-0 flex-wrap items-center gap-2"
+                className="mt-4 flex flex-wrap gap-2"
                 role="group"
                 aria-label={t("cotisations.filter.aria")}
               >
@@ -439,18 +474,18 @@ function Contributions() {
                   );
                 })}
               </div>
-              <div className="relative ml-auto w-full sm:w-64">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  aria-label={t("cotisations.search.aria")}
-                  placeholder={t("cotisations.search.placeholder")}
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  className="pl-8"
-                />
+              <div className="mt-6 flex gap-2">
+                {state !== ALL && (
+                  <Button variant="outline" onClick={() => setState(ALL)}>
+                    {t("cotisations.filters.reset")}
+                  </Button>
+                )}
+                <Button className="flex-1" onClick={() => setFiltersOpen(false)}>
+                  {t("cotisations.filters.apply")}
+                </Button>
               </div>
-            </div>
-          </div>
+            </SheetContent>
+          </Sheet>
 
           <div className="surface overflow-x-auto">
             {shown.length ? (
