@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CalendarDays, CalendarPlus, ExternalLink, Search } from "lucide-react";
+import { CalendarDays, CalendarPlus, ExternalLink, Search, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, PageHeader, Pill } from "@/components/app/ui-bits";
 import { FilterPill } from "@/components/app/FilterPill";
@@ -13,6 +13,7 @@ import {
 } from "@/components/app/MeetingKinds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Segmented } from "@/components/ui/segmented";
 import { EventCalendar } from "@/components/ui/event-calendar";
 import type { CalendarEvent } from "@/lib/calendar";
@@ -79,8 +80,9 @@ function Meetings() {
   const meetings = useStore((s) => s.meetings);
   const members = useStore((s) => s.members);
   const canManage = useCan("meeting.manage");
-  const [filter, setFilter] = useState<Filter>("tous");
+  const [filter, setFilter] = useState<Filter>("upcoming");
   const [q, setQ] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [newDay, setNewDay] = useState<Date | undefined>();
   const view = g.vue === "calendrier" ? "calendrier" : "liste";
@@ -144,8 +146,58 @@ function Meetings() {
       />
       <div className="surface mb-3 p-3">
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1 basis-48">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label={t("reunions.search.aria")}
+              placeholder={t("reunions.search.placeholder")}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setFiltersOpen(true)}
+            aria-expanded={filtersOpen}
+          >
+            <SlidersHorizontal className="size-4" />
+            {t("reunions.filters")}
+            {filter !== "tous" && (
+              <span className="rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground tabular">
+                1
+              </span>
+            )}
+          </Button>
+          <div className="mx-0.5 hidden h-6 w-px shrink-0 bg-border sm:block" aria-hidden />
+          <Segmented
+            ariaLabel={t("reunions.view.aria")}
+            value={view}
+            onChange={(v) =>
+              void navigate({
+                to: "/reunions",
+                search: {
+                  scoop: g.scoop,
+                  ...(v === "calendrier" ? { vue: "calendrier" as const } : {}),
+                },
+                replace: true,
+              })
+            }
+            options={[
+              { value: "liste", label: t("reunions.view.list") },
+              { value: "calendrier", label: t("reunions.view.calendar") },
+            ]}
+            size="sm"
+          />
+        </div>
+      </div>
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{t("reunions.filters")}</SheetTitle>
+          </SheetHeader>
           <div
-            className="flex min-w-0 flex-wrap items-center gap-2"
+            className="mt-4 flex flex-wrap gap-2"
             role="group"
             aria-label={t("reunions.filter.aria")}
           >
@@ -167,38 +219,18 @@ function Meetings() {
               </FilterPill>
             ))}
           </div>
-          <div className="mx-0.5 hidden h-6 w-px shrink-0 bg-border sm:block" aria-hidden />
-          <Segmented
-            ariaLabel={t("reunions.view.aria")}
-            value={view}
-            onChange={(v) =>
-              void navigate({
-                to: "/reunions",
-                search: {
-                  scoop: g.scoop,
-                  ...(v === "calendrier" ? { vue: "calendrier" as const } : {}),
-                },
-                replace: true,
-              })
-            }
-            options={[
-              { value: "liste", label: t("reunions.view.list") },
-              { value: "calendrier", label: t("reunions.view.calendar") },
-            ]}
-            size="sm"
-          />
-          <div className="relative ml-auto w-full sm:w-64">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              aria-label={t("reunions.search.aria")}
-              placeholder={t("reunions.search.placeholder")}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-8"
-            />
+          <div className="mt-6 flex gap-2">
+            {filter !== "tous" && (
+              <Button variant="outline" onClick={() => setFilter("tous")}>
+                {t("reunions.filters.reset")}
+              </Button>
+            )}
+            <Button className="flex-1" onClick={() => setFiltersOpen(false)}>
+              {t("reunions.filters.apply")}
+            </Button>
           </div>
-        </div>
-      </div>
+        </SheetContent>
+      </Sheet>
       {view === "calendrier" ? (
         <div className="surface p-3 sm:p-4">
           <EventCalendar

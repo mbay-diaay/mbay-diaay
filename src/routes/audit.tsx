@@ -131,12 +131,15 @@ function Audit() {
         `${a.action} ${a.entity} ${a.detail} ${a.user}`.toLowerCase().includes(q.toLowerCase()))
     );
   });
-  const rows = base.filter((a) => family === ALL || familyOf(a) === family);
+  const [dateOrder, setDateOrder] = useState<"desc" | "asc">("desc");
+  const rows = base
+    .filter((a) => family === ALL || familyOf(a) === family)
+    .sort((a, b) => (dateOrder === "desc" ? b.at.localeCompare(a.at) : a.at.localeCompare(b.at)));
   const moreCount =
     (user !== ALL ? 1 : 0) + (action !== ALL ? 1 : 0) + (from ? 1 : 0) + (to ? 1 : 0);
   const filtered = moreCount > 0 || !!q || family !== ALL;
   const sensitive = base.filter((a) => SENSITIVE.test(a.action)).length;
-  const last = base[0];
+  const last = rows[0];
   const open = openId ? audit.find((a) => a.id === openId) : undefined;
 
   /** Objet concerné par une entrée, quand on sait le retrouver : lien direct vers sa fiche. */
@@ -214,10 +217,20 @@ function Audit() {
         title={t("audit.title")}
         description={wholePlatform ? t("audit.description.platform") : t("audit.description.scoop")}
         actions={
-          <Button variant="outline" onClick={exportCsv} disabled={!rows.length}>
-            <Download className="size-4" />
-            {t("audit.export")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDateOrder((o) => (o === "desc" ? "asc" : "desc"))}
+              aria-label={t("audit.sort.toggle")}
+            >
+              <Clock className="size-4" />
+              {dateOrder === "desc" ? t("audit.sort.desc") : t("audit.sort.asc")}
+            </Button>
+            <Button variant="outline" onClick={exportCsv} disabled={!rows.length}>
+              <Download className="size-4" />
+              {t("audit.export")}
+            </Button>
+          </div>
         }
       />
 

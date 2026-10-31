@@ -456,6 +456,27 @@ function CorrectionsPage() {
             <span className="font-medium">{t("qualite.corrections.dialog.motif")}</span>{" "}
             {open.motif}
           </p>
+          {(() => {
+            const fields = open.changes.map((c) => c.field.toLowerCase());
+            const motif = open.motif.toLowerCase();
+            const hints: Record<string, string[]> = {
+              téléphone: ["téléphone", "numero", "numéro", "phone"],
+              âge: ["âge", "age", "ans", "identité", "cni"],
+              nom: ["nom", "patronyme", "orthograph"],
+              "statut d'adhésion": ["adhésion", "membre", "statut"],
+            };
+            const coherent = fields.every((f) => {
+              const keys = Object.entries(hints).find(([k]) => f.includes(k))?.[1] ?? [f];
+              return keys.some((k) => motif.includes(k));
+            });
+            return coherent ? null : (
+              <p className="rounded-md border border-warning/40 bg-warning-bg p-3 text-sm text-warning-fg">
+                {t("qualite.corrections.dialog.motifWarn", {
+                  fields: open.changes.map((c) => c.field).join(", "),
+                })}
+              </p>
+            );
+          })()}
           {open.status === "en attente" ? (
             <FormField
               label={t("qualite.corrections.dialog.decisionLabel")}

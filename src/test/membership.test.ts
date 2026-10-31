@@ -68,10 +68,18 @@ describe("producerStatusCounts", () => {
       collectedAt: "2026-01-01",
     };
     const producers = [
-      { ...base, id: "p1", code: "A", status: "membre" as const },
-      { ...base, id: "p2", code: "B", status: "recensé" as const },
-      { ...base, id: "p3", code: "C", status: "recensé" as const, mergedInto: "p1" },
-    ] as Producer[];
+      { ...base, id: "p1", code: "A", status: "membre" as const, createdAt: "2026-01-01", history: [] },
+      { ...base, id: "p2", code: "B", status: "recensé" as const, createdAt: "2026-01-01", history: [] },
+      {
+        ...base,
+        id: "p3",
+        code: "C",
+        status: "recensé" as const,
+        mergedInto: "p1",
+        createdAt: "2026-01-01",
+        history: [],
+      },
+    ] as unknown as Producer[];
     expect(producerStatusCounts(producers)).toEqual({
       producers: 2,
       labeledMember: 1,

@@ -94,11 +94,12 @@ describe("documents de la coopérative : périmètre et sensibilité", () => {
     { ...doc("dossier", "s1", false), ownerType: "dossier" as const },
   ];
 
-  it("le gestionnaire et le représentant lisent les documents de leur SCOOP, sensibles compris", () => {
-    for (const role of ["gestionnaire", "representant"] as const) {
-      const s = sessionOf(role, ["s1"]);
-      expect(ids(scopedLibrary(library, s))).toEqual(["ouvert", "sensible"]);
-    }
+  it("le gestionnaire lit les documents sensibles de sa SCOOP ; le représentant non (A-02)", () => {
+    expect(ids(scopedLibrary(library, sessionOf("gestionnaire", ["s1"])))).toEqual([
+      "ouvert",
+      "sensible",
+    ]);
+    expect(ids(scopedLibrary(library, sessionOf("representant", ["s1"])))).toEqual(["ouvert"]);
   });
 
   it("la secrétaire ne lit jamais un document sensible", () => {

@@ -2967,6 +2967,8 @@ export const actions = {
       sizeKb: number;
       mime: string;
       sensitive?: boolean;
+      /** Si true et qu'un doc du même nom existe : le marque remplacé et incrémente la version. */
+      replaceExisting?: boolean;
     },
   ): ActionResult<{ id: string }> {
     const denied = access("library.manage");
@@ -2977,24 +2979,47 @@ export const actions = {
     if (!LIBRARY_KINDS.includes(input.kind)) return fail("errors.library.kind");
     if (input.sizeKb > MAX_DOCUMENT_KB)
       return fail("errors.store.documentTooBig", { mb: MAX_DOCUMENT_KB / 1024 });
+    const name = input.name.trim();
+    const previous = state.documents.find(
+      (d) =>
+        d.ownerType === "scoop" &&
+        d.scoopId === scoopId &&
+        d.name.toLowerCase() === name.toLowerCase() &&
+        (d.lifecycle ?? "en vigueur") === "en vigueur",
+    );
+    const version = previous && input.replaceExisting ? (previous.version ?? 1) + 1 : 1;
+    const at = new Date().toISOString();
     const doc: DocumentMeta = {
       id: nextId("doc", state.documents),
       ownerType: "scoop",
       ownerId: scoopId,
       scoopId,
       kind: input.kind,
-      name: input.name.trim(),
+      name,
       sizeKb: input.sizeKb,
       mime: input.mime,
       uploadedBy: who.name,
-      uploadedAt: new Date().toISOString(),
+      uploadedAt: at,
       sensitive: input.sensitive ?? false,
+      version,
+      effectiveAt: at,
+      lifecycle: "en vigueur",
+      replacedById: null,
     };
-    set((s) => ({ documents: [...s.documents, doc] }));
+    set((s) => ({
+      documents: [
+        ...s.documents.map((d) =>
+          previous && input.replaceExisting && d.id === previous.id
+            ? { ...d, lifecycle: "remplacé" as const, replacedById: doc.id }
+            : d,
+        ),
+        doc,
+      ],
+    }));
     audit(
       "Document ajouté",
       `SCOOP ${scoopName(scoopId)}`,
-      `${doc.kind}${doc.sensitive ? ", sensible" : ""} : ${doc.name}`,
+      `${doc.kind}${doc.sensitive ? ", sensible" : ""} : ${doc.name} (v${version})`,
       scoopId,
     );
     return { ok: true, id: doc.id };

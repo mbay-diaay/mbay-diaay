@@ -128,8 +128,7 @@ function Alerts() {
       (f.type === ALL || a.type === f.type) &&
       (f.severity === ALL || a.severity === f.severity) &&
       (f.enumerator === ALL || a.enumerator === f.enumerator) &&
-      (!needle ||
-        `${a.type} ${a.detail} ${a.enumerator}`.toLowerCase().includes(needle))
+      (!needle || `${a.type} ${a.detail} ${a.enumerator}`.toLowerCase().includes(needle))
     );
   };
 

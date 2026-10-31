@@ -41,6 +41,15 @@ export const reunions = {
   "reunions.minutes.none": "Aucun",
   "reunions.minutes.brouillon": "Brouillon",
   "reunions.minutes.validé": "Validé",
+  "reunions.filters": "Filtres",
+  "reunions.filters.apply": "Voir les réunions",
+  "reunions.filters.reset": "Réinitialiser",
+  "reunions.checklist.title": "Parcours de la réunion",
+  "reunions.checklist.prepare": "Préparer",
+  "reunions.checklist.attendance": "Présences",
+  "reunions.checklist.draft": "PV brouillon",
+  "reunions.checklist.validated": "PV validé",
+  "reunions.checklist.signed": "Exemplaire signé",
 
   "reunions.form.createTitle": "Nouvelle réunion",
   "reunions.form.createDescription":

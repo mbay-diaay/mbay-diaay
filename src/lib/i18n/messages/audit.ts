@@ -19,6 +19,9 @@ export const audit = {
   "audit.kpi.sensitiveSub": "CNI, exports nominatifs, fusions…",
   "audit.kpi.last": "Dernière action",
   "audit.kpi.none": "Aucune",
+  "audit.sort.desc": "Tri : plus récentes d'abord",
+  "audit.sort.asc": "Tri : plus anciennes d'abord",
+  "audit.sort.toggle": "Inverser le tri par date",
   "audit.family.all": "Toutes",
   "audit.family.sensibles": "Actions sensibles",
   "audit.family.sensibles.hint":

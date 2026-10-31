@@ -176,6 +176,8 @@ export const qualite = {
   "qualite.corrections.dialog.producer": "Producteur :",
   "qualite.corrections.dialog.requestedBy": "Demande de {name} · {date}",
   "qualite.corrections.dialog.motif": "Motif :",
+  "qualite.corrections.dialog.motifWarn":
+    "Attention : le motif ne semble pas parler des champs modifiés ({fields}). Vérifiez avant d'approuver.",
   "qualite.corrections.dialog.decisionLabel": "Commentaire de décision",
   "qualite.corrections.dialog.decisionHint": "Obligatoire pour un refus.",
   "qualite.corrections.dialog.decisionPlaceholder": "Précisez le motif de votre décision",

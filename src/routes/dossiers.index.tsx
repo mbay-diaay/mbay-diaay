@@ -89,7 +89,8 @@ function Dossiers() {
         (!needle ||
           `${d.draft.firstName} ${d.draft.lastName} ${d.createdBy}`.toLowerCase().includes(needle)),
     )
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    // Plus anciens d'abord pour relancer les dossiers qui vieillissent (A-08).
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
   const n = (f: (d: ProducerDossier) => boolean) => mine.filter(f).length;
   const filtered = view !== "tous" || needle !== "";
   const viewName =
@@ -206,13 +207,14 @@ function Dossiers() {
                   <th className="hidden font-semibold md:table-cell">{t("dossiers.col.scoop")}</th>
                 )}
                 <th className="hidden font-semibold sm:table-cell">{t("dossiers.col.tech")}</th>
-                <th className="hidden font-semibold lg:table-cell">{t("dossiers.col.updated")}</th>
+                <th className="hidden font-semibold lg:table-cell">{t("dossiers.col.age")}</th>
+                <th className="hidden font-semibold xl:table-cell">{t("dossiers.col.updated")}</th>
                 <th className="w-12 pr-4" />
               </tr>
             </thead>
             <tbody className="divide-y">
               {shown.map((d) => (
-                <Row key={d.id} dossier={d} multiScoop={multiScoop} />
+                <Row key={d.id} dossier={d} multiScoop={multiScoop} canRemind={reviewer} />
               ))}
             </tbody>
           </table>
@@ -235,11 +237,25 @@ function Dossiers() {
   );
 }
 
-function Row({ dossier: d, multiScoop }: { dossier: ProducerDossier; multiScoop: boolean }) {
+function ageDays(iso: string) {
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 3600 * 1000)));
+}
+
+function Row({
+  dossier: d,
+  multiScoop,
+  canRemind,
+}: {
+  dossier: ProducerDossier;
+  multiScoop: boolean;
+  canRemind: boolean;
+}) {
   const allScoops = useScoops();
   const { t } = useI18n();
   const navigate = useNavigate();
   const open = () => void navigate({ to: "/dossiers/$id", params: { id: d.id } });
+  const days = ageDays(d.updatedAt);
+  const pending = d.status === "soumis" || d.status === "en examen";
   return (
     <tr
       tabIndex={0}
@@ -274,7 +290,12 @@ function Row({ dossier: d, multiScoop }: { dossier: ProducerDossier; multiScoop:
         </td>
       )}
       <td className="hidden sm:table-cell">{d.createdBy}</td>
-      <td className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">
+      <td
+        className={`hidden tabular lg:table-cell ${pending && days >= 14 ? "font-semibold text-warning-fg" : "text-muted-foreground"}`}
+      >
+        {t(days === 1 ? "dossiers.age.days.un" : "dossiers.age.days.autre", { count: days })}
+      </td>
+      <td className="hidden whitespace-nowrap text-muted-foreground xl:table-cell">
         {fmtDate(d.updatedAt)}
       </td>
       <td className="pr-4 text-right">
@@ -282,6 +303,22 @@ function Row({ dossier: d, multiScoop }: { dossier: ProducerDossier; multiScoop:
           title={`${d.draft.firstName} ${d.draft.lastName}`}
           items={[
             { label: t("dossiers.row.open"), icon: ExternalLink, onSelect: open },
+            ...(canRemind && pending
+              ? [
+                  {
+                    label: t("dossiers.remind"),
+                    icon: AlertTriangle,
+                    onSelect: () => {
+                      actions.audit(
+                        "Rappel dossier",
+                        `Dossier ${d.id}`,
+                        `${d.draft.firstName} ${d.draft.lastName} · ${days} j.`,
+                      );
+                      toast.success(t("dossiers.reminded"));
+                    },
+                  },
+                ]
+              : []),
             ...(d.producerId
               ? [
                   {

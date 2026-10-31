@@ -130,7 +130,10 @@ function Team() {
       />
 
       <p className="mb-3 text-sm text-muted-foreground">
-        {t("equipe.summary", { active: nf.format(counts.active), roster: nf.format(counts.roster) })}
+        {t("equipe.summary", {
+          active: nf.format(counts.active),
+          roster: nf.format(counts.roster),
+        })}
       </p>
 
       <div className="surface mb-3 p-3">

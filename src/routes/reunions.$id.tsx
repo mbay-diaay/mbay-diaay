@@ -83,6 +83,66 @@ function MeetingPage() {
 
 type Dialog = "edit" | "hold" | "cancel" | null;
 
+function MeetingChecklist({ meeting }: { meeting: Meeting }) {
+  const { t } = useI18n();
+  const steps = [
+    {
+      key: "prepare",
+      label: t("reunions.checklist.prepare"),
+      done: meeting.status !== "annulée",
+    },
+    {
+      key: "attendance",
+      label: t("reunions.checklist.attendance"),
+      done: meeting.status === "tenue" && meeting.presentIds.length > 0,
+    },
+    {
+      key: "draft",
+      label: t("reunions.checklist.draft"),
+      done: !!meeting.minutes,
+    },
+    {
+      key: "validated",
+      label: t("reunions.checklist.validated"),
+      done: meeting.minutes?.status === "validé",
+    },
+    {
+      key: "signed",
+      label: t("reunions.checklist.signed"),
+      done: !!meeting.minutes?.documentId,
+    },
+  ] as const;
+  return (
+    <section className="mb-4 surface p-4" aria-labelledby="checklist-title">
+      <h2 id="checklist-title" className="text-sm font-semibold">
+        {t("reunions.checklist.title")}
+      </h2>
+      <ol className="mt-3 flex flex-wrap gap-2">
+        {steps.map((s, i) => (
+          <li
+            key={s.key}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
+              s.done
+                ? "border-success/40 bg-success-bg text-success-fg"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            <span className="tabular">{i + 1}.</span> {s.label}
+          </li>
+        ))}
+      </ol>
+      {meeting.minutes && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t(MEETING_STATUS_LABEL[meeting.status])} ·{" "}
+          {meeting.minutes.status === "validé"
+            ? t("reunions.minutes.validé")
+            : t("reunions.minutes.brouillon")}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function Detail({ meeting }: { meeting: Meeting }) {
   const allScoops = useScoops();
   const { t } = useI18n();
@@ -120,6 +180,8 @@ function Detail({ meeting }: { meeting: Meeting }) {
           </Pill>
         }
       />
+
+      <MeetingChecklist meeting={meeting} />
 
       {meeting.status === "annulée" && (
         <p className="mb-4 rounded-md bg-muted p-4 text-sm">

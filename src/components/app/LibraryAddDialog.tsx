@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { FormDialog } from "@/components/app/FormDialog";
@@ -17,6 +17,7 @@ import { useI18n } from "@/lib/i18n";
 import { LIBRARY_KINDS, type LibraryDocumentKind } from "@/lib/mock/cooperative";
 import { actions, can, useStore } from "@/lib/store";
 import { LIBRARY_MAX_KB, useFileSize } from "@/components/app/LibraryFile";
+import { Button } from "@/components/ui/button";
 
 interface Picked {
   name: string;
@@ -39,12 +40,14 @@ export function LibraryAddDialog({
   const { t } = useI18n();
   const size = useFileSize();
   const session = useStore((s) => s.session);
+  const documents = useStore((s) => s.documents);
   const canSeeSensitive = can(session, "cni.read");
   const [scoopId, setScoopId] = useState(defaultScoopId);
   const [kind, setKind] = useState<LibraryDocumentKind>("statuts");
   const [file, setFile] = useState<Picked | null>(null);
   const [sensitive, setSensitive] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [replaceMode, setReplaceMode] = useState<"ask" | "replace" | "keep">("ask");
 
   useEffect(() => {
     if (!open) return;
@@ -53,11 +56,35 @@ export function LibraryAddDialog({
     setFile(null);
     setSensitive(false);
     setError(undefined);
+    setReplaceMode("ask");
   }, [open, defaultScoopId]);
+
+  const duplicate = useMemo(() => {
+    if (!file) return undefined;
+    return documents.find(
+      (d) =>
+        d.ownerType === "scoop" &&
+        d.scoopId === scoopId &&
+        d.name.toLowerCase() === file.name.toLowerCase() &&
+        (d.lifecycle ?? "en vigueur") === "en vigueur",
+    );
+  }, [documents, file, scoopId]);
 
   const submit = () => {
     if (!file) return;
-    const r = actions.addLibraryDocument(scoopId, { kind, ...file, sensitive });
+    if (duplicate && replaceMode === "ask") return;
+    const name =
+      duplicate && replaceMode === "keep"
+        ? `${file.name.replace(/(\.[^.]+)?$/, "")} (${new Date().toISOString().slice(0, 10)})${file.name.match(/\.[^.]+$/)?.[0] ?? ""}`
+        : file.name;
+    const r = actions.addLibraryDocument(scoopId, {
+      kind,
+      name,
+      sizeKb: file.sizeKb,
+      mime: file.mime,
+      sensitive,
+      replaceExisting: !!duplicate && replaceMode === "replace",
+    });
     if (!r.ok) return void setError(r.error);
     toast.success(t("documents.added"));
     onOpenChange(false);
@@ -72,7 +99,7 @@ export function LibraryAddDialog({
       submitLabel={t("documents.add.submit")}
       cancelLabel={t("documents.add.cancel")}
       onSubmit={submit}
-      submitDisabled={!file || !!error}
+      submitDisabled={!file || !!error || (!!duplicate && replaceMode === "ask")}
     >
       {scoops.length > 1 && (
         <FormField label={t("documents.add.scoop")} required>
@@ -142,6 +169,7 @@ export function LibraryAddDialog({
                     return;
                   }
                   setError(undefined);
+                  setReplaceMode("ask");
                   setFile({ name: f.name, sizeKb, mime: f.type || "application/octet-stream" });
                 }}
               />
@@ -154,6 +182,29 @@ export function LibraryAddDialog({
           </div>
         )}
       </FormField>
+      {duplicate && (
+        <div className="space-y-2 rounded-md border border-warning/40 bg-warning-bg p-3 text-sm">
+          <p>{t("documents.add.duplicateWarn")}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={replaceMode === "replace" ? "default" : "outline"}
+              onClick={() => setReplaceMode("replace")}
+            >
+              {t("documents.add.replaceVersion")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={replaceMode === "keep" ? "default" : "outline"}
+              onClick={() => setReplaceMode("keep")}
+            >
+              {t("documents.add.newName")}
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <Checkbox

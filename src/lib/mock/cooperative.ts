@@ -80,6 +80,14 @@ export interface DocumentMeta {
   uploadedBy: string;
   uploadedAt: string;
   sensitive: boolean;
+  /** Numéro de version (1 = première). */
+  version?: number;
+  /** Date d'effet ISO ; défaut = uploadedAt. */
+  effectiveAt?: string;
+  /** Document remplacé par une version plus récente. */
+  replacedById?: string | null;
+  /** Statut d'usage pour la bibliothèque. */
+  lifecycle?: "en vigueur" | "remplacé";
 }
 
 // ============ Dossiers producteurs ============

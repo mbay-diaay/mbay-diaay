@@ -213,8 +213,8 @@ const CORR_MOTIFS = [
   "Le producteur a corrigé son numéro au cours de l'entretien.",
   "Âge confirmé sur la carte d'identité.",
   "Demande d'adhésion validée par le bureau du GIE.",
+  "Téléphone et âge à corriger après contrôle du superviseur.",
   "Le nom patronymique était mal orthographié lors du recensement.",
-  "Deux champs relevés en erreur par le superviseur.",
 ];
 for (let i = 0; i < 14; i++) {
   const p = PRODUCERS[i * 61]!;

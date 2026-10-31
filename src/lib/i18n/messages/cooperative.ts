@@ -286,6 +286,12 @@ export const cooperative = {
   "dossiers.col.scoop": "SCOOP",
   "dossiers.col.tech": "Technicien",
   "dossiers.col.updated": "Mis à jour",
+  "dossiers.col.age": "Ancienneté",
+  "dossiers.age.days.un": "{count} jour",
+  "dossiers.age.days.autre": "{count} jours",
+  "dossiers.remind": "Relancer",
+  "dossiers.reminded": "Rappel enregistré",
+  "dossiers.sort.oldest": "Plus anciens d'abord",
   "dossiers.empty.title": "Aucun dossier",
   "dossiers.empty.filtered":
     "Aucun dossier ne correspond à ces critères. Essayez de retirer un filtre.",

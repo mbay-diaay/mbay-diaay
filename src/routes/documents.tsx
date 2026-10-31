@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Download, ExternalLink, FileText, Lock, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Download,
+  ExternalLink,
+  FileText,
+  Lock,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, PageHeader, Pill } from "@/components/app/ui-bits";
@@ -11,6 +20,7 @@ import { LibraryAddDialog } from "@/components/app/LibraryAddDialog";
 import { useFileSize } from "@/components/app/LibraryFile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { actions, useCan, useStore, useScoops } from "@/lib/store";
 import { inScope, scopedLibrary } from "@/lib/scope";
 import { LIBRARY_KINDS, type DocumentMeta, type LibraryDocumentKind } from "@/lib/mock/cooperative";
@@ -67,6 +77,7 @@ function Library() {
   const canDownload = useCan("document.download");
   const [kind, setKind] = useState<LibraryDocumentKind | "all">("all");
   const [q, setQ] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [removing, setRemoving] = useState<DocumentMeta | null>(null);
 
@@ -128,8 +139,38 @@ function Library() {
       />
 
       {mine.length > 0 && (
-        <div className="surface mb-4 p-3">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="surface mb-4 flex flex-wrap items-center gap-2 p-3">
+          <div className="relative min-w-0 flex-1 basis-48">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label={t("documents.search.aria")}
+              placeholder={t("documents.search.placeholder")}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setFiltersOpen(true)}
+            aria-expanded={filtersOpen}
+          >
+            <SlidersHorizontal className="size-4" />
+            {t("documents.filters")}
+            {kind !== "all" && (
+              <span className="rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground tabular">
+                1
+              </span>
+            )}
+          </Button>
+        </div>
+      )}
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{t("documents.filters")}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 flex flex-wrap gap-2">
             <FilterPill
               active={kind === "all"}
               onClick={() => setKind("all")}
@@ -147,19 +188,19 @@ function Library() {
                 {t(GROUP_KEY[k])}
               </FilterPill>
             ))}
-            <div className="relative w-full sm:ml-auto sm:w-64">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                aria-label={t("documents.search.aria")}
-                placeholder={t("documents.search.placeholder")}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="pl-8"
-              />
-            </div>
           </div>
-        </div>
-      )}
+          <div className="mt-6 flex gap-2">
+            {kind !== "all" && (
+              <Button variant="outline" onClick={() => setKind("all")}>
+                {t("documents.filters.reset")}
+              </Button>
+            )}
+            <Button className="flex-1" onClick={() => setFiltersOpen(false)}>
+              {t("documents.filters.apply")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {shown.length === 0 ? (
         <div className="surface">
@@ -230,10 +271,21 @@ function Library() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span className="break-all font-medium">{d.name}</span>
+                            <Pill
+                              tone={
+                                (d.lifecycle ?? "en vigueur") === "remplacé" ? "neutral" : "success"
+                              }
+                            >
+                              {(d.lifecycle ?? "en vigueur") === "remplacé"
+                                ? t("documents.version.replaced")
+                                : t("documents.version.current")}
+                            </Pill>
+                            <span className="text-xs text-muted-foreground">
+                              {t("documents.version.label", { n: d.version ?? 1 })}
+                            </span>
                             {d.sensitive && (
                               <span title={t("documents.sensitive.title")}>
-                                <Pill tone="warning">
-                                  <Lock className="size-3" aria-hidden />
+                                <Pill tone="warning" icon={Lock}>
                                   {t("documents.sensitive.pill")}
                                 </Pill>
                               </span>
@@ -241,6 +293,10 @@ function Library() {
                           </div>
                           <div className="mt-0.5 text-xs text-muted-foreground">
                             {size(d.sizeKb)} ·{" "}
+                            {t("documents.version.effect", {
+                              date: fmtDate(d.effectiveAt ?? d.uploadedAt),
+                            })}{" "}
+                            ·{" "}
                             {t("documents.addedBy", {
                               name: d.uploadedBy,
                               date: fmtDate(d.uploadedAt),
