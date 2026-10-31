@@ -429,7 +429,17 @@ Sens des dépendances : `routes` → `components/app` et `components/auth` → `
 
 # C. Backend
 
-*À rédiger au démarrage du backend.* Reprendre ici : choix de la pile, structure du code, contrat d'API (voir `docs/prd/PRD_Backend_API_Mbay_Diaay_v0.1.md`), migrations de base de données, contrôle rôle / action / périmètre à chaque requête, limitation de débit, journal d'audit, envoi d'e-mails. Les chapitres 2 à 5 s'appliquent tels quels.
+Le backend vit dans le dépôt dédié **[mbay-diaay/mbay-diaay-api](https://github.com/mbay-diaay/mbay-diaay-api)** (VPS, `api.mbaydiaay.com`). Le front Module 1 reste sur Vercel.
+
+| | |
+|---|---|
+| Pile | NestJS monolithe modulaire, TypeORM, PostgreSQL 16 + PostGIS, Redis + BullMQ, MinIO, Traefik v3 |
+| Contrat | Préfixe `/v1`, OpenAPI `/v1/docs`, erreurs `{code,message,details}` — voir PRD Backend et `docs/API_ROUTES_M1.md` du repo API |
+| Droits | Contrôle rôle / action / périmètre **sur chaque requête** (`AccessModule`) — les chapitres 2–5 de ce guide s’appliquent |
+| Déploiement | Docker Compose + `infra/scripts/deploy.sh` (smoke + rollback tag) ; backups chiffrés 30 j (`backup.sh`) |
+| Audit infra | `docs/AUDIT_INFRA_VPS.md` dans le repo API |
+
+Lot 1 : health, auth OTP stub, routes Administratif stub, squelettes M2–M5. Persistence complète et SMS prod = lots suivants.
 
 # D. Mobile
 

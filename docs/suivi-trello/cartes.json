@@ -1,6 +1,6 @@
 {
   "board": "Mbay Diaay — Suivi",
-  "note": "Pack mis à jour 2026-10-31. Import manuel via BOARD.md + cartes.csv. Aucun jeton Trello en local.",
+  "note": "Pack 2026-10-31 + API NestJS en cours",
   "colonnes": [
     "Backlog",
     "En cours",
@@ -338,17 +338,17 @@
     },
     {
       "titre": "Backend NestJS + Docker sur VPS",
-      "description": "Remplacer mock ; NestJS monolithe modulaire derrière api.mbaydiaay.com (cadrage §7).",
-      "colonne": "Backlog",
+      "description": "Repo mbay-diaay-api créé : Traefik, Compose, Nest lot 1, deploy/rollback/backup. Reste : bootstrap VPS + secrets + première image GHCR.",
+      "colonne": "En cours",
       "module": "Transversal",
       "responsable": "R-Dev-B",
       "priorite": "P0-Critique",
       "deadline": null,
       "liens": [
-        "docs/prd/PRD_Backend_API_Mbay_Diaay_v0.1.md",
-        "docs/HEBERGEMENT_VERCEL_ORG.md §8"
+        "https://github.com/mbay-diaay/mbay-diaay-api",
+        "docs/DEPLOY.md"
       ],
-      "criteres_done": "Auth serveur ; Postgres/PostGIS ; Docker ; TLS ; CORS front"
+      "criteres_done": "TLS api. ; /v1/ready vert ; deploy.sh rollback testé ; backup quotidien"
     },
     {
       "titre": "Réintégrer M2 Commercial",

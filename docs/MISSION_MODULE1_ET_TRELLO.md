@@ -42,7 +42,7 @@ Sur la page d’accueil des modules, M2–M5 apparaissent comme **« à venir »
 | **Branche** | `main` |
 | **Origine** | Proto local `/Users/moha/Dev/Mbay Diaay` (souvent nommé mbaydiaay-proto), borné au M1 |
 | **Front** | Vercel (Nitro `preset: "vercel"`, Node 22.x) |
-| **API (DNS)** | `api.mbaydiaay.com` → VPS (NestJS + Docker : **prochain plan**) |
+| **API** | Repo [`mbay-diaay/mbay-diaay-api`](https://github.com/mbay-diaay/mbay-diaay-api) · DNS `api.mbaydiaay.com` → VPS (Traefik + NestJS) |
 
 Travail effectué :
 
@@ -83,7 +83,7 @@ Fichiers (pack **mis à jour le 31/10/2026** — à renvoyer au secrétaire) :
 | **Fait (hébergement)** | Front Vercel branché sur l’org ; DNS **`api.mbaydiaay.com` → serveur** (API future) |
 | **En cours / à valider** | Décisions client (cotisations INF 30, rôles Scopla D4–D17), charte graphique, Toolbar Feedback OFF, recette gestionnaire SCOOP, board Trello saisi par le secrétaire |
 | **Reste M1** | Création producteur directe, filtre org annuaire, PDF exports, bilingue wolof relu |
-| **Prochain lot (hors code web)** | Dockerisation VPS + NestJS + PostgreSQL/PostGIS derrière `api.mbaydiaay.com` (cadrage §7 / PRD Backend) |
+| **API (en cours)** | Socle `mbay-diaay-api` : Traefik, Compose, Nest lot 1, deploy/rollback/backup — bootstrap VPS à exécuter |
 | **Hors M1** | M2–M5 (dans le proto), SMS, Kobo photos, paiements mobiles |
 
 ---
@@ -93,7 +93,7 @@ Fichiers (pack **mis à jour le 31/10/2026** — à renvoyer au secrétaire) :
 1. Secrétaire : mettre à jour le board Trello (nouvelles cartes seulement — message §3).
 2. Recette Module 1 avec un gestionnaire SCOOP (parcours Personnes + Vie coopérative + bandeau À traiter).
 3. Optionnel : brancher `app.` / apex sur Vercel Domains (front) — **pas** `api.`.
-4. **Ensuite** : plan Docker + NestJS + doc chapitre C Backend ([`DEVELOPPEMENT.md`](DEVELOPPEMENT.md)) — pas démarré dans ce tour.
+4. API : suivre [`mbay-diaay-api` DEPLOY.md](https://github.com/mbay-diaay/mbay-diaay-api/blob/main/docs/DEPLOY.md) (bootstrap VPS, premier TLS, secrets).
 5. Quand M2 sera décidé : réintégrer depuis le proto **par lot**, jamais en dump massif.
 
 ---
