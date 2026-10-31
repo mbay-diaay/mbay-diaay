@@ -13,7 +13,6 @@ import {
 } from "recharts";
 import { AppShell } from "@/components/app/AppShell";
 import { PageHeader } from "@/components/app/ui-bits";
-import { ModuleCards } from "@/components/app/ModuleCards";
 import { inScope, useStore, useScoops } from "@/lib/store";
 import { AGE_BANDS, AGE_UNKNOWN, ageAtMost, ageBand, fmtDateTime, nf, nf1 } from "@/lib/format";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -136,7 +135,7 @@ function Dashboard() {
         title={t("dashboard.title")}
         description={t("dashboard.description")}
       />
-      <ModuleCards />
+      {/* Dépôt M1 : pas de vitrine « cinq modules » (M2–M5 hors périmètre). */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {kpis.map((k) => (
           <div key={k.label} className="surface p-4">
