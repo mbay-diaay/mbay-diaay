@@ -133,7 +133,7 @@ Deux rôles distincts — **ne pas** brancher le même enregistrement DNS sur Ve
 1. Le front démo / M1 continue de se déployer via push `main` → Vercel.  
 2. `api.mbaydiaay.com` est **réservé à l’API** : pas d’hébergement du front M1 sur ce sous-domaine.  
 3. Tant que NestJS n’est pas déployé, le sous-domaine peut résoudre vers le serveur sans service HTTP métier — c’est attendu.  
-4. Quand l’API existera : TLS (Let’s Encrypt / reverse-proxy), CORS limité au front, secrets hors Git. Plan détaillé = tour suivant (Docker + NestJS).
+4. API : repo [`mbay-diaay/mbay-diaay-api`](https://github.com/mbay-diaay/mbay-diaay-api) — Traefik + NestJS, runbook [`DEPLOY.md`](https://github.com/mbay-diaay/mbay-diaay-api/blob/main/docs/DEPLOY.md).
 
 Voir aussi : [`docs/prd/PRD_Backend_API_Mbay_Diaay_v0.1.md`](prd/PRD_Backend_API_Mbay_Diaay_v0.1.md) · brief cadrage §7 (NestJS / Docker / VPS).
 

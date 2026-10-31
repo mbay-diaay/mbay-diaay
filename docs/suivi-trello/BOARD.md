@@ -1,6 +1,6 @@
 # Board Trello — Mbay Diaay (Module 1 + suivi)
 
-**Pack mis à jour le 31 octobre 2026** — renvoyer `cartes.csv` au secrétaire ; **ne pas** réimporter tout le board en double (ajouter seulement les nouvelles cartes Terminé / Backlog NestJS).
+**Pack mis à jour le 31 octobre 2026** (2e envoi : API NestJS **En cours** + lien repo) — renvoyer `cartes.csv` au secrétaire ; **ne pas** réimporter tout le board en double.
 
 ## Colonnes (à créer dans cet ordre)
 
