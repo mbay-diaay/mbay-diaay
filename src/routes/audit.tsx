@@ -145,7 +145,8 @@ function Audit() {
     const pCode = a.entity.match(/(PA-\d+)/)?.[1];
     if (pCode) {
       const pl = plots.find((x) => x.code === pCode);
-      if (pl) return { label: t("audit.target.plot", { code: pCode }), link: { to: "/producteurs" } };
+      if (pl)
+        return { label: t("audit.target.plot", { code: pCode }), link: { to: "/producteurs" } };
     }
     if (code) {
       const p = producers.find((x) => x.code === code);

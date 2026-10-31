@@ -82,7 +82,7 @@ Fichiers :
 1. Vérifier le dépôt GitHub (clone, `pnpm install`, `pnpm dev`, se connecter en démo).
 2. Créer le board Trello à partir de `docs/suivi-trello/` (10 min).
 3. Recette Module 1 avec un gestionnaire SCOOP (parcours Personnes + Vie coopérative).
-4. Brancher Vercel sur `mbay-diaay/mbay-diaay` (Node **22.x**, pas d’override Output `dist`).
+4. Brancher Vercel sur `mbay-diaay/mbay-diaay` — pas à pas : [`docs/HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md) (Node **22.x**, pas d’override Output `dist`).
 5. Quand M2 sera décidé : réintégrer depuis le proto **par lot**, jamais en dump massif.
 
 ---
@@ -93,6 +93,7 @@ Fichiers :
 |---|---|
 | Repo Module 1 | https://github.com/mbay-diaay/mbay-diaay |
 | Proto (réf.) | https://github.com/MohaPeth/mbaydiaay-proto |
+| Vercel ↔ org GitHub | [`docs/HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md) |
 | État projet | [`docs/ETAT_DU_PROJET.md`](ETAT_DU_PROJET.md) |
 | Valeur livrée | [`docs/VALEUR_LIVREE.md`](VALEUR_LIVREE.md) |
 | Guide dev | [`docs/DEVELOPPEMENT.md`](DEVELOPPEMENT.md) |
