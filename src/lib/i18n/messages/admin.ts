@@ -56,6 +56,9 @@ export const admin = {
   "comptes.title": "Comptes & liaisons",
   "comptes.description":
     "Aucune liaison automatique : chaque correspondance est proposée puis confirmée par un humain. La liaison est réciproque (compte ↔ fiche).",
+  "comptes.identity.title": "Identité du compte",
+  "comptes.identity.hint":
+    "Nom, rôle, e-mail, actif et périmètre — avant toute fiche producteur liée.",
   "comptes.unknown": "Non renseigné",
   "comptes.scopeAll": "Consolidé",
   "comptes.views": "Vues des liaisons",
@@ -204,6 +207,23 @@ export const admin = {
   "referentiels.title": "Référentiels",
   "referentiels.description":
     "Les listes et règles communes à toute l'application. Une modification s'applique tout de suite partout et reste inscrite au journal.",
+  "referentiels.purpose":
+    "Ces listes pilotent les filtres, la carte, les alertes et les rapports. Chaque section ci-dessous explique à quoi elle sert.",
+  "referentiels.purpose.title": "À quoi ça sert ?",
+  "referentiels.purpose.cultures":
+    "Les cultures et leurs familles colorent la carte et les filtres producteurs. Modifiez-les quand un nom de culture manque ou est mal classé.",
+  "referentiels.purpose.noms":
+    "Les noms non reconnus à l'import attendent d'être rattachés à une culture du référentiel.",
+  "referentiels.purpose.regles":
+    "Les seuils déclenchent les alertes qualité (précision GPS, superficies…). Ajustez-les avec le métier, pas à la légère.",
+  "referentiels.purpose.jeune":
+    "L'âge maximum « jeune » alimente le tableau de bord et les rapports d'inclusion.",
+  "referentiels.purpose.localites":
+    "La liste des villages sert aux filtres et à la saisie. Ajoutez une localité seulement si elle existe réellement.",
+  "referentiels.purpose.campagnes":
+    "Les campagnes cadrent les cultures et les parcelles dans le temps (ex. hivernage 2026).",
+  "referentiels.purpose.types":
+    "Les types d'organisation (GIE, section…) qualifient les structures de base rattachées aux SCOOP.",
   "referentiels.view.cultures": "Cultures",
   "referentiels.view.regles": "Règles et listes",
   "referentiels.save": "Enregistrer",
@@ -224,7 +244,7 @@ export const admin = {
   "referentiels.regles.title": "Règles de contrôle",
   "referentiels.regles.summary": "4 seuils qui déclenchent un signalement",
   "referentiels.regles.intro":
-    "Chaque règle se lit comme une phrase. Modifiez la valeur : le nombre de parcelles concernées se met à jour avant même d'enregistrer.",
+    "À quoi ça sert : décider quand une parcelle déclenche une alerte. Chaque règle se lit comme une phrase ; le nombre de parcelles concernées se met à jour avant même d'enregistrer.",
   "referentiels.jeune.title": "Définition « jeune »",
   "referentiels.jeune.summary": "{n} ans ou moins",
   "referentiels.types.title": "Types d'organisation",
@@ -235,7 +255,7 @@ export const admin = {
   "referentiels.localites.title": "Localités",
   "referentiels.localites.summary": "{n} villages",
   "referentiels.cultures.intro":
-    "Chaque culture appartient à une famille. Changer la famille d'une culture change immédiatement la couleur de ses parcelles sur la carte (mode « Couleur : famille »).",
+    "À quoi ça sert : classer chaque culture dans une famille. Changer la famille change immédiatement la couleur des parcelles sur la carte (mode « Couleur : famille »).",
   "referentiels.cultures.col.crop": "Culture",
   "referentiels.cultures.col.family": "Famille",
   "referentiels.cultures.col.producers": "Producteurs",

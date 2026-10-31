@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, PageHeader, Pill } from "@/components/app/ui-bits";
+import { FormDialog } from "@/components/app/FormDialog";
 import { RowActions } from "@/components/app/RowActions";
 import { StatToggle } from "@/components/app/StatToggle";
 import { Button } from "@/components/ui/button";
@@ -190,6 +191,10 @@ function ComptesPage() {
 
       {vue === "a-rapprocher" && (
         <div className="surface overflow-x-auto">
+          <div className="border-b bg-muted/40 px-4 py-3">
+            <h2 className="text-sm font-semibold">{t("comptes.identity.title")}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t("comptes.identity.hint")}</p>
+          </div>
           {toMatch.length ? (
             <table className="w-full text-sm">
               <thead className="border-b bg-muted text-left text-xs text-muted-foreground">
@@ -206,6 +211,7 @@ function ComptesPage() {
                   <tr key={u.id} className="hover:bg-muted/40">
                     <td className="py-3 pl-4">
                       <div className="font-medium">{u.name}</div>
+                      <div className="text-xs text-muted-foreground">{u.email}</div>
                       <div className="text-xs text-muted-foreground tabular">
                         {maskPhone(u.phone)}
                       </div>
@@ -295,7 +301,7 @@ function ComptesPage() {
                           <Button
                             size="sm"
                             className="h-8"
-                            onClick={() => confirm(c.userId, c.producerId)}
+                            onClick={() => u && p && setPending({ user: u, producer: p })}
                           >
                             <Check className="size-4" /> {t("comptes.confirm")}
                           </Button>
@@ -461,45 +467,46 @@ function ComptesPage() {
         </div>
       )}
 
-      <AlertDialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("comptes.dlg.link.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pending && (
-                <>
-                  {t("comptes.dlg.link.account")} <strong>{pending.user.name}</strong> ↔{" "}
-                  {t("comptes.dlg.link.sheet")}{" "}
-                  <strong>
-                    {pending.producer.code} · {pending.producer.firstName}{" "}
-                    {pending.producer.lastName}
-                  </strong>{" "}
-                  ({pending.producer.village}). {t("comptes.dlg.link.tail")}
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("comptes.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (!pending) return;
-                if (actions.linkManually(pending.user.id, pending.producer.id))
-                  toast.success(t("comptes.toast.created"), {
-                    description: `${pending.user.name} ↔ ${pending.producer.code}`,
-                  });
-                else
-                  toast.error(t("comptes.toast.impossible"), {
-                    description: t("comptes.toast.impossibleDesc"),
-                  });
-                setPending(null);
-              }}
-            >
-              {t("comptes.dlg.link.action")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <FormDialog
+        open={!!pending}
+        onOpenChange={(o) => !o && setPending(null)}
+        title={t("comptes.dlg.link.title")}
+        description={t("comptes.dlg.link.tail")}
+        submitLabel={t("comptes.dlg.link.action")}
+        onSubmit={() => {
+          if (!pending) return;
+          if (actions.linkManually(pending.user.id, pending.producer.id))
+            toast.success(t("comptes.toast.created"), {
+              description: `${pending.user.name} ↔ ${pending.producer.code}`,
+            });
+          else
+            toast.error(t("comptes.toast.impossible"), {
+              description: t("comptes.toast.impossibleDesc"),
+            });
+          setPending(null);
+        }}
+      >
+        {pending && (
+          <div className="space-y-3 rounded-md border p-4 text-sm">
+            <div>
+              <div className="text-xs text-muted-foreground">{t("comptes.dlg.link.account")}</div>
+              <div className="font-semibold">{pending.user.name}</div>
+              <div className="text-muted-foreground">
+                {tEnum("role", pending.user.role)} ·{" "}
+                {pending.user.scoopId ? SCOOP_NAME(pending.user.scoopId) : t("comptes.scopeAll")} ·{" "}
+                {pending.user.active ? t("comptes.state.active") : t("comptes.state.inactive")}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">{t("comptes.dlg.link.sheet")}</div>
+              <div className="font-semibold">
+                {pending.producer.code} · {pending.producer.firstName} {pending.producer.lastName}
+              </div>
+              <div className="text-muted-foreground">{pending.producer.village}</div>
+            </div>
+          </div>
+        )}
+      </FormDialog>
 
       <AlertDialog open={!!unlinkTarget} onOpenChange={(o) => !o && setUnlinkId(null)}>
         <AlertDialogContent>

@@ -142,6 +142,10 @@ function ReferentielsPage() {
         title={t("referentiels.title")}
         description={t("referentiels.description")}
       />
+      <p className="mb-4 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+        <span className="font-semibold text-foreground">{t("referentiels.purpose.title")} </span>
+        {t("referentiels.purpose.cultures")}
+      </p>
       <SectionNav
         active={view}
         onSelect={go}
@@ -182,6 +186,7 @@ function ReglesView({ open }: { open: Section | undefined }) {
     title: string;
     icon: typeof Gauge;
     summary: string;
+    purpose: MessageKey;
     node: ReactNode;
   }[] = [
     {
@@ -189,6 +194,7 @@ function ReglesView({ open }: { open: Section | undefined }) {
       title: t("referentiels.regles.title"),
       icon: Gauge,
       summary: t("referentiels.regles.summary"),
+      purpose: "referentiels.purpose.regles",
       node: <ReglesSection />,
     },
     {
@@ -196,6 +202,7 @@ function ReglesView({ open }: { open: Section | undefined }) {
       title: t("referentiels.jeune.title"),
       icon: UserRound,
       summary: t("referentiels.jeune.summary", { n: youth }),
+      purpose: "referentiels.purpose.jeune",
       node: <JeuneSection />,
     },
     {
@@ -208,6 +215,7 @@ function ReglesView({ open }: { open: Section | undefined }) {
             m: orgs.filter((o) => !o.type).length,
           })
         : t("referentiels.types.summary", { n: ORG_TYPES.length }),
+      purpose: "referentiels.purpose.types",
       node: <TypesSection />,
     },
     {
@@ -215,6 +223,7 @@ function ReglesView({ open }: { open: Section | undefined }) {
       title: t("referentiels.campagnes.title"),
       icon: CalendarRange,
       summary: t("referentiels.campagnes.summary", { n: campaigns.length }),
+      purpose: "referentiels.purpose.campagnes",
       node: <CampagnesSection />,
     },
     {
@@ -222,6 +231,7 @@ function ReglesView({ open }: { open: Section | undefined }) {
       title: t("referentiels.localites.title"),
       icon: MapPin,
       summary: t("referentiels.localites.summary", { n: VILLAGES.length }),
+      purpose: "referentiels.purpose.localites",
       node: <LocalitesSection />,
     },
   ];
@@ -244,7 +254,15 @@ function ReglesView({ open }: { open: Section | undefined }) {
               </span>
             </span>
           </AccordionTrigger>
-          <AccordionContent className="px-3">{i.node}</AccordionContent>
+          <AccordionContent className="px-3">
+            <p className="mb-3 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {t("referentiels.purpose.title")}{" "}
+              </span>
+              {t(i.purpose)}
+            </p>
+            {i.node}
+          </AccordionContent>
         </AccordionItem>
       ))}
     </Accordion>
