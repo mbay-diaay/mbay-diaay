@@ -1,6 +1,7 @@
 # Audit UX — Module 1 (`mbay-diaay`)
 
-Date : 31 octobre 2026 · Mode : **Operate** (outil de travail, pas marketing).
+Date : 31 octobre 2026 · Mode : **Operate** (outil de travail, pas marketing).  
+Livré sur `main` : `866b723` … `a158994`.
 
 ## Synthèse (1 minute)
 
@@ -8,15 +9,15 @@ Le vocabulaire métier (SCOOP, cotisations, recensé…) est bon. La **compositi
 
 ## Déjà livré (fiabilité + UX M1)
 
-### Vague 0 — Confiance (A-01…A-03) — *sur `main` (`866b723`)*
+### Vague 0 — Confiance (A-01…A-03) — `866b723`
 
 | ID | Fait |
 |----|------|
 | **A-01** | `src/lib/membership.ts` : `activeMembers` / `membershipCounts` / `producerStatusCounts` + tests. Libellés **Adhérents actifs** vs **Fiches recensées** (dashboard, coop, équipe, cotisations, rapports). |
-| **A-02** | `cni.read` retiré du **représentant** (admin + gestionnaire). `revealCni(p, motif)` obligatoire + FormDialog fiche producteur. Note `docs/CNI_LECTURE.md` + matrice ACTEURS. |
+| **A-02** | `cni.read` retiré du **représentant** (admin + gestionnaire). `revealCni(p, motif)` obligatoire + FormDialog fiche producteur. Note `docs/CNI_LECTURE.md`. |
 | **A-03** | File alertes : total = filtré ; recherche ; tri urgence/ancienneté ; pagination 500 + « Charger la suite ». |
 
-### Vague 1 — Operate (non commitée — à vérifier)
+### Vague 1 — Operate — `fdc83fb`
 
 | Sujet | Fait |
 |-------|------|
@@ -25,22 +26,25 @@ Le vocabulaire métier (SCOOP, cotisations, recensé…) est bon. La **compositi
 | Dashboard | Bandeau **À traiter** ≤ 3 cartes (dossiers, alertes, cotisations à relancer) ; KPI secondaires sans warning si 0. |
 | Cotisations | Liste / encaissement d’abord ; guide + **Règles** en Sheet ; 2 KPI ; retard / jamais payé en tête. |
 
-### Vague 2 — Parcours (non commitée — à vérifier)
+### Vague 2 — Parcours — `0bbff22`
 
 | Sujet | Fait |
 |-------|------|
-| Réunions + PV | Checklist Préparer → Présences → PV brouillon → Validé → signé ; défauts « À venir » / Sheet filtres. |
+| Réunions + PV | Checklist Préparer → Présences → PV brouillon → Validé → signé ; filtres Sheet. |
 | Documents | Versions (en vigueur / remplacé) + alerte nom déjà utilisé à l’ajout. |
 | Audit | Tri date décroissante par défaut + bouton d’inversion. |
 | Corrections | Warning si motif ≠ champs ; fixtures motifs cohérents. |
 | Dossiers | Plus anciens d’abord ; colonne ancienneté ; action Relancer (mock). |
 
-### Vague 3 — Polish (non commitée — à vérifier)
+### Vague 3 — Polish — `6017bb4` + `a158994`
 
 | Sujet | Fait |
 |-------|------|
 | Comptes | Bloc **identité compte** dominant ; confirmation liaison en **FormDialog**. |
-| Référentiels | Phrase « à quoi ça sert » (globale + par section). |
+| Référentiels | Textes courts « à quoi ça sert » ; accordéon une section à la fois. |
+| Réunions | Filtre liste par défaut **toutes** ; checklist fiche en étapes. |
+| Matrice rôles | Cases Oui/Non contrastées ; placeholders formulaires plus lisibles. |
+| FilterPill | Alignement icône / libellé / compteur. |
 
 ## Forces
 
@@ -50,10 +54,9 @@ Le vocabulaire métier (SCOOP, cotisations, recensé…) est bon. La **compositi
 
 ## Reste / hors scope M1
 
-- Backend réel, SMS, Wave.
-- Refonte charte complète.
-- Mesure utilisateur formelle.
-- Items secondaires smoke (troncature header, double GlobalFilters, contraste login) : polish léger si encore visibles.
+- Backend NestJS + Docker sur VPS (`api.mbaydiaay.com`) — **prochain plan**.
+- SMS, Wave, refonte charte complète, mesure utilisateur formelle.
+- Items secondaires smoke (troncature header, double GlobalFilters, contraste login) si encore visibles.
 
 ## Critères de succès UX
 
@@ -62,5 +65,5 @@ Un gestionnaire SCOOP, le matin, doit répondre en **moins de 2 clics** à : « 
 ## Liens
 
 - [`CNI_LECTURE.md`](CNI_LECTURE.md)
-- [`HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md)
+- [`HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md) (dont §8 Domaines / `api.mbaydiaay.com`)
 - [`MISSION_MODULE1_ET_TRELLO.md`](MISSION_MODULE1_ET_TRELLO.md)

@@ -1,7 +1,13 @@
 {
   "board": "Mbay Diaay — Suivi",
-  "note": "Aucun jeton Trello en local : import manuel via BOARD.md + cartes.csv. Généré le 2026-10-31.",
-  "colonnes": ["Backlog", "En cours", "À vérifier / Recette", "Terminé", "Bloqué"],
+  "note": "Pack mis à jour 2026-10-31. Import manuel via BOARD.md + cartes.csv. Aucun jeton Trello en local.",
+  "colonnes": [
+    "Backlog",
+    "En cours",
+    "À vérifier / Recette",
+    "Terminé",
+    "Bloqué"
+  ],
   "cartes": [
     {
       "titre": "Dépôt GitHub M1 ouvert",
@@ -11,7 +17,9 @@
       "responsable": "R-Dev-A",
       "priorite": "P0-Critique",
       "deadline": null,
-      "liens": ["https://github.com/mbay-diaay/mbay-diaay"],
+      "liens": [
+        "https://github.com/mbay-diaay/mbay-diaay"
+      ],
       "criteres_done": "Repo clonable ; pnpm install ; pnpm typecheck et pnpm test verts"
     },
     {
@@ -22,7 +30,9 @@
       "responsable": "R-Dev-A",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["docs/ETAT_DU_PROJET.md"],
+      "liens": [
+        "docs/ETAT_DU_PROJET.md §4.7"
+      ],
       "criteres_done": "Parcours e2e equipe + droits par rôle verts"
     },
     {
@@ -33,7 +43,9 @@
       "responsable": "R-Dev-A",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["src/routes/producteurs.index.tsx", "src/routes/dossiers.index.tsx"],
+      "liens": [
+        "src/routes/producteurs.index.tsx"
+      ],
       "criteres_done": "Liste + fiche + dossier en démo ; périmètre SCOOP respecté"
     },
     {
@@ -44,51 +56,61 @@
       "responsable": "R-Dev-A",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["src/routes/organisations.index.tsx"],
+      "liens": [
+        "src/routes/organisations.index.tsx"
+      ],
       "criteres_done": "Faîtière en lecture seule ; gestionnaire dans son périmètre"
     },
     {
       "titre": "Cotisations",
-      "description": "Règle par coopérative, retards, paiements annulés sans effacement, reçus.",
+      "description": "Règle par coopérative, retards, paiements annulés sans effacement, reçus. UX : liste d'abord, Sheet Règles.",
       "colonne": "Terminé",
       "module": "M1-Administratif",
       "responsable": "R-Dev-A",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["src/routes/cotisations.tsx"],
+      "liens": [
+        "src/routes/cotisations.tsx"
+      ],
       "criteres_done": "États à jour / en retard / jamais payé visibles"
     },
     {
       "titre": "Réunions et PV",
-      "description": "Réunions, pointage, procès-verbal figé.",
+      "description": "Réunions, pointage, procès-verbal figé. Checklist + filtre défaut toutes.",
       "colonne": "Terminé",
       "module": "M1-Administratif",
       "responsable": "R-Dev-A",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["src/routes/reunions.index.tsx"],
+      "liens": [
+        "src/routes/reunions.index.tsx"
+      ],
       "criteres_done": "Création + PV figé + e2e reunions"
     },
     {
       "titre": "Bibliothèque documents",
-      "description": "Dépôt, téléchargement tracé, pièces sensibles.",
+      "description": "Dépôt, téléchargement tracé, pièces sensibles, versions en vigueur/remplacé.",
       "colonne": "Terminé",
       "module": "M1-Administratif",
       "responsable": "R-Dev-A",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["src/routes/documents.tsx"],
+      "liens": [
+        "src/routes/documents.tsx"
+      ],
       "criteres_done": "Secrétaire sans pièce sensible ; journal tracé"
     },
     {
       "titre": "Qualité des données",
-      "description": "Doublons (fusion réversible), alertes, corrections.",
+      "description": "Doublons (fusion réversible), alertes (pagination), corrections.",
       "colonne": "Terminé",
       "module": "Transversal",
       "responsable": "R-Dev-B",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["src/routes/qualite.index.tsx"],
+      "liens": [
+        "src/routes/qualite.index.tsx"
+      ],
       "criteres_done": "6 statuts doublons ; undo fusion testé"
     },
     {
@@ -99,19 +121,50 @@
       "responsable": "R-Dev-B",
       "priorite": "P0-Critique",
       "deadline": null,
-      "liens": ["docs/DEVELOPPEMENT.md"],
-      "criteres_done": "Tests auth verts ; bandeau mode démo"
+      "liens": [
+        "docs/DEVELOPPEMENT.md ch.5"
+      ],
+      "criteres_done": "17+ tests auth ; bandeau mode démo"
     },
     {
-      "titre": "Hébergement Vercel + Nitro + CSP",
-      "description": "preset vercel, Node 22.x, VITE_DEMO_MODE, CSP Report-Only Esri, pas vercel.live.",
+      "titre": "Hébergement Vercel + Nitro",
+      "description": "preset vercel, Node 22.x, VITE_DEMO_MODE dans .env.production.",
       "colonne": "Terminé",
       "module": "Transversal",
       "responsable": "R-Dev-B",
       "priorite": "P0-Critique",
       "deadline": null,
-      "liens": ["AGENTS.md", "vercel.json"],
-      "criteres_done": "pnpm check:host vert ; Toolbar Feedback désactivable au Dashboard"
+      "liens": [
+        "AGENTS.md",
+        "vercel.json"
+      ],
+      "criteres_done": "pnpm check:host vert ; pas d override dist"
+    },
+    {
+      "titre": "CSP Report-Only + tuiles Esri",
+      "description": "CSP non bloquante ; server.arcgisonline.com ; pas vercel.live.",
+      "colonne": "Terminé",
+      "module": "Transversal",
+      "responsable": "R-Dev-B",
+      "priorite": "P1-Haute",
+      "deadline": null,
+      "liens": [
+        "vercel.json"
+      ],
+      "criteres_done": "Console propre si Toolbar Feedback désactivée au Dashboard"
+    },
+    {
+      "titre": "Bascule carte Esri (proto)",
+      "description": "Basemap plan via Esri World Street Map (politique OSM).",
+      "colonne": "Terminé",
+      "module": "M5-SIG",
+      "responsable": "R-Dev-A",
+      "priorite": "P2-Normale",
+      "deadline": null,
+      "liens": [
+        "proto mbaydiaay-proto"
+      ],
+      "criteres_done": "Hors menu M1 ; conservé dans le proto"
     },
     {
       "titre": "Menu borné Module 1",
@@ -121,30 +174,115 @@
       "responsable": "R-Dev-A",
       "priorite": "P0-Critique",
       "deadline": null,
-      "liens": ["src/lib/nav.ts"],
-      "criteres_done": "M2–M5 = à venir sur page modules uniquement"
+      "liens": [
+        "src/lib/nav.ts"
+      ],
+      "criteres_done": "M2-M5 = à venir sur page modules uniquement"
+    },
+    {
+      "titre": "Brancher Vercel sur mbay-diaay",
+      "description": "Projet relié à l'org GitHub ; Node 22.x ; overrides OFF ; push main → deploy.",
+      "colonne": "Terminé",
+      "module": "Transversal",
+      "responsable": "R-Moha",
+      "priorite": "P1-Haute",
+      "deadline": null,
+      "liens": [
+        "docs/HEBERGEMENT_VERCEL_ORG.md"
+      ],
+      "criteres_done": "Déploiement production vert ; VITE_DEMO_MODE=true"
+    },
+    {
+      "titre": "DNS api.mbaydiaay.com",
+      "description": "Sous-domaine API pointé vers le VPS/serveur (réservé NestJS).",
+      "colonne": "Terminé",
+      "module": "Transversal",
+      "responsable": "R-Moha",
+      "priorite": "P0-Critique",
+      "deadline": null,
+      "liens": [
+        "docs/HEBERGEMENT_VERCEL_ORG.md §8"
+      ],
+      "criteres_done": "Résolution DNS vers le serveur ; pas collé sur Vercel Domains"
+    },
+    {
+      "titre": "UX confiance A-01…A-03",
+      "description": "Compteurs adhérents unifiés ; CNI admin+gestionnaire + motif ; file alertes sync/pagination.",
+      "colonne": "Terminé",
+      "module": "M1-Administratif",
+      "responsable": "R-Dev-A",
+      "priorite": "P0-Critique",
+      "deadline": null,
+      "liens": [
+        "docs/AUDIT_UX_M1.md",
+        "docs/CNI_LECTURE.md"
+      ],
+      "criteres_done": "Tests membership + droits CNI ; compteur alertes = total filtré"
+    },
+    {
+      "titre": "UX operate dashboard cotisations",
+      "description": "Bandeau À traiter ≤3 ; cotisations list-first + Sheets ; filtres Sheet docs/réunions.",
+      "colonne": "Terminé",
+      "module": "M1-Administratif",
+      "responsable": "R-Dev-A",
+      "priorite": "P1-Haute",
+      "deadline": null,
+      "liens": [
+        "docs/AUDIT_UX_M1.md"
+      ],
+      "criteres_done": "Gestionnaire voit dossiers/alertes/cotisations en ≤2 clics"
+    },
+    {
+      "titre": "UX parcours PV docs audit dossiers",
+      "description": "Checklist réunions ; versions documents ; audit date desc ; dossiers vieillissants + relance.",
+      "colonne": "Terminé",
+      "module": "M1-Administratif",
+      "responsable": "R-Dev-A",
+      "priorite": "P1-Haute",
+      "deadline": null,
+      "liens": [
+        "docs/AUDIT_UX_M1.md"
+      ],
+      "criteres_done": "Parcours PV complet ; plus anciens d'abord"
+    },
+    {
+      "titre": "UX comptes référentiels polish",
+      "description": "Identité compte + FormDialog ; référentiels accordéon ; FilterPill alignés ; matrice rôles lisible.",
+      "colonne": "Terminé",
+      "module": "Transversal",
+      "responsable": "R-Dev-A",
+      "priorite": "P1-Haute",
+      "deadline": null,
+      "liens": [
+        "docs/AUDIT_UX_M1.md"
+      ],
+      "criteres_done": "Placeholders lisibles ; une section référentiel ouverte à la fois"
     },
     {
       "titre": "Créer board Trello manuel",
-      "description": "Importer cartes.csv ; colonnes + labels selon BOARD.md.",
+      "description": "Importer cartes.csv ; colonnes + labels selon BOARD.md. Pack mis à jour 31/10.",
       "colonne": "À vérifier / Recette",
       "module": "Transversal",
       "responsable": "R-Moha",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["docs/suivi-trello/BOARD.md"],
-      "criteres_done": "Board avec 5 colonnes et labels module/priorité/responsable"
+      "liens": [
+        "docs/suivi-trello/BOARD.md"
+      ],
+      "criteres_done": "Board avec 5 colonnes et labels ; nouvelles cartes UX/DNS ajoutées sans doublons"
     },
     {
       "titre": "Recette M1 gestionnaire SCOOP",
-      "description": "Parcourir Personnes + Vie coopérative sur téléphone 360px.",
+      "description": "Parcourir Personnes + Vie coopérative + bandeau À traiter sur téléphone 360px.",
       "colonne": "Backlog",
       "module": "M1-Administratif",
       "responsable": "R-Moha",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["docs/MISSION_MODULE1_ET_TRELLO.md"],
-      "criteres_done": "Checklist parcours sans lien mort M2–M5"
+      "liens": [
+        "docs/MISSION_MODULE1_ET_TRELLO.md"
+      ],
+      "criteres_done": "Checklist parcours sans lien mort M2-M5"
     },
     {
       "titre": "Décisions client cotisations (INF 30)",
@@ -154,19 +292,36 @@
       "responsable": "R-Client-CRADESC",
       "priorite": "P1-Haute",
       "deadline": null,
-      "liens": ["docs/ETAT_DU_PROJET.md"],
-      "criteres_done": "Réponse écrite INF 30"
+      "liens": [
+        "docs/ETAT_DU_PROJET.md §4.7"
+      ],
+      "criteres_done": "Réponse écrite INF 30 ; MAJ mock si besoin"
     },
     {
-      "titre": "Création producteur depuis l'UI",
-      "description": "WE-22 : création absente ; seulement demande de correction.",
+      "titre": "Création producteur depuis l UI",
+      "description": "WE-22 : création absente ; seulement correction.",
       "colonne": "Backlog",
       "module": "M1-Administratif",
       "responsable": "R-Dev-A",
       "priorite": "P2-Normale",
       "deadline": null,
-      "liens": ["docs/ETAT_DU_PROJET.md"],
+      "liens": [
+        "docs/ETAT_DU_PROJET.md WE-22"
+      ],
       "criteres_done": "Formulaire création + droits + tests"
+    },
+    {
+      "titre": "Filtre organisation annuaire",
+      "description": "WE-20 : manque filtre par organisation.",
+      "colonne": "Backlog",
+      "module": "M1-Administratif",
+      "responsable": "R-Dev-A",
+      "priorite": "P2-Normale",
+      "deadline": null,
+      "liens": [
+        "src/routes/producteurs.index.tsx"
+      ],
+      "criteres_done": "Filtre org + URL + pagination"
     },
     {
       "titre": "Wolof relu (pas auto-traduit)",
@@ -176,52 +331,102 @@
       "responsable": "R-Dev-B",
       "priorite": "P2-Normale",
       "deadline": null,
-      "liens": ["docs/DEVELOPPEMENT.md"],
-      "criteres_done": "Glossaire + relecture humaine"
+      "liens": [
+        "docs/DEVELOPPEMENT.md ch.6"
+      ],
+      "criteres_done": "Glossaire + relecture humaine ; zéro auto-traduction"
     },
     {
-      "titre": "Brancher Vercel sur mbay-diaay",
-      "description": "Project Settings Node 22.x ; overrides Build/Output OFF.",
-      "colonne": "Backlog",
-      "module": "Transversal",
-      "responsable": "R-Moha",
-      "priorite": "P1-Haute",
-      "deadline": null,
-      "liens": ["AGENTS.md"],
-      "criteres_done": "Déploiement preview vert ; VITE_DEMO_MODE=true"
-    },
-    {
-      "titre": "Backend API réel",
-      "description": "Remplacer mock store ; permissions serveur (W1).",
+      "titre": "Backend NestJS + Docker sur VPS",
+      "description": "Remplacer mock ; NestJS monolithe modulaire derrière api.mbaydiaay.com (cadrage §7).",
       "colonne": "Backlog",
       "module": "Transversal",
       "responsable": "R-Dev-B",
       "priorite": "P0-Critique",
       "deadline": null,
-      "liens": ["docs/prd/PRD_Backend_API_Mbay_Diaay_v0.1.md"],
-      "criteres_done": "Auth serveur ; plus de données seules en mémoire"
+      "liens": [
+        "docs/prd/PRD_Backend_API_Mbay_Diaay_v0.1.md",
+        "docs/HEBERGEMENT_VERCEL_ORG.md §8"
+      ],
+      "criteres_done": "Auth serveur ; Postgres/PostGIS ; Docker ; TLS ; CORS front"
     },
     {
-      "titre": "Réintégrer M2–M5 depuis le proto",
-      "description": "Lots séparés (commercial, exploitation, agronomique, SIG) — jamais un dump massif.",
+      "titre": "Réintégrer M2 Commercial",
+      "description": "Depuis le proto, lot stocks/ventes/crédits — pas de dump.",
       "colonne": "Backlog",
-      "module": "Transversal",
+      "module": "M2-Commercial",
       "responsable": "R-Dev-A",
       "priorite": "P3-Basse",
       "deadline": null,
-      "liens": ["docs/VALEUR_LIVREE.md", "https://github.com/MohaPeth/mbaydiaay-proto"],
-      "criteres_done": "Une PR par module ; e2e dédiés verts"
+      "liens": [
+        "docs/VALEUR_LIVREE.md"
+      ],
+      "criteres_done": "PR dédiée ; menu + routes + e2e m2"
+    },
+    {
+      "titre": "Réintégrer M3 Exploitation",
+      "description": "Charges et marges depuis le proto.",
+      "colonne": "Backlog",
+      "module": "M3-Exploitation",
+      "responsable": "R-Dev-A",
+      "priorite": "P3-Basse",
+      "deadline": null,
+      "liens": [
+        "docs/VALEUR_LIVREE.md"
+      ],
+      "criteres_done": "PR dédiée après M2 ou en parallèle validée"
+    },
+    {
+      "titre": "Réintégrer M4 Agronomique",
+      "description": "Plans, campagnes, calendriers, suivi.",
+      "colonne": "Backlog",
+      "module": "M4-Agronomique",
+      "responsable": "R-Dev-A",
+      "priorite": "P3-Basse",
+      "deadline": null,
+      "liens": [
+        "docs/VALEUR_LIVREE.md"
+      ],
+      "criteres_done": "PR dédiée ; pas de wolof auto"
+    },
+    {
+      "titre": "Réintégrer M5 SIG",
+      "description": "Carte Leaflet lazy + fiche parcelle.",
+      "colonne": "Backlog",
+      "module": "M5-SIG",
+      "responsable": "R-Dev-A",
+      "priorite": "P3-Basse",
+      "deadline": null,
+      "liens": [
+        "AGENTS.md Leaflet"
+      ],
+      "criteres_done": "CSP Esri OK ; React.lazy après mount"
     },
     {
       "titre": "Désactiver Vercel Toolbar Feedback",
-      "description": "Éviter bruit CSP, iframes, sons data:audio en démo.",
+      "description": "Éviter bruit CSP, iframes, sons data:audio.",
       "colonne": "Backlog",
       "module": "Transversal",
       "responsable": "R-Moha",
       "priorite": "P2-Normale",
       "deadline": null,
-      "liens": ["AGENTS.md"],
+      "liens": [
+        "Dashboard Vercel → Settings → Toolbar"
+      ],
       "criteres_done": "Console démo sans AbortError play/pause"
+    },
+    {
+      "titre": "PDF exports à la charte",
+      "description": "WE-23 / WE-90 : PDF côté serveur à produire.",
+      "colonne": "Backlog",
+      "module": "M1-Administratif",
+      "responsable": "R-Dev-B",
+      "priorite": "P3-Basse",
+      "deadline": null,
+      "liens": [
+        "docs/ETAT_DU_PROJET.md"
+      ],
+      "criteres_done": "PDF producteur + rapports charte"
     }
   ]
 }

@@ -118,7 +118,28 @@ La **connexion GitHub org** (étape 3) reste nécessaire même après transfert 
 
 ---
 
-## 8. Checklist « demain matin » (5 minutes)
+## 8. Domaines (front Vercel vs API VPS)
+
+Deux rôles distincts — **ne pas** brancher le même enregistrement DNS sur Vercel et sur le VPS sans reverse-proxy clair.
+
+| Hôte | Cible actuelle | Rôle |
+|---|---|---|
+| URL `*.vercel.app` du projet | **Vercel** | Front Module 1 (TanStack Start) |
+| `app.mbaydiaay.com` ou apex `mbaydiaay.com` (plus tard) | **Vercel** → Domains | Front prod (CNAME / A selon l’UI Vercel) |
+| **`api.mbaydiaay.com`** | **VPS / serveur** (DNS déjà pointé, 31 oct. 2026) | **API NestJS** future (cadrage : monolithe modulaire, Docker, PostgreSQL 16 + PostGIS) |
+
+**Règles :**
+
+1. Le front démo / M1 continue de se déployer via push `main` → Vercel.  
+2. `api.mbaydiaay.com` est **réservé à l’API** : pas d’hébergement du front M1 sur ce sous-domaine.  
+3. Tant que NestJS n’est pas déployé, le sous-domaine peut résoudre vers le serveur sans service HTTP métier — c’est attendu.  
+4. Quand l’API existera : TLS (Let’s Encrypt / reverse-proxy), CORS limité au front, secrets hors Git. Plan détaillé = tour suivant (Docker + NestJS).
+
+Voir aussi : [`docs/prd/PRD_Backend_API_Mbay_Diaay_v0.1.md`](prd/PRD_Backend_API_Mbay_Diaay_v0.1.md) · brief cadrage §7 (NestJS / Docker / VPS).
+
+---
+
+## 9. Checklist « demain matin » (5 minutes)
 
 1. GitHub : je vois https://github.com/mbay-diaay/mbay-diaay  
 2. Vercel : login **Continue with GitHub** (même compte)  
@@ -126,7 +147,8 @@ La **connexion GitHub org** (étape 3) reste nécessaire même après transfert 
 4. Vercel → bonne **team** → projet `mbay-diaay` importé (ou Transfer)  
 5. Project Settings : Node **22.x**, pas d’Output `dist`  
 6. Push test sur `main` → Deployments vert  
-7. Optionnel : Toolbar Feedback **OFF**
+7. Optionnel : Toolbar Feedback **OFF**  
+8. DNS : `api.mbaydiaay.com` résout vers le VPS (API) ; ne pas le coller sur Vercel Domains par erreur
 
 ---
 
@@ -137,6 +159,8 @@ La **connexion GitHub org** (étape 3) reste nécessaire même après transfert 
 | Org GitHub | https://github.com/mbay-diaay |
 | Repo Module 1 | https://github.com/mbay-diaay/mbay-diaay |
 | Vercel login | https://vercel.com/login |
+| API (DNS) | `api.mbaydiaay.com` → VPS |
 | Règles build / CSP | [`AGENTS.md`](../AGENTS.md) |
 | Guide dev | [`docs/DEVELOPPEMENT.md`](DEVELOPPEMENT.md) |
 | Mission M1 | [`docs/MISSION_MODULE1_ET_TRELLO.md`](MISSION_MODULE1_ET_TRELLO.md) |
+| PRD Backend | [`docs/prd/PRD_Backend_API_Mbay_Diaay_v0.1.md`](prd/PRD_Backend_API_Mbay_Diaay_v0.1.md) |

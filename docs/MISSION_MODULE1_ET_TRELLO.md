@@ -1,10 +1,10 @@
 # Module 1 et suivi Trello — guide pour Moha
 
-Document d’explication (31 octobre 2026). Pas besoin de jargon pour s’en servir.
+Document d’explication (mis à jour 31 octobre 2026). Pas besoin de jargon pour s’en servir.
 
 ## En une phrase
 
-On a ouvert le dépôt GitHub officiel **mbay-diaay** avec **uniquement le Module 1 (Administratif — action « Gérer »)**, et on a préparé un board Trello prêt à coller à la main.
+On a ouvert le dépôt GitHub officiel **mbay-diaay** avec **uniquement le Module 1 (Administratif — action « Gérer »)**, un board Trello prêt à coller, le front sur **Vercel**, et le DNS **`api.mbaydiaay.com`** pointé vers le **serveur** pour l’API NestJS (à venir).
 
 ---
 
@@ -41,7 +41,8 @@ Sur la page d’accueil des modules, M2–M5 apparaissent comme **« à venir »
 | **URL** | https://github.com/mbay-diaay/mbay-diaay |
 | **Branche** | `main` |
 | **Origine** | Proto local `/Users/moha/Dev/Mbay Diaay` (souvent nommé mbaydiaay-proto), borné au M1 |
-| **État avant** | Dépôt **vide** — intégration réelle possible sans conflit |
+| **Front** | Vercel (Nitro `preset: "vercel"`, Node 22.x) |
+| **API (DNS)** | `api.mbaydiaay.com` → VPS (NestJS + Docker : **prochain plan**) |
 
 Travail effectué :
 
@@ -49,6 +50,7 @@ Travail effectué :
 2. Routes et menu **sans** M2–M5 ; liens carte / plans retirés des fiches producteur et organisation.
 3. Tests unitaires verts ; e2e M1 adaptés (hors parcours carte / commerce).
 4. Documentation de suivi Trello + ce guide.
+5. Lot UX M1 (fiabilité compteurs / CNI / alertes + dashboard À traiter, cotisations, réunions, docs, comptes, référentiels) — détail : [`AUDIT_UX_M1.md`](AUDIT_UX_M1.md).
 
 **Proto distinct (référence tous modules)** : dépôt privé `https://github.com/MohaPeth/mbaydiaay-proto.git` et/ou dossier local `mbaydiaay-proto` / `Mbay Diaay`.
 
@@ -56,13 +58,20 @@ Travail effectué :
 
 ## 3. Comment utiliser le board Trello
 
-Il n’y a **pas** d’API Trello branchée dans cette session (aucun jeton `TRELLO_*` trouvé en local). Tout est **manuel**, en 10 minutes : voir [`docs/suivi-trello/BOARD.md`](suivi-trello/BOARD.md).
+Il n’y a **pas** d’API Trello branchée dans cette session (aucun jeton `TRELLO_*` trouvé en local). Tout est **manuel** : voir [`docs/suivi-trello/BOARD.md`](suivi-trello/BOARD.md).
 
-Fichiers :
+Fichiers (pack **mis à jour le 31/10/2026** — à renvoyer au secrétaire) :
 
 - [`docs/suivi-trello/BOARD.md`](suivi-trello/BOARD.md) — colonnes, labels, mode d’emploi
 - [`docs/suivi-trello/cartes.csv`](suivi-trello/cartes.csv) — import tableur / collage
 - [`docs/suivi-trello/cartes.json`](suivi-trello/cartes.json) — même contenu, structure claire
+
+### Message type pour le secrétaire
+
+> Le pack Trello a été **mis à jour** dans le dépôt (`docs/suivi-trello/cartes.csv` + `BOARD.md`, 31/10/2026).  
+> Si tu as déjà créé le board avec l’ancien CSV : **n’importe pas tout en double** — ajoute seulement les **nouvelles cartes Terminé** (UX M1, DNS `api.mbaydiaay.com`, Vercel branché) et mets à jour la carte « Backend NestJS + Docker » (Backlog).  
+> Colonnes / labels : inchangés (`BOARD.md`).  
+> Repo : https://github.com/mbay-diaay/mbay-diaay → dossier `docs/suivi-trello/`.
 
 ---
 
@@ -70,19 +79,21 @@ Fichiers :
 
 | Statut | Contenu |
 |---|---|
-| **Fait (M1)** | Membres / équipe, producteurs, dossiers, organisations, cotisations, réunions, documents, tableau de bord admin, qualité, auth démo, droits, i18n mécanisme, CI locale |
-| **En cours / à valider** | Décisions client (cotisations INF 30, rôles Scopla D4–D17), charte graphique, hébergeur Vercel en prod, Toolbar Feedback désactivée |
-| **Reste M1** | Création producteur directe, filtre org annuaire, PDF exports, édition types d’org / matrice rôles depuis l’UI, bilingue wolof relu |
-| **Hors M1** | M2–M5 (dans le proto), backend réel, SMS, Kobo photos, paiements mobiles |
+| **Fait (M1)** | Membres / équipe, producteurs, dossiers, organisations, cotisations, réunions, documents, tableau de bord (bandeau À traiter), qualité, auth démo, droits, i18n mécanisme, CI locale, lot UX (compteurs, CNI, alertes, filtres Sheet, etc.) |
+| **Fait (hébergement)** | Front Vercel branché sur l’org ; DNS **`api.mbaydiaay.com` → serveur** (API future) |
+| **En cours / à valider** | Décisions client (cotisations INF 30, rôles Scopla D4–D17), charte graphique, Toolbar Feedback OFF, recette gestionnaire SCOOP, board Trello saisi par le secrétaire |
+| **Reste M1** | Création producteur directe, filtre org annuaire, PDF exports, bilingue wolof relu |
+| **Prochain lot (hors code web)** | Dockerisation VPS + NestJS + PostgreSQL/PostGIS derrière `api.mbaydiaay.com` (cadrage §7 / PRD Backend) |
+| **Hors M1** | M2–M5 (dans le proto), SMS, Kobo photos, paiements mobiles |
 
 ---
 
 ## 5. Prochaines étapes concrètes
 
-1. Vérifier le dépôt GitHub (clone, `pnpm install`, `pnpm dev`, se connecter en démo).
-2. Créer le board Trello à partir de `docs/suivi-trello/` (10 min).
-3. Recette Module 1 avec un gestionnaire SCOOP (parcours Personnes + Vie coopérative).
-4. Brancher Vercel sur `mbay-diaay/mbay-diaay` — pas à pas : [`docs/HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md) (Node **22.x**, pas d’override Output `dist`).
+1. Secrétaire : mettre à jour le board Trello (nouvelles cartes seulement — message §3).
+2. Recette Module 1 avec un gestionnaire SCOOP (parcours Personnes + Vie coopérative + bandeau À traiter).
+3. Optionnel : brancher `app.` / apex sur Vercel Domains (front) — **pas** `api.`.
+4. **Ensuite** : plan Docker + NestJS + doc chapitre C Backend ([`DEVELOPPEMENT.md`](DEVELOPPEMENT.md)) — pas démarré dans ce tour.
 5. Quand M2 sera décidé : réintégrer depuis le proto **par lot**, jamais en dump massif.
 
 ---
@@ -93,9 +104,12 @@ Fichiers :
 |---|---|
 | Repo Module 1 | https://github.com/mbay-diaay/mbay-diaay |
 | Proto (réf.) | https://github.com/MohaPeth/mbaydiaay-proto |
-| Vercel ↔ org GitHub | [`docs/HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md) |
+| Vercel ↔ org + domaines | [`docs/HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md) |
+| Audit UX M1 | [`docs/AUDIT_UX_M1.md`](AUDIT_UX_M1.md) |
+| CNI en clair | [`docs/CNI_LECTURE.md`](CNI_LECTURE.md) |
 | État projet | [`docs/ETAT_DU_PROJET.md`](ETAT_DU_PROJET.md) |
 | Valeur livrée | [`docs/VALEUR_LIVREE.md`](VALEUR_LIVREE.md) |
 | Guide dev | [`docs/DEVELOPPEMENT.md`](DEVELOPPEMENT.md) |
+| PRD Backend | [`docs/prd/PRD_Backend_API_Mbay_Diaay_v0.1.md`](prd/PRD_Backend_API_Mbay_Diaay_v0.1.md) |
 | Règles agents | [`AGENTS.md`](../AGENTS.md) |
 | Suivi Trello | [`docs/suivi-trello/BOARD.md`](suivi-trello/BOARD.md) |
