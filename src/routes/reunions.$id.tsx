@@ -112,33 +112,61 @@ function MeetingChecklist({ meeting }: { meeting: Meeting }) {
       done: !!meeting.minutes?.documentId,
     },
   ] as const;
+  const current = steps.findIndex((s) => !s.done);
   return (
-    <section className="mb-4 surface p-4" aria-labelledby="checklist-title">
-      <h2 id="checklist-title" className="text-sm font-semibold">
-        {t("reunions.checklist.title")}
-      </h2>
-      <ol className="mt-3 flex flex-wrap gap-2">
-        {steps.map((s, i) => (
-          <li
-            key={s.key}
-            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
-              s.done
-                ? "border-success/40 bg-success-bg text-success-fg"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            <span className="tabular">{i + 1}.</span> {s.label}
-          </li>
-        ))}
-      </ol>
-      {meeting.minutes && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t(MEETING_STATUS_LABEL[meeting.status])} ·{" "}
-          {meeting.minutes.status === "validé"
-            ? t("reunions.minutes.validé")
-            : t("reunions.minutes.brouillon")}
+    <section className="mb-6 surface overflow-hidden" aria-labelledby="checklist-title">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-3">
+        <h2 id="checklist-title" className="text-sm font-semibold">
+          {t("reunions.checklist.title")}
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          {t(MEETING_STATUS_LABEL[meeting.status])}
+          {meeting.minutes
+            ? ` · ${
+                meeting.minutes.status === "validé"
+                  ? t("reunions.minutes.validé")
+                  : t("reunions.minutes.brouillon")
+              }`
+            : ""}
         </p>
-      )}
+      </div>
+      <ol className="grid gap-0 sm:grid-cols-5">
+        {steps.map((s, i) => {
+          const isCurrent = current === i || (current === -1 && i === steps.length - 1);
+          return (
+            <li
+              key={s.key}
+              className={`relative flex items-start gap-2.5 border-b px-4 py-3 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0 ${
+                s.done
+                  ? "bg-success-bg/40"
+                  : isCurrent
+                    ? "bg-primary-soft/50"
+                    : "bg-card"
+              }`}
+            >
+              <span
+                className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold tabular ${
+                  s.done
+                    ? "bg-success text-primary-foreground"
+                    : isCurrent
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                }`}
+                aria-hidden
+              >
+                {s.done ? "✓" : i + 1}
+              </span>
+              <span
+                className={`text-xs font-semibold leading-snug ${
+                  s.done || isCurrent ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {s.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </section>
   );
 }
@@ -173,7 +201,19 @@ function Detail({ meeting }: { meeting: Meeting }) {
       <PageHeader
         eyebrow={t("reunions.detail.eyebrow", { kind: t(MEETING_KIND_LABEL[meeting.kind]) })}
         title={meeting.title}
-        description={`${fmtDateTime(meeting.date)} · ${meeting.place}`}
+        description={
+          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>{fmtDateTime(meeting.date)}</span>
+            <span aria-hidden className="text-border-strong">
+              ·
+            </span>
+            <span>{meeting.place}</span>
+            <span aria-hidden className="text-border-strong">
+              ·
+            </span>
+            <span>{allScoops.find((s) => s.id === meeting.scoopId)?.name ?? ""}</span>
+          </span>
+        }
         actions={
           <Pill tone={MEETING_STATUS_TONE[meeting.status]}>
             {t(MEETING_STATUS_LABEL[meeting.status])}

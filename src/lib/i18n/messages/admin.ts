@@ -206,24 +206,24 @@ export const admin = {
   "referentiels.eyebrow": "Administration",
   "referentiels.title": "Référentiels",
   "referentiels.description":
-    "Les listes et règles communes à toute l'application. Une modification s'applique tout de suite partout et reste inscrite au journal.",
+    "Listes et règles communes. Une modification s'applique partout et reste au journal.",
   "referentiels.purpose":
-    "Ces listes pilotent les filtres, la carte, les alertes et les rapports. Chaque section ci-dessous explique à quoi elle sert.",
+    "Ces listes pilotent les filtres, la carte, les alertes et les rapports.",
   "referentiels.purpose.title": "À quoi ça sert ?",
   "referentiels.purpose.cultures":
-    "Les cultures et leurs familles colorent la carte et les filtres producteurs. Modifiez-les quand un nom de culture manque ou est mal classé.",
+    "Familles de cultures pour la carte et les filtres.",
   "referentiels.purpose.noms":
-    "Les noms non reconnus à l'import attendent d'être rattachés à une culture du référentiel.",
+    "Rattacher les noms d'import inconnus à une culture connue.",
   "referentiels.purpose.regles":
-    "Les seuils déclenchent les alertes qualité (précision GPS, superficies…). Ajustez-les avec le métier, pas à la légère.",
+    "Seuils qui déclenchent les alertes qualité (GPS, superficies…).",
   "referentiels.purpose.jeune":
-    "L'âge maximum « jeune » alimente le tableau de bord et les rapports d'inclusion.",
+    "Âge max. « jeune » pour le tableau de bord et les rapports.",
   "referentiels.purpose.localites":
-    "La liste des villages sert aux filtres et à la saisie. Ajoutez une localité seulement si elle existe réellement.",
+    "Villages utilisés dans les filtres et la saisie.",
   "referentiels.purpose.campagnes":
-    "Les campagnes cadrent les cultures et les parcelles dans le temps (ex. hivernage 2026).",
+    "Périodes agricoles pour cultures et parcelles.",
   "referentiels.purpose.types":
-    "Les types d'organisation (GIE, section…) qualifient les structures de base rattachées aux SCOOP.",
+    "Types d'organisation (GIE, section…) rattachés aux SCOOP.",
   "referentiels.view.cultures": "Cultures",
   "referentiels.view.regles": "Règles et listes",
   "referentiels.save": "Enregistrer",
@@ -244,7 +244,7 @@ export const admin = {
   "referentiels.regles.title": "Règles de contrôle",
   "referentiels.regles.summary": "4 seuils qui déclenchent un signalement",
   "referentiels.regles.intro":
-    "À quoi ça sert : décider quand une parcelle déclenche une alerte. Chaque règle se lit comme une phrase ; le nombre de parcelles concernées se met à jour avant même d'enregistrer.",
+    "Chaque seuil se lit comme une phrase ; le nombre de parcelles concernées se met à jour avant d'enregistrer.",
   "referentiels.jeune.title": "Définition « jeune »",
   "referentiels.jeune.summary": "{n} ans ou moins",
   "referentiels.types.title": "Types d'organisation",
@@ -255,14 +255,14 @@ export const admin = {
   "referentiels.localites.title": "Localités",
   "referentiels.localites.summary": "{n} villages",
   "referentiels.cultures.intro":
-    "À quoi ça sert : classer chaque culture dans une famille. Changer la famille change immédiatement la couleur des parcelles sur la carte (mode « Couleur : famille »).",
+    "Classer chaque culture dans une famille (couleurs carte en mode « famille »).",
   "referentiels.cultures.col.crop": "Culture",
   "referentiels.cultures.col.family": "Famille",
   "referentiels.cultures.col.producers": "Producteurs",
   "referentiels.cultures.col.plots": "Parcelles",
   "referentiels.cultures.familyOf": "Famille de {name}",
   "referentiels.noms.intro":
-    "Ces noms viennent des fichiers importés mais ne correspondent à aucune culture connue (faute de frappe, nom local…). Pour chacun, choisissez la culture qu'il désigne : les prochains imports le reconnaîtront automatiquement.",
+    "Noms d'import inconnus : rattachez-les à une culture pour les prochains imports.",
   "referentiels.noms.cropFor": "Culture correspondant à {name}",
   "referentiels.noms.choose": "Choisir la culture",
   "referentiels.noms.recognized": "« {name} » reconnu comme {crop}",

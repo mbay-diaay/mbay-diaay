@@ -146,8 +146,8 @@
   --sem-surface: var(--p-neutral-0);
   --sem-text: var(--p-neutral-900);
   --sem-text-muted: var(--p-neutral-600);
-  /* Placeholders et état « neutre » des filtres : plus clair que le texte secondaire, 4,5:1 minimum sur fond blanc. */
-  --sem-text-placeholder: color-mix(in oklab, var(--p-neutral-600) 92%, var(--p-neutral-0));
+  /* Placeholders : assez contrastés pour rester lisibles (ex. matrice / formulaires), sans égaler le texte saisi. */
+  --sem-text-placeholder: color-mix(in oklab, var(--p-neutral-600) 35%, var(--p-neutral-800));
   --sem-border: var(--p-neutral-200);
   --sem-border-strong: var(--p-neutral-400);
   --sem-primary: var(--p-brand-700);

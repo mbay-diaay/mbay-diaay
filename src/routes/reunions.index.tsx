@@ -80,7 +80,8 @@ function Meetings() {
   const meetings = useStore((s) => s.meetings);
   const members = useStore((s) => s.members);
   const canManage = useCan("meeting.manage");
-  const [filter, setFilter] = useState<Filter>("upcoming");
+  /** Par défaut : toutes les réunions (évite une liste vide si rien n'est « à venir »). */
+  const [filter, setFilter] = useState<Filter>("tous");
   const [q, setQ] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);

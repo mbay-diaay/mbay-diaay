@@ -142,10 +142,6 @@ function ReferentielsPage() {
         title={t("referentiels.title")}
         description={t("referentiels.description")}
       />
-      <p className="mb-4 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-        <span className="font-semibold text-foreground">{t("referentiels.purpose.title")} </span>
-        {t("referentiels.purpose.cultures")}
-      </p>
       <SectionNav
         active={view}
         onSelect={go}
@@ -237,30 +233,32 @@ function ReglesView({ open }: { open: Section | undefined }) {
   ];
   return (
     <Accordion
-      type="multiple"
-      defaultValue={[first]}
-      className="surface max-w-4xl divide-y border-0 px-2"
+      type="single"
+      collapsible
+      defaultValue={first}
+      className="mx-auto max-w-4xl space-y-2"
     >
       {items.map((i) => (
-        <AccordionItem key={i.key} value={i.key} className="border-b-0">
-          <AccordionTrigger className="px-3 hover:no-underline">
-            <span className="flex items-center gap-3">
-              <span className="grid size-9 place-items-center rounded-md bg-primary-soft text-primary">
+        <AccordionItem
+          key={i.key}
+          value={i.key}
+          className="surface overflow-hidden border-0 px-0 data-[state=open]:shadow-sm"
+        >
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            <span className="flex min-w-0 items-center gap-3 text-left">
+              <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
                 <i.icon className="size-4" />
               </span>
-              <span>
+              <span className="min-w-0">
                 <span className="block font-semibold">{i.title}</span>
-                <span className="block text-xs font-normal text-muted-foreground">{i.summary}</span>
+                <span className="block truncate text-xs font-normal text-muted-foreground">
+                  {i.summary}
+                </span>
               </span>
             </span>
           </AccordionTrigger>
-          <AccordionContent className="px-3">
-            <p className="mb-3 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {t("referentiels.purpose.title")}{" "}
-              </span>
-              {t(i.purpose)}
-            </p>
+          <AccordionContent className="border-t px-4 pb-4 pt-3">
+            <p className="mb-3 text-sm text-muted-foreground">{t(i.purpose)}</p>
             {i.node}
           </AccordionContent>
         </AccordionItem>
@@ -270,11 +268,7 @@ function ReglesView({ open }: { open: Section | undefined }) {
 }
 
 function Intro({ children }: { children: ReactNode }) {
-  return (
-    <p className="mb-4 max-w-3xl rounded-md bg-info-bg px-4 py-3 text-sm text-info-fg">
-      {children}
-    </p>
-  );
+  return <p className="mb-3 max-w-3xl text-sm text-muted-foreground">{children}</p>;
 }
 
 function CulturesSection() {
@@ -463,18 +457,18 @@ function RuleRow({ rule }: { rule: (typeof RULES)[number] }) {
     [plots, rule, n, ok, now],
   );
   return (
-    <div className="rounded-md border p-4">
-      <p className="text-sm leading-10">
-        {t(rule.before)}
+    <div className="rounded-md border p-3 sm:p-4">
+      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm leading-snug">
+        <span>{t(rule.before)}</span>
         <Input
-          className="mx-2 inline-block h-9 w-24 align-middle tabular"
+          className="h-9 w-24 tabular"
           inputMode="decimal"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           aria-label={`${t(rule.before)} (${rule.unit})`}
         />
-        {rule.unit}
-        {rule.after && ` ${t(rule.after)}`}.
+        <span className="font-medium">{rule.unit}</span>
+        {rule.after ? <span>{t(rule.after)}.</span> : <span>.</span>}
       </p>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <span

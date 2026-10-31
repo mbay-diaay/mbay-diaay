@@ -39,7 +39,7 @@ export function FilterPill({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition-colors pointer-coarse:h-touch",
+        "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium leading-none transition-colors pointer-coarse:h-touch",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         active
           ? "border-primary bg-primary text-primary-foreground shadow-sm"
@@ -47,14 +47,20 @@ export function FilterPill({
         className,
       )}
     >
-      {icon}
-      {tone && !active && <span className={cn("size-1.5 rounded-full", DOT[tone])} aria-hidden />}
-      {children}
+      {icon ? (
+        <span className="inline-flex size-3.5 shrink-0 items-center justify-center [&_svg]:size-3.5" aria-hidden>
+          {icon}
+        </span>
+      ) : null}
+      {tone && !active && !icon && (
+        <span className={cn("size-1.5 shrink-0 rounded-full", DOT[tone])} aria-hidden />
+      )}
+      <span className="inline-flex items-center leading-none">{children}</span>
       {count !== undefined && (
         <span
           className={cn(
-            "min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold tabular",
-            active ? "bg-primary-foreground text-primary" : "bg-muted text-muted-foreground",
+            "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-center text-[11px] font-semibold leading-none tabular",
+            active ? "bg-primary-foreground text-primary" : "bg-muted text-foreground",
           )}
         >
           {count}

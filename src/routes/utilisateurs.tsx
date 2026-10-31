@@ -247,17 +247,21 @@ function Users() {
                   <tr key={p}>
                     <td className="px-4 py-2.5">{t(`perm.${p}` as MessageKey)}</td>
                     {ROLES.map((r) => (
-                      <td key={r} className="text-center">
+                      <td key={r} className="px-1 py-1.5 text-center">
                         {ROLE_PERMISSIONS[r].includes(p) ? (
-                          <Check
-                            className="mx-auto size-4 text-success"
+                          <span
+                            className="mx-auto inline-flex size-7 items-center justify-center rounded-md bg-success-bg text-success-fg"
                             aria-label={t("utilisateurs.yes")}
-                          />
+                          >
+                            <Check className="size-4" strokeWidth={2.5} aria-hidden />
+                          </span>
                         ) : (
-                          <Minus
-                            className="mx-auto size-4 text-border-strong"
+                          <span
+                            className="mx-auto inline-flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground"
                             aria-label={t("utilisateurs.no")}
-                          />
+                          >
+                            <Minus className="size-4" strokeWidth={2.25} aria-hidden />
+                          </span>
                         )}
                       </td>
                     ))}
