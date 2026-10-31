@@ -1,0 +1,297 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Mbay Diaay — design system.
+ *
+ * Source of truth: design-tokens.json (v0.1.0, PROVISOIRE).
+ * Layer 1 "primitive"  → raw values copied 1:1 from the token file (hex kept
+ *                        verbatim so a new client charter is a copy-paste).
+ * Layer 2 "semantic"   → references primitives only.
+ * Layer 3 "component"  → references semantic/primitive only.
+ * Shadcn variables are mapped onto the semantic layer.
+ * To apply the client charter: change ONLY the primitive block.
+ */
+
+@theme inline {
+  --font-sans: var(--font-family-base);
+  --radius-sm: var(--radius-sm-token);
+  --radius-md: var(--radius-md-token);
+  --radius-lg: var(--radius-md-token);
+  --radius-xl: calc(var(--radius-md-token) + 4px);
+  --radius-2xl: calc(var(--radius-md-token) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-placeholder: var(--sem-text-placeholder);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ochre: var(--sem-accent);
+  --color-ochre-soft: var(--sem-accent-soft);
+  --color-ochre-text: var(--sem-accent-text);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--sem-border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --color-success: var(--p-status-success);
+  --color-success-bg: var(--p-status-success-bg);
+  --color-success-fg: var(--p-status-success-fg);
+  --color-warning: var(--p-status-warning);
+  --color-warning-bg: var(--p-status-warning-bg);
+  --color-warning-fg: var(--p-status-warning-fg);
+  --color-danger: var(--p-status-danger);
+  --color-danger-bg: var(--p-status-danger-bg);
+  --color-danger-fg: var(--p-status-danger-fg);
+  --color-info: var(--p-status-info);
+  --color-info-bg: var(--p-status-info-bg);
+  --color-info-fg: var(--p-status-info-fg);
+
+  --color-quality-validated: var(--quality-validated);
+  --color-quality-to-verify: var(--quality-to-verify);
+  --color-quality-duplicate: var(--quality-duplicate);
+  --color-quality-invalid: var(--quality-invalid);
+  --color-map-validated: var(--map-plot-validated);
+  --color-map-surveyed: var(--map-plot-surveyed);
+  --color-map-to-redo: var(--map-plot-to-redo);
+  --color-map-overlap: var(--map-plot-overlap);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --text-xs: var(--font-size-xs);
+  --text-sm: var(--font-size-sm);
+  --text-base: var(--font-size-md);
+  --text-lg: var(--font-size-lg);
+  --text-xl: var(--font-size-xl);
+  --text-2xl: var(--font-size-2xl);
+  --spacing-touch: var(--size-touch-min);
+}
+
+:root {
+  /* ───── primitive (from design-tokens.json — the ONLY block to change) ───── */
+  --p-brand-700: #2f6b3a;
+  --p-brand-600: #3c8450;
+  --p-brand-100: #dcebdd;
+  --p-accent-600: #b7791f;
+  --p-accent-800: #7a4f0f;
+  --p-accent-100: #f6e7c8;
+  --p-neutral-0: #ffffff;
+  --p-neutral-50: #f7f8f5;
+  --p-neutral-200: #d9ded9;
+  --p-neutral-400: #8a958e;
+  --p-neutral-600: #55615a;
+  --p-neutral-900: #1f2a24;
+  --p-status-success: #2e7d32;
+  --p-status-success-bg: #ddefdd;
+  --p-status-success-fg: #1e5e22;
+  --p-status-warning: #b26a00;
+  --p-status-warning-bg: #fff1d0;
+  --p-status-warning-fg: #7a4f00;
+  --p-status-danger: #b3261e;
+  --p-status-danger-bg: #fbe3e1;
+  --p-status-danger-fg: #8c1a14;
+  --p-status-info: #1f5f99;
+  --p-status-info-bg: #dceaf7;
+  --p-status-info-fg: #174a78;
+  --p-fam-bulbes: #8e5aa8;
+  --p-fam-feuilles: #3a7d2c;
+  --p-fam-fruits: #c4453c;
+  --p-fam-racines: #a06a2c;
+  --p-fam-arbres: #20704f;
+  --p-fam-cereales: #b8912a;
+  --p-fam-autres: #6b7a72;
+  --font-family-base: Inter, "Noto Sans", system-ui, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 32px;
+  --radius-sm-token: 6px;
+  --radius-md-token: 12px;
+  --radius-pill: 999px;
+  --size-touch-min: 48px;
+
+  /* ───── semantic ───── */
+  --sem-bg: var(--p-neutral-50);
+  --sem-surface: var(--p-neutral-0);
+  --sem-text: var(--p-neutral-900);
+  --sem-text-muted: var(--p-neutral-600);
+  /* Placeholders et état « neutre » des filtres : plus clair que le texte secondaire, 4,5:1 minimum sur fond blanc. */
+  --sem-text-placeholder: color-mix(in oklab, var(--p-neutral-600) 92%, var(--p-neutral-0));
+  --sem-border: var(--p-neutral-200);
+  --sem-border-strong: var(--p-neutral-400);
+  --sem-primary: var(--p-brand-700);
+  --sem-primary-hover: var(--p-brand-600);
+  --sem-primary-soft: var(--p-brand-100);
+  --sem-on-primary: var(--p-neutral-0);
+  --sem-accent: var(--p-accent-600);
+  /* Texte d'accent sur fond clair : 5,8:1 sur le fond doux (le 600 seul n'atteint que 3:1). */
+  --sem-accent-text: var(--p-accent-800);
+  --sem-accent-soft: var(--p-accent-100);
+
+  --quality-validated: var(--p-status-success);
+  --quality-to-verify: var(--p-status-warning);
+  --quality-duplicate: var(--p-status-info);
+  --quality-invalid: var(--p-status-danger);
+  --map-plot-validated: var(--p-brand-600);
+  --map-plot-surveyed: var(--p-accent-600);
+  --map-plot-to-redo: var(--p-status-danger);
+  --map-plot-overlap: var(--p-status-info);
+  --map-fam-bulbes: var(--p-fam-bulbes);
+  --map-fam-feuilles: var(--p-fam-feuilles);
+  --map-fam-fruits: var(--p-fam-fruits);
+  --map-fam-racines: var(--p-fam-racines);
+  --map-fam-arbres: var(--p-fam-arbres);
+  --map-fam-cereales: var(--p-fam-cereales);
+  --map-fam-autres: var(--p-fam-autres);
+
+  /* ───── shadcn mapping ───── */
+  --radius: var(--radius-md-token);
+  --background: var(--sem-bg);
+  --foreground: var(--sem-text);
+  --card: var(--sem-surface);
+  --card-foreground: var(--sem-text);
+  --popover: var(--sem-surface);
+  --popover-foreground: var(--sem-text);
+  --primary: var(--sem-primary);
+  --primary-hover: var(--sem-primary-hover);
+  --primary-soft: var(--sem-primary-soft);
+  --primary-foreground: var(--sem-on-primary);
+  --secondary: var(--sem-primary-soft);
+  --secondary-foreground: var(--sem-primary);
+  --muted: var(--sem-bg);
+  --muted-foreground: var(--sem-text-muted);
+  --accent: var(--sem-primary-soft);
+  --accent-foreground: var(--sem-text);
+  --destructive: var(--p-status-danger);
+  --destructive-foreground: var(--p-neutral-0);
+  --border: var(--sem-border);
+  --input: var(--sem-border);
+  --ring: var(--sem-primary-hover);
+  --chart-1: var(--p-brand-700);
+  --chart-2: var(--p-accent-600);
+  --chart-3: var(--p-status-info);
+  --chart-4: var(--p-brand-600);
+  --chart-5: var(--p-neutral-400);
+  --sidebar: var(--p-neutral-900);
+  --sidebar-foreground: var(--p-neutral-200);
+  --sidebar-primary: var(--p-brand-600);
+  --sidebar-primary-foreground: var(--p-neutral-0);
+  --sidebar-accent: color-mix(in oklab, var(--p-neutral-0) 8%, transparent);
+  --sidebar-accent-foreground: var(--p-neutral-0);
+  --sidebar-border: color-mix(in oklab, var(--p-neutral-0) 10%, transparent);
+  --sidebar-ring: var(--p-brand-600);
+
+  /* ───── component ───── */
+  --button-height: var(--size-touch-min);
+  --button-radius: var(--radius-md-token);
+  --card-radius: var(--radius-md-token);
+  --input-height: var(--size-touch-min);
+  --input-radius: var(--radius-sm-token);
+  --pattern-dots: radial-gradient(
+    color-mix(in oklab, var(--sem-primary) 14%, transparent) 1px,
+    transparent 1px
+  );
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    font-family: var(--font-family-base);
+    font-feature-settings: "cv11", "ss01", "tnum";
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: color-mix(in oklab, var(--sem-primary) 12%, transparent);
+  }
+  ::selection {
+    background: var(--sem-primary-soft);
+    color: var(--sem-text);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@utility surface {
+  background: var(--sem-surface);
+  border: 1px solid var(--sem-border);
+  border-radius: var(--card-radius);
+}
+@utility eyebrow {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sem-text-muted);
+}
+@utility bg-dots {
+  background-image: var(--pattern-dots);
+  background-size: 14px 14px;
+}
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.leaflet-container {
+  font-family: var(--font-family-base);
+  background: var(--sem-bg);
+}
+
+/* Alerte carte : trait renforcé + icône + hachures (jamais la couleur seule). */
+.alert-pin {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border-radius: var(--radius-pill);
+  background: var(--p-status-danger-bg);
+  border: 2px solid var(--p-status-danger);
+  color: var(--p-status-danger-fg);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+.alert-pin::before {
+  content: "!";
+}

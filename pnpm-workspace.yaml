@@ -1,0 +1,6 @@
+# Configuration pnpm.
+overrides:
+  rolldown: 1.2.1
+
+# Garde chaîne d'approvisionnement : 24 h (en minutes).
+minimumReleaseAge: 1440

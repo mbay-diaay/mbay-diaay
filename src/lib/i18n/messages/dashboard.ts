@@ -1,0 +1,30 @@
+/** Tableau de bord : libellés de l'écran d'accueil. */
+export const dashboard = {
+  "dashboard.area": "Tableau de bord",
+  "dashboard.eyebrow.consolidated": "Vue consolidée · {count} SCOOP",
+  "dashboard.eyebrow.scoop": "Ma SCOOP",
+  "dashboard.title": "Tableau de bord",
+  "dashboard.description":
+    "Les chiffres clés de vos producteurs. Sous chaque chiffre, vous voyez combien de fiches restent à vérifier.",
+  "dashboard.kpi.producers": "Producteurs",
+  "dashboard.kpi.women": "Femmes",
+  "dashboard.kpi.young": "Jeunes (≤ {age} ans)",
+  "dashboard.kpi.handicap": "Situation de handicap",
+  "dashboard.kpi.plots": "Parcelles",
+  "dashboard.kpi.area": "Superficie mesurée",
+  "dashboard.kpi.toVerify": "{count} à vérifier",
+  "dashboard.chart.byScoop": "Producteurs par SCOOP, femmes et hommes",
+  "dashboard.chart.women": "Femmes",
+  "dashboard.chart.men": "Hommes",
+  "dashboard.status.title": "Membres et recensés",
+  "dashboard.status.members": "Membres",
+  "dashboard.status.listed": "Recensés",
+  "dashboard.age.title": "Producteurs par âge",
+  "dashboard.age.years": "{band} ans",
+  "dashboard.age.unknown": "Âge non renseigné",
+  "dashboard.age.note":
+    "« Jeune » = {age} ans ou moins, définition configurable dans Référentiels › Définition « jeune ».",
+  "dashboard.activity.title": "Activité récente",
+  "dashboard.activity.all": "Journal complet",
+  "dashboard.activity.by": "par {user}",
+} as const;

@@ -1,0 +1,34 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1" # chaque lundi
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyse statique de sécurité
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      # Requis seulement si le code scanning GitHub est activé (Code Security / GHAS).
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      # Dépôt privé sans code scanning : l'upload SARIF échoue avec
+      # « Resource not accessible by integration ». On analyse quand même ;
+      # passer à upload: always après activation dans
+      # Settings → Code security → Code scanning.
+      - uses: github/codeql-action/analyze@v3
+        with:
+          upload: never

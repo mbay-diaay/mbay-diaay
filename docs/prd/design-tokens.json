@@ -1,0 +1,144 @@
+{
+  "$description": "Mbay Diaay — design tokens PROVISOIRES. Aucune identité visuelle officielle n'a été transmise (INF 61 à 64). Pour appliquer la charte du client, ne modifier QUE la section « primitive » ; les couches « semantic » et « component » ne changent pas. Les applications web (variables CSS) et mobile (ThemeData) sont générées depuis ce fichier : aucune couleur, taille ou police n'est écrite en dur dans le code.",
+  "$version": "0.1.0",
+  "$status": "provisoire",
+
+  "brand": {
+    "$description": "Ressources d'identité à fournir par le client (INF 61 à 64). Tant qu'elles ne sont pas reçues, les valeurs sont provisoires ou vides. Servies par GET /v1/branding ; l'icône d'application et l'écran de démarrage mobile sont intégrés au build.",
+    "name":    { "display": "Mbay Diaay", "status": "à valider (graphie officielle, INF 64)" },
+    "tagline": { "value": null, "status": "à valider (INF 64)" },
+    "logo":    { "primary": null, "monochrome": null, "icon": null, "status": "à fournir en SVG/AI/EPS et PNG haute définition (INF 61)" },
+    "partners": { "items": [], "status": "logos et mentions obligatoires à fournir (INF 63)" },
+    "locale":  { "default": "fr", "status": "français avec pictogrammes ; wolof à évaluer (DEC 13)" }
+  },
+
+  "print": {
+    "$description": "Mise en forme des documents générés par le backend (PDF). Provisoire.",
+    "page":   { "size": "A4", "margin": "20mm" },
+    "manuals": { "size": "A5", "$description": "Fiches pratiques et guide d'administration [OT §7.3]" }
+  },
+
+  "primitive": {
+    "color": {
+      "brand": {
+        "700": { "$value": "#2F6B3A", "$type": "color", "$description": "Vert principal provisoire" },
+        "600": { "$value": "#3C8450", "$type": "color" },
+        "100": { "$value": "#DCEBDD", "$type": "color" }
+      },
+      "accent": {
+        "600": { "$value": "#B7791F", "$type": "color", "$description": "Ocre provisoire" },
+        "100": { "$value": "#F6E7C8", "$type": "color" }
+      },
+      "neutral": {
+        "0":   { "$value": "#FFFFFF", "$type": "color" },
+        "50":  { "$value": "#F7F8F5", "$type": "color" },
+        "200": { "$value": "#D9DED9", "$type": "color" },
+        "400": { "$value": "#8A958E", "$type": "color" },
+        "600": { "$value": "#55615A", "$type": "color" },
+        "900": { "$value": "#1F2A24", "$type": "color" }
+      },
+      "status": {
+        "success":     { "$value": "#2E7D32", "$type": "color" },
+        "success-bg":  { "$value": "#DDEFDD", "$type": "color" },
+        "success-fg":  { "$value": "#1E5E22", "$type": "color" },
+        "warning":     { "$value": "#B26A00", "$type": "color" },
+        "warning-bg":  { "$value": "#FFF1D0", "$type": "color" },
+        "warning-fg":  { "$value": "#7A4F00", "$type": "color" },
+        "danger":      { "$value": "#B3261E", "$type": "color" },
+        "danger-bg":   { "$value": "#FBE3E1", "$type": "color" },
+        "danger-fg":   { "$value": "#8C1A14", "$type": "color" },
+        "info":        { "$value": "#1F5F99", "$type": "color" },
+        "info-bg":     { "$value": "#DCEAF7", "$type": "color" },
+        "info-fg":     { "$value": "#174A78", "$type": "color" }
+      }
+    },
+    "font": {
+      "family": {
+        "base": { "$value": "Inter, 'Noto Sans', system-ui, sans-serif", "$type": "fontFamily", "$description": "Provisoire. Prévoir une police embarquée sur mobile (pas de téléchargement en zone sans réseau)." }
+      },
+      "size": {
+        "xs":  { "$value": "12px", "$type": "dimension" },
+        "sm":  { "$value": "14px", "$type": "dimension" },
+        "md":  { "$value": "16px", "$type": "dimension" },
+        "lg":  { "$value": "20px", "$type": "dimension" },
+        "xl":  { "$value": "24px", "$type": "dimension" },
+        "2xl": { "$value": "32px", "$type": "dimension" }
+      },
+      "weight": {
+        "regular":  { "$value": 400, "$type": "fontWeight" },
+        "semibold": { "$value": 600, "$type": "fontWeight" }
+      },
+      "lineHeight": {
+        "base": { "$value": 1.5, "$type": "number" }
+      }
+    },
+    "space": {
+      "1": { "$value": "4px",  "$type": "dimension" },
+      "2": { "$value": "8px",  "$type": "dimension" },
+      "3": { "$value": "12px", "$type": "dimension" },
+      "4": { "$value": "16px", "$type": "dimension" },
+      "6": { "$value": "24px", "$type": "dimension" },
+      "8": { "$value": "32px", "$type": "dimension" }
+    },
+    "radius": {
+      "sm": { "$value": "6px",   "$type": "dimension" },
+      "md": { "$value": "12px",  "$type": "dimension" },
+      "pill": { "$value": "999px", "$type": "dimension" }
+    },
+    "size": {
+      "touch-min": { "$value": "48px", "$type": "dimension", "$description": "Cible tactile minimale sur mobile (utilisateurs peu familiers du numérique, usage en extérieur)." }
+    }
+  },
+
+  "semantic": {
+    "color": {
+      "bg":            { "$value": "{primitive.color.neutral.50}",  "$type": "color" },
+      "surface":       { "$value": "{primitive.color.neutral.0}",   "$type": "color" },
+      "text":          { "$value": "{primitive.color.neutral.900}", "$type": "color" },
+      "text-muted":    { "$value": "{primitive.color.neutral.600}", "$type": "color" },
+      "border":        { "$value": "{primitive.color.neutral.200}", "$type": "color" },
+      "border-strong": { "$value": "{primitive.color.neutral.400}", "$type": "color" },
+      "primary":       { "$value": "{primitive.color.brand.700}",   "$type": "color" },
+      "primary-hover": { "$value": "{primitive.color.brand.600}",   "$type": "color" },
+      "primary-soft":  { "$value": "{primitive.color.brand.100}",   "$type": "color" },
+      "on-primary":    { "$value": "{primitive.color.neutral.0}",   "$type": "color" },
+      "accent":        { "$value": "{primitive.color.accent.600}",  "$type": "color" },
+      "accent-soft":   { "$value": "{primitive.color.accent.100}",  "$type": "color" },
+      "link":          { "$value": "{primitive.color.brand.700}",   "$type": "color" }
+    },
+    "sync": {
+      "synced":  { "$value": "{primitive.color.status.success}", "$type": "color", "$description": "Donnée synchronisée" },
+      "pending": { "$value": "{primitive.color.status.warning}", "$type": "color", "$description": "En attente de synchronisation" },
+      "error":   { "$value": "{primitive.color.status.danger}",  "$type": "color", "$description": "Rejet à corriger" },
+      "offline": { "$value": "{primitive.color.neutral.600}",    "$type": "color", "$description": "Hors connexion (état normal, pas une erreur)" }
+    },
+    "quality": {
+      "validated":  { "$value": "{primitive.color.status.success}", "$type": "color" },
+      "to-verify":  { "$value": "{primitive.color.status.warning}", "$type": "color" },
+      "duplicate":  { "$value": "{primitive.color.status.info}",    "$type": "color" },
+      "invalid":    { "$value": "{primitive.color.status.danger}",  "$type": "color" }
+    },
+    "map": {
+      "plot-validated": { "$value": "{primitive.color.brand.600}",    "$type": "color" },
+      "plot-surveyed":  { "$value": "{primitive.color.accent.600}",   "$type": "color" },
+      "plot-to-redo":   { "$value": "{primitive.color.status.danger}", "$type": "color" },
+      "plot-overlap":   { "$value": "{primitive.color.status.info}",  "$type": "color" }
+    }
+  },
+
+  "component": {
+    "button": {
+      "height":  { "$value": "{primitive.size.touch-min}", "$type": "dimension" },
+      "radius":  { "$value": "{primitive.radius.md}",      "$type": "dimension" },
+      "padding-x": { "$value": "{primitive.space.4}",      "$type": "dimension" }
+    },
+    "card": {
+      "radius":  { "$value": "{primitive.radius.md}", "$type": "dimension" },
+      "padding": { "$value": "{primitive.space.4}",  "$type": "dimension" }
+    },
+    "input": {
+      "height": { "$value": "{primitive.size.touch-min}", "$type": "dimension" },
+      "radius": { "$value": "{primitive.radius.sm}",      "$type": "dimension" }
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "file_sha256": "b1c5b1a1d49ade6fbabf7f0214a105740e8d87a91f0c57a28ff8658bbf66b4de",
+  "script_version": "0.1.0",
+  "passes": 2,
+  "checks": [
+    {
+      "name": "1. Réconciliation des volumes",
+      "ok": true,
+      "detail": "producteurs 1317/1317 · parcelles 1534/1534 · cultures 1941/1941"
+    },
+    {
+      "name": "1b. Aucun lien orphelin (contrôle des clés étrangères)",
+      "ok": true,
+      "detail": "0 violation(s)"
+    },
+    {
+      "name": "2. Contours chargés ; invalides conservés bruts et réparés à part",
+      "ok": true,
+      "detail": "1534 contours bruts + 433 réparés = 1967 lignes"
+    },
+    {
+      "name": "3. Traçabilité : journal et fusions historiques importés",
+      "ok": true,
+      "detail": "journal 2673/2673 · fusions historiques 19/19"
+    },
+    {
+      "name": "4. Aucune fiche fusionnée ni supprimée par l'import",
+      "ok": true,
+      "detail": "1317 fiches pour 1317 en source"
+    },
+    {
+      "name": "5. Sécurité : aucune CNI en clair en base ni dans le journal d'exécution",
+      "ok": true,
+      "detail": "CNI retrouvées en clair dans la base : 0 · séquences de 9+ chiffres dans le journal d'exécution : non"
+    },
+    {
+      "name": "6. Rejouabilité : une passe supplémentaire ne crée aucune donnée",
+      "ok": true,
+      "detail": "tables identiques après la 2e passe"
+    },
+    {
+      "name": "7. Rapport d'import",
+      "ok": true,
+      "detail": "ce document"
+    }
+  ],
+  "counts": {
+    "organization": 125,
+    "locality": 144,
+    "crop": 35,
+    "crop_alias": 79,
+    "field_agent": 22,
+    "producer": 1317,
+    "membership": 1317,
+    "contact": 1317,
+    "identity_doc": 898,
+    "survey_response": 1317,
+    "plot": 1534,
+    "plot_geometry": 1967,
+    "plot_crop": 1941,
+    "plot_crop_campaign": 2336,
+    "merge_log": 19,
+    "import_correction_log": 2673,
+    "data_quality_flag": 638,
+    "duplicate_candidate": 5
+  },
+  "findings": {
+    "op_types": {
+      "gie": 489,
+      "a_qualifier": 253,
+      "association": 225,
+      "section": 205,
+      "individuel": 124,
+      "membre_direct": 21
+    },
+    "alias_raw_to_many_crops": 0,
+    "phone_valid_mismatch_vs_Tel_valide": 0,
+    "producers_without_name": 1,
+    "plots_invalid_raw_contours": 433,
+    "plots_area_not_integer_m2": 0,
+    "repair_make_valid_within_1pct_of_reference": 430,
+    "repair_make_valid_over_5pct_of_reference": 0,
+    "repair_buffer0_within_1pct_of_reference": 386,
+    "repair_buffer0_over_5pct_of_reference": 25,
+    "repair_candidates": 433,
+    "campaign_rows_expected": 2336,
+    "anomaly_CHN_data_without_production": 0,
+    "anomaly_CS_data_without_production": 0,
+    "fcfa_non_integer_values": 0,
+    "journal_rows_sensitive_masked": 45,
+    "alert_ids_unresolved": 0,
+    "alerts_with_verification_status": 0,
+    "cni_duplicate_groups": 5,
+    "cni_duplicate_fiches": 10,
+    "cni_duplicate_groups_on_raw_strings": 5,
+    "overlap_pairs": {
+      "gt20": 28,
+      "gt50": 16,
+      "gt90": 7
+    },
+    "phone_groups_shared": 26,
+    "phone_fiches_shared": 53
+  }
+}

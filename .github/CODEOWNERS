@@ -1,0 +1,7 @@
+# Relecture obligatoire pour les fichiers sensibles (voir docs/DEVELOPPEMENT.md, chapitre 3).
+/src/lib/auth/            @MohaPeth
+/src/lib/permissions.ts   @MohaPeth
+/src/lib/scope.ts         @MohaPeth
+/.github/                 @MohaPeth
+/package.json              @MohaPeth
+/pnpm-lock.yaml           @MohaPeth
