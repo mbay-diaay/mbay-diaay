@@ -51,6 +51,7 @@ import {
   type DueState,
   type MemberDues,
 } from "@/lib/contributions";
+import { activeMembers } from "@/lib/membership";
 import { nf } from "@/lib/format";
 import { useFormat } from "@/hooks/use-format";
 import { useTouched } from "@/hooks/use-touched";
@@ -158,8 +159,8 @@ function Contributions() {
 
   const rows = useMemo<Row[]>(
     () =>
-      scopedMembers(members, session)
-        .filter((m) => m.status === "membre" && (!g.scoop || m.scoopId === g.scoop))
+      activeMembers(scopedMembers(members, session))
+        .filter((m) => !g.scoop || m.scoopId === g.scoop)
         .map((member) => {
           const rule = scopeRules.find((r) => r.scoopId === member.scoopId);
           return {

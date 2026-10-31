@@ -198,7 +198,7 @@ export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
     "dashboard.read",
     "org.read",
     "producer.read",
-    "cni.read",
+    // Pas de cni.read : la révélation CNI reste admin CRADESC + gestionnaire SCOOP (audit A-02).
     "map.read",
     "report.generate",
     "report.read",

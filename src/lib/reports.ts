@@ -10,6 +10,7 @@ import type {
   Member,
 } from "./mock/cooperative";
 import { memberDues } from "./contributions";
+import { activeMembers, membershipCounts } from "./membership";
 import type { Credit, InputItem, Repayment, Sale, StockLot, StockMovement } from "./mock/commerce";
 import type { Expense } from "./mock/exploitation";
 import { accountRows, byCrop, chargesByCategory } from "./exploitation";
@@ -232,9 +233,12 @@ export function buildReport(
     const rows = data.scoops
       .map((sc) => {
         const ps = producers.filter((p) => p.scoopId === sc.id);
+        const mc = membershipCounts((data.members ?? []).filter((m) => m.scoopId === sc.id));
         return [
           sc.name,
           ps.length,
+          mc.active,
+          mc.candidates,
           ps.filter((p) => p.sex === "F").length,
           ps.filter((p) => p.sex === "H").length,
           ps.filter((p) => ageAtMost(p.age, data.youthMaxAge)).length,
@@ -242,19 +246,21 @@ export function buildReport(
           ps.filter((p) => p.quality !== "validé").length,
         ];
       })
-      .filter((r) => (r[1] as number) > 0);
+      .filter((r) => (r[1] as number) > 0 || (r[2] as number) > 0);
     const total = [
       "Total",
-      ...[1, 2, 3, 4, 5, 6].map((i) => rows.reduce((n, r) => n + (r[i] as number), 0)),
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => rows.reduce((n, r) => n + (r[i] as number), 0)),
     ];
     return {
       name: def.name,
       scopeLabel: label,
       header: [
         "SCOOP",
-        "Producteurs",
-        "Femmes",
-        "Hommes",
+        "Fiches recensées",
+        "Adhérents actifs",
+        "Candidats",
+        "Femmes (producteurs)",
+        "Hommes (producteurs)",
         `Jeunes (${data.youthMaxAge} ans ou moins)`,
         "Situation de handicap",
         "Fiches à vérifier",
@@ -321,8 +327,8 @@ export function buildReport(
   if (id === "cotisations") {
     const now = data.nowIso ?? new Date().toISOString();
     const payments = data.payments ?? [];
-    const rows = inScope(data.members ?? [], session)
-      .filter((m) => m.status === "membre" && (!params.scoopId || m.scoopId === params.scoopId))
+    const rows = activeMembers(inScope(data.members ?? [], session))
+      .filter((m) => !params.scoopId || m.scoopId === params.scoopId)
       .map((m) => {
         const rule = (data.contributionRules ?? []).find((r) => r.scoopId === m.scoopId);
         const d = memberDues(m, rule, payments, now);

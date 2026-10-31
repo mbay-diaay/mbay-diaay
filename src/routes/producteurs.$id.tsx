@@ -134,6 +134,8 @@ function Sheet() {
   const linkedUser = useStore((s) => s.users.find((u) => u.id === link?.userId));
   const producers = useStore((s) => s.producers);
   const [showCni, setShowCni] = useState(false);
+  const [cniReasonOpen, setCniReasonOpen] = useState(false);
+  const [cniReason, setCniReason] = useState("");
   const [showPhone, setShowPhone] = useState(false);
   const [edit, setEdit] = useState(false);
   const documentsAll = useStore((s) => s.documents);
@@ -410,9 +412,8 @@ function Sheet() {
                 <button
                   className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-primary"
                   onClick={() => {
-                    setShowCni(true);
-                    actions.revealCni(p);
-                    toast(t("producteurs.fiche.revealed"));
+                    setCniReason("");
+                    setCniReasonOpen(true);
                   }}
                 >
                   <Eye className="size-3" />
@@ -717,6 +718,37 @@ function Sheet() {
           </Tabs>
         </section>
       </div>
+      <FormDialog
+        open={cniReasonOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setCniReasonOpen(false);
+            setCniReason("");
+          }
+        }}
+        title={t("producteurs.fiche.cni.dialog.title")}
+        description={t("producteurs.fiche.cni.dialog.description")}
+        submitLabel={t("producteurs.fiche.cni.dialog.submit")}
+        submitDisabled={cniReason.trim().length < 3}
+        onSubmit={() => {
+          actions.revealCni(p, cniReason.trim());
+          setShowCni(true);
+          setCniReasonOpen(false);
+          setCniReason("");
+          toast(t("producteurs.fiche.revealed"));
+        }}
+      >
+        <FormField label={t("producteurs.fiche.cni.dialog.reason")} required>
+          {(c) => (
+            <Textarea
+              {...c}
+              value={cniReason}
+              onChange={(e) => setCniReason(e.target.value)}
+              placeholder={t("producteurs.fiche.cni.dialog.reasonPlaceholder")}
+            />
+          )}
+        </FormField>
+      </FormDialog>
       {edit && <CorrectionDialog id={p.id} onClose={() => setEdit(false)} />}
     </>
   );

@@ -50,7 +50,7 @@ const WHO: Record<string, { perms: Permission[]; roles: RoleId[] }> = {
     ],
   },
   "producteurs : modifier": { perms: ["producer.edit"], roles: ["admin", "gestionnaire"] },
-  "CNI en clair (tracé)": { perms: ["cni.read"], roles: ["admin", "gestionnaire", "representant"] },
+  "CNI en clair (tracé)": { perms: ["cni.read"], roles: ["admin", "gestionnaire"] },
   "organisations : lire": {
     perms: ["org.read"],
     roles: ["admin", "faitiere", "gestionnaire", "representant", "secretaire"],
@@ -368,14 +368,19 @@ describe("dossiers, pièces et plans par rôle", () => {
     expect(canReadDocument(sec, documents[0]!)).toBe(false);
   });
 
-  it("le gestionnaire et le représentant lisent les pièces sensibles de leur SCOOP seulement", () => {
-    for (const role of ["gestionnaire", "representant"] as const) {
-      const s = sessionOf(role, "x@x.sn", ["s1"]);
-      expect(ids(scopedDocuments(documents, dossiers, s))).toEqual(["d1", "d2", "d3"]);
-      expect(canDownloadDocument(s, documents[0]!)).toBe(true);
-      expect(canReadDocument(s, documents[3]!)).toBe(true);
-      expect(ids(inScope(documents, s))).toEqual(["d1", "d2", "d3"]);
-    }
+  it("le gestionnaire lit les pièces sensibles (CNI) de sa SCOOP ; le représentant non", () => {
+    const gest = sessionOf("gestionnaire", "x@x.sn", ["s1"]);
+    expect(ids(scopedDocuments(documents, dossiers, gest))).toEqual(["d1", "d2", "d3"]);
+    expect(canDownloadDocument(gest, documents[0]!)).toBe(true);
+    expect(canReadDocument(gest, documents[3]!)).toBe(true);
+    expect(ids(inScope(documents, gest))).toEqual(["d1", "d2", "d3"]);
+
+    const rep = sessionOf("representant", "x@x.sn", ["s1"]);
+    // A-02 : pas de cni.read → CNI (d1) hors liste ; téléchargement sensible refusé.
+    expect(ids(scopedDocuments(documents, dossiers, rep))).toEqual(["d2", "d3"]);
+    expect(canDownloadDocument(rep, documents[0]!)).toBe(false);
+    expect(canReadDocument(rep, documents[0]!)).toBe(false);
+    expect(canReadDocument(rep, documents[3]!)).toBe(true);
   });
 
   it("le technicien lit les pièces non sensibles de ses dossiers, jamais la CNI, et ne télécharge pas", () => {

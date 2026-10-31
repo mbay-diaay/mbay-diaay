@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { FormDialog } from "@/components/app/FormDialog";
@@ -11,6 +11,7 @@ import { FilterPill } from "@/components/app/FilterPill";
 import { FilterSelect } from "@/components/app/FilterSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -19,17 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { actions, inScope, useStore } from "@/lib/store";
 import { nf } from "@/lib/format";
-import type { AlertStatus } from "@/lib/mock/data";
+import type { AlertStatus, DataAlert } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 import { useI18n, type MessageKey } from "@/lib/i18n";
 
@@ -62,7 +55,9 @@ function AlertsRoute() {
 }
 
 const ALL = "__all";
+const PAGE = 500;
 const SEV = { faible: "neutral", moyenne: "ochre", élevée: "danger" } as const;
+const SEV_RANK = { élevée: 0, moyenne: 1, faible: 2 } as const;
 const SEV_LABEL: Record<keyof typeof SEV, MessageKey> = {
   faible: "qualite.alertes.severity.faible",
   moyenne: "qualite.alertes.severity.moyenne",
@@ -79,6 +74,12 @@ const STATUS_VALUE_LABEL: Record<AlertStatus, MessageKey> = {
   rejeté: "qualite.alertes.statusValue.rejeté",
 };
 
+type SortMode = "severity" | "oldest" | "newest";
+
+function alertAge(a: DataAlert) {
+  return a.id;
+}
+
 function Alerts() {
   const { t } = useI18n();
   const g = Route.useSearch();
@@ -86,6 +87,9 @@ function Alerts() {
   const producers = useStore((s) => s.producers);
   const plots = useStore((s) => s.plots);
   const [f, setF] = useState({ type: ALL, severity: ALL, status: "ouvert", enumerator: ALL });
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<SortMode>("severity");
+  const [limit, setLimit] = useState(PAGE);
   const [sel, setSel] = useState<string[]>([]);
   const [more, setMore] = useState(false);
   const session = useStore((s) => s.session);
@@ -111,26 +115,43 @@ function Alerts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [alerts, scoped, prodById, plotById],
   );
-  const byStatus = (st: string) => mine.filter((a) => st === ALL || a.status === st).length;
-  const rows = useMemo(
-    () =>
-      mine.filter((a) => {
-        const producer = ownerOf(a);
-        const plot = a.entity === "parcelle" ? plotById.get(a.entityId) : undefined;
-        return (
-          (!g.scoop || producer?.scoopId === g.scoop) &&
-          (!g.campagne ||
-            plot?.campaign === g.campagne ||
-            (!plot && producer?.crops.some((c) => c.campaign === g.campagne))) &&
-          (f.type === ALL || a.type === f.type) &&
-          (f.severity === ALL || a.severity === f.severity) &&
-          (f.status === ALL || a.status === f.status) &&
-          (f.enumerator === ALL || a.enumerator === f.enumerator)
-        );
-      }),
+
+  const matchesBase = (a: (typeof alerts)[number]) => {
+    const producer = ownerOf(a);
+    const plot = a.entity === "parcelle" ? plotById.get(a.entityId) : undefined;
+    const needle = q.trim().toLowerCase();
+    return (
+      (!g.scoop || producer?.scoopId === g.scoop) &&
+      (!g.campagne ||
+        plot?.campaign === g.campagne ||
+        (!plot && producer?.crops.some((c) => c.campaign === g.campagne))) &&
+      (f.type === ALL || a.type === f.type) &&
+      (f.severity === ALL || a.severity === f.severity) &&
+      (f.enumerator === ALL || a.enumerator === f.enumerator) &&
+      (!needle ||
+        `${a.type} ${a.detail} ${a.enumerator}`.toLowerCase().includes(needle))
+    );
+  };
+
+  /** Compteurs de statut = même base filtrée (hors statut) → un seul total cohérent. */
+  const byStatus = (st: string) =>
+    mine.filter((a) => matchesBase(a) && (st === ALL || a.status === st)).length;
+
+  const rows = useMemo(() => {
+    const list = mine.filter((a) => matchesBase(a) && (f.status === ALL || a.status === f.status));
+    const ranked = [...list].sort((a, b) => {
+      if (sort === "severity") {
+        const d = SEV_RANK[a.severity] - SEV_RANK[b.severity];
+        return d || alertAge(a).localeCompare(alertAge(b));
+      }
+      if (sort === "oldest") return alertAge(a).localeCompare(alertAge(b));
+      return alertAge(b).localeCompare(alertAge(a));
+    });
+    return ranked;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mine, f, g.scoop, g.campagne, prodById, plotById],
-  );
+  }, [mine, f, g.scoop, g.campagne, q, sort, prodById, plotById]);
+
+  const visible = rows.slice(0, limit);
   const picked = alerts.filter((a) => sel.includes(a.id));
 
   const filters: [keyof typeof f, string, (readonly [string, string])[]][] = [
@@ -147,7 +168,6 @@ function Alerts() {
     ],
   ];
   const moreCount = filters.filter(([k]) => f[k] !== ALL).length;
-  /** Lien vers l'objet concerné : fiche producteur ; parcelle en libellé seul (carte hors Module 1). */
   const entityLink = (a: (typeof alerts)[number]) => {
     if (a.entity === "parcelle") {
       const pl = plotById.get(a.entityId);
@@ -172,6 +192,11 @@ function Alerts() {
     );
   };
 
+  const resetPage = () => {
+    setLimit(PAGE);
+    setSel([]);
+  };
+
   return (
     <>
       <QualityHeader description={t("qualite.alertes.description")} />
@@ -193,7 +218,7 @@ function Alerts() {
               tone={v === "ouvert" ? "warning" : v === "résolu" ? "success" : "neutral"}
               onClick={() => {
                 setF({ ...f, status: v });
-                setSel([]);
+                resetPage();
               }}
             >
               {t(l)}
@@ -211,6 +236,37 @@ function Alerts() {
             {moreCount > 0 && ` (${moreCount})`}
           </Button>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1 basis-48">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label={t("qualite.alertes.searchAria")}
+              placeholder={t("qualite.alertes.searchPlaceholder")}
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                resetPage();
+              }}
+              className="pl-8"
+            />
+          </div>
+          <Select
+            value={sort}
+            onValueChange={(v) => {
+              setSort(v as SortMode);
+              resetPage();
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-56" aria-label={t("qualite.alertes.sortAria")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="severity">{t("qualite.alertes.sort.severity")}</SelectItem>
+              <SelectItem value="oldest">{t("qualite.alertes.sort.oldest")}</SelectItem>
+              <SelectItem value="newest">{t("qualite.alertes.sort.newest")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         {more && (
           <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3 sm:gap-3 md:grid-cols-3">
             {filters.map(([k, label, opts]) => (
@@ -220,7 +276,7 @@ function Alerts() {
                 value={f[k]}
                 onChange={(v) => {
                   setF({ ...f, [k]: v });
-                  setSel([]);
+                  resetPage();
                 }}
                 options={opts}
               />
@@ -229,7 +285,6 @@ function Alerts() {
         )}
       </div>
       {sel.length > 0 && (
-        // Téléphone : barre d'actions fixée en bas, à portée de pouce.
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-primary bg-primary-soft p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg md:static md:mb-3 md:flex md:flex-wrap md:items-center md:gap-2 md:rounded-[var(--card-radius)] md:border md:shadow-none">
           <div className="mb-2 flex items-center justify-between text-sm font-medium md:mb-0 md:mr-2">
             <span>{t("qualite.alertes.selected", { n: sel.length })}</span>
@@ -255,19 +310,29 @@ function Alerts() {
         </div>
       )}
       <div className={cn("surface overflow-hidden", sel.length > 0 && "mb-32 md:mb-0")}>
-        {/* Téléphone : cartes cochables, toute la ligne sélectionne l'alerte. */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted px-4 py-2 text-xs text-muted-foreground">
+          <span>
+            {rows.length
+              ? t("qualite.alertes.range", {
+                  from: nf.format(1),
+                  to: nf.format(Math.min(limit, rows.length)),
+                  total: nf.format(rows.length),
+                })
+              : t("qualite.alertes.empty")}
+          </span>
+        </div>
         <div className="md:hidden">
-          {rows.length > 0 && (
-            <label className="flex items-center gap-3 border-b bg-muted px-4 py-3 text-xs font-semibold text-muted-foreground">
+          {visible.length > 0 && (
+            <label className="flex items-center gap-3 border-b bg-muted/50 px-4 py-3 text-xs font-semibold text-muted-foreground">
               <Checkbox
-                checked={sel.length === rows.length}
-                onCheckedChange={(c) => setSel(c ? rows.map((r) => r.id) : [])}
+                checked={sel.length === visible.length && visible.length > 0}
+                onCheckedChange={(c) => setSel(c ? visible.map((r) => r.id) : [])}
               />
-              {t("qualite.alertes.selectAllCount", { n: rows.length })}
+              {t("qualite.alertes.selectAllCount", { n: visible.length })}
             </label>
           )}
           <ul className="divide-y">
-            {rows.map((a) => (
+            {visible.map((a) => (
               <li key={a.id}>
                 <label
                   className={cn("flex gap-3 px-4 py-3", sel.includes(a.id) && "bg-primary-soft/60")}
@@ -302,8 +367,8 @@ function Alerts() {
               <tr>
                 <th className="w-10 px-4 py-3">
                   <Checkbox
-                    checked={!!rows.length && sel.length === rows.length}
-                    onCheckedChange={(c) => setSel(c ? rows.map((r) => r.id) : [])}
+                    checked={!!visible.length && sel.length === visible.length}
+                    onCheckedChange={(c) => setSel(c ? visible.map((r) => r.id) : [])}
                     aria-label={t("qualite.alertes.selectAll")}
                   />
                 </th>
@@ -316,7 +381,7 @@ function Alerts() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rows.map((a) => (
+              {visible.map((a) => (
                 <tr key={a.id} className="hover:bg-muted/60">
                   <td className="px-4 py-2.5">
                     <Checkbox
@@ -348,6 +413,13 @@ function Alerts() {
           </table>
         </div>
         {!rows.length && <Empty>{t("qualite.alertes.empty")}</Empty>}
+        {rows.length > limit && (
+          <div className="border-t p-3 text-center">
+            <Button variant="outline" onClick={() => setLimit((n) => n + PAGE)}>
+              {t("qualite.alertes.loadMore")}
+            </Button>
+          </div>
+        )}
       </div>
 
       <FormDialog

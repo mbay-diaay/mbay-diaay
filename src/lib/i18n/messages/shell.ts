@@ -43,7 +43,7 @@ export const shell = {
   "perm.producer.read": "Consulter les producteurs",
   "perm.producer.edit": "Modifier les producteurs",
   "perm.producer.export_nominatif": "Export nominatif",
-  "perm.cni.read": "Lire la CNI en clair",
+  "perm.cni.read": "Lire la CNI en clair (admin / gestionnaire, motif tracé)",
   "perm.org.read": "Consulter les organisations et les GIE",
   "perm.org.manage": "Gérer les organisations",
   "perm.quality.review": "Revoir les doublons",

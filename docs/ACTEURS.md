@@ -42,7 +42,7 @@ Un **rôle** = accès à l’application. Distinct du **statut de membre**. Un r
 | **Administrateur CRADESC** | Toutes | Tout (créer SCOOP + gestionnaire, comptes, imports, décisions, journal) | — (actions sensibles tracées) |
 | **Faîtière** | Toutes, lecture seule | Consulter producteurs, membres, orgs, plans, carte ; rapports ; voir cotisations / réunions | Modifier ; documents de la SCOOP ; CNI |
 | **Gestionnaire de SCOOP** | Sa SCOOP | Producteurs, orgs/GIE, cotisations, réunions, documents ; instruire **et** décider dossiers ; qualité ; plans ; rapports ; CNI (tracé) ; journal SCOOP | Créer une SCOOP ; attribuer les rôles |
-| **Représentant de SCOOP** | Sa SCOOP | Membres, attribuer rôles/accès ; cotisations, réunions, documents ; **décider** dossiers ; CNI (tracé) ; rapports ; journal SCOOP | Modifier une fiche producteur ; nommer un autre représentant ou un gestionnaire |
+| **Représentant de SCOOP** | Sa SCOOP | Membres, attribuer rôles/accès ; cotisations, réunions, documents ; **décider** dossiers ; rapports ; journal SCOOP | Modifier une fiche producteur ; lire la CNI en clair ; nommer un autre représentant ou un gestionnaire |
 | **Secrétaire de SCOOP** | Sa SCOOP | Réunions, PV, documents ; **instruire** un dossier (pas décider) ; lire membres, cotisations, plans | Décider ; CNI / pièces sensibles ; enregistrer une cotisation ; générer un rapport |
 | **Technicien** | Ses SCOOP | Créer / soumettre dossiers producteurs ; valider parcelles ; alertes ; plans d’exploitation | Autres dossiers ; CNI ; membres, cotisations, réunions |
 | **Responsable des rapports** | Selon périmètre | Lire producteurs et plans ; générer / télécharger rapports | Modifier ; CNI ; cotisations ; réunions |

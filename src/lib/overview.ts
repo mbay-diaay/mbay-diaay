@@ -4,6 +4,7 @@
  */
 import type { CorrectionRequest, DataAlert, Org, Plot, Producer } from "./mock/data";
 import type { Member, ProducerDossier } from "./mock/cooperative";
+import { membershipCounts } from "./membership";
 import type { AppUser } from "./store";
 
 export interface ScoopOverview {
@@ -44,12 +45,14 @@ export function overviewByScoop(d: OverviewData, scoopIds: readonly string[]): S
   const alertScoop = (a: DataAlert) =>
     a.entity === "producteur" ? scoopOfProducer.get(a.entityId) : scoopOfPlot.get(a.entityId);
 
-  return scoopIds.map((scoopId) => ({
+  return scoopIds.map((scoopId) => {
+    const mc = membershipCounts(d.members.filter((m) => m.scoopId === scoopId));
+    return {
     scoopId,
     gie: count(d.orgs, (o) => o.scoopId === scoopId && o.type === "GIE"),
     orgs: count(d.orgs, (o) => o.scoopId === scoopId),
-    members: count(d.members, (m) => m.scoopId === scoopId && m.status === "membre"),
-    candidates: count(d.members, (m) => m.scoopId === scoopId && m.status === "candidat"),
+    members: mc.active,
+    candidates: mc.candidates,
     producers: count(live, (p) => p.scoopId === scoopId),
     technicians: count(
       d.users,
@@ -64,7 +67,8 @@ export function overviewByScoop(d: OverviewData, scoopIds: readonly string[]): S
       (c) => c.status === "en attente" && scoopOfProducer.get(c.producerId) === scoopId,
     ),
     alerts: count(d.alerts, (a) => a.status === "ouvert" && alertScoop(a) === scoopId),
-  }));
+  };
+  });
 }
 
 /** Somme des vues par SCOOP, pour le total de plusieurs coopératives. */

@@ -30,6 +30,7 @@ import { MEMBERSHIP_STATUSES, type Member, type MembershipStatus } from "@/lib/m
 import type { RoleId } from "@/lib/permissions";
 import { accountBlocker, assignableRoles } from "@/lib/team";
 import { memberDues, type DueState } from "@/lib/contributions";
+import { membershipCounts } from "@/lib/membership";
 import { fmtDate, maskPhone, nf } from "@/lib/format";
 import { useI18n, type MessageKey } from "@/lib/i18n";
 
@@ -100,6 +101,7 @@ function Team() {
     () => scopedMembers(members, session).filter((m) => !g.scoop || m.scoopId === g.scoop),
     [members, session, g.scoop],
   );
+  const counts = membershipCounts(mine);
   const needle = q.trim().toLowerCase();
   const shown = mine.filter(
     (m) =>
@@ -126,6 +128,10 @@ function Team() {
           ) : undefined
         }
       />
+
+      <p className="mb-3 text-sm text-muted-foreground">
+        {t("equipe.summary", { active: nf.format(counts.active), roster: nf.format(counts.roster) })}
+      </p>
 
       <div className="surface mb-3 p-3">
         <div className="flex flex-wrap items-center gap-2">

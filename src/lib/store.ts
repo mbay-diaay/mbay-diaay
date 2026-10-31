@@ -737,9 +737,11 @@ export const actions = {
     audit("Référentiel", "Définition « jeune »", `${state.youthMaxAge} → ${n} ans`);
     set({ youthMaxAge: n });
   },
-  revealCni(p: Producer) {
+  revealCni(p: Producer, reason = "") {
     requirePermission("cni.read");
-    audit("Révélation CNI", `Producteur ${p.code}`, "Affichage complet de la CNI");
+    const motif = reason.trim();
+    if (motif.length < 3) throw new Error("Motif de révélation CNI trop court (3 caractères min.).");
+    audit("Révélation CNI", `Producteur ${p.code}`, motif);
   },
   updateProducer(id: string, patch: Partial<Producer>, labels: Record<string, [string, string]>) {
     requirePermission("producer.edit");

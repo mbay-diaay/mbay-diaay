@@ -14,6 +14,8 @@ import {
 import { AppShell } from "@/components/app/AppShell";
 import { PageHeader } from "@/components/app/ui-bits";
 import { inScope, useStore, useScoops } from "@/lib/store";
+import { membershipCounts, producerStatusCounts } from "@/lib/membership";
+import { scopedMembers } from "@/lib/scope";
 import { AGE_BANDS, AGE_UNKNOWN, ageAtMost, ageBand, fmtDateTime, nf, nf1 } from "@/lib/format";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useI18n } from "@/lib/i18n";
@@ -50,6 +52,7 @@ function Dashboard() {
   const { t } = useI18n();
   const session = useStore((s) => s.session);
   const all = useStore((s) => s.producers);
+  const allMembers = useStore((s) => s.members);
   const plots = useStore((s) => s.plots);
   const youth = useStore((s) => s.youthMaxAge);
   const audit = useStore((s) => s.audit);
@@ -58,6 +61,9 @@ function Dashboard() {
     all.filter((p) => !p.mergedInto),
     session,
   );
+  const members = scopedMembers(allMembers, session);
+  const counts = membershipCounts(members);
+  const prodCounts = producerStatusCounts(producers);
   const ids = new Set(producers.map((p) => p.id));
   const myPlots = plots.filter((p) => ids.has(p.producerId));
   const toVerify = (arr: typeof producers) => arr.filter((p) => p.quality !== "validé").length;
@@ -68,11 +74,23 @@ function Dashboard() {
   const area = myPlots.reduce((s, p) => s + p.measured, 0);
   const pct = (n: number) => (producers.length ? (n / producers.length) * 100 : 0);
 
+  const scopeLabel =
+    session?.scope.kind === "consolidé"
+      ? t("dashboard.scope.consolidated")
+      : t("dashboard.scope.scoop");
+
   const kpis = [
     {
       label: t("dashboard.kpi.producers"),
-      value: nf.format(producers.length),
+      value: nf.format(prodCounts.producers),
       sub: toVerify(producers),
+      hint: t("dashboard.kpi.producersHint"),
+    },
+    {
+      label: t("dashboard.kpi.activeMembers"),
+      value: nf.format(counts.active),
+      sub: 0,
+      hint: t("dashboard.kpi.activeMembersHint", { scope: scopeLabel }),
     },
     {
       label: t("dashboard.kpi.women"),
@@ -111,15 +129,16 @@ function Dashboard() {
     name: b,
     n: producers.filter((p) => ageBand(p.age) === b).length,
   }));
+  /** Adhérents coopérative vs fiches agricoles — jamais Producer.status « membre ». */
   const status = [
     {
-      name: t("dashboard.status.members"),
-      n: producers.filter((p) => p.status === "membre").length,
+      name: t("dashboard.status.activeMembers"),
+      n: counts.active,
       c: "var(--chart-1)",
     },
     {
       name: t("dashboard.status.listed"),
-      n: producers.filter((p) => p.status === "recensé").length,
+      n: prodCounts.producers,
       c: "var(--chart-2)",
     },
   ];
@@ -143,10 +162,15 @@ function Dashboard() {
             <div className="mt-1 whitespace-nowrap text-xl font-semibold tabular sm:text-2xl">
               {k.value}
             </div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-warning-fg">
-              <span className="size-1.5 rounded-full bg-warning" />
-              {t("dashboard.kpi.toVerify", { count: nf.format(k.sub) })}
-            </div>
+            {"hint" in k && k.hint ? (
+              <div className="mt-2 text-xs text-muted-foreground">{k.hint}</div>
+            ) : null}
+            {k.sub > 0 ? (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-warning-fg">
+                <span className="size-1.5 rounded-full bg-warning" />
+                {t("dashboard.kpi.toVerify", { count: nf.format(k.sub) })}
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
@@ -230,6 +254,7 @@ function Dashboard() {
         </section>
         <section className="surface p-5">
           <h2 className="font-semibold">{t("dashboard.status.title")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t("dashboard.status.hint")}</p>
           <div className="h-48">
             <ResponsiveContainer>
               <PieChart>

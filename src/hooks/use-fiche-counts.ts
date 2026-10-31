@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { scoopTotals } from "@/lib/contributions";
+import { activeMembers, membershipCounts } from "@/lib/membership";
 import { techniciansOf } from "@/lib/scoop-account";
 import { useStore } from "@/lib/store";
 
@@ -13,13 +14,16 @@ export function useFicheCounts(scoopId: string) {
   const payments = useStore((s) => s.payments);
   return useMemo(() => {
     const mine = members.filter((m) => m.scoopId === scoopId);
+    const counts = membershipCounts(mine);
     return {
       gie: orgs.filter((o) => o.scoopId === scoopId).length,
-      membres: mine.length,
+      /** Adhérents actifs uniquement (aligné sur overview / dashboard). */
+      membres: counts.active,
+      roster: counts.roster,
       techniciens: techniciansOf(users, scoopId).length,
       reunions: meetings.filter((m) => m.scoopId === scoopId).length,
       cotisations: scoopTotals(
-        mine,
+        activeMembers(mine),
         rules.find((r) => r.scoopId === scoopId),
         payments,
         new Date().toISOString(),

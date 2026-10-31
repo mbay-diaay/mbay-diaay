@@ -15,6 +15,7 @@ import { EmptyState, KpiTile, Pill } from "@/components/app/ui-bits";
 import { FilterPill } from "@/components/app/FilterPill";
 import { Input } from "@/components/ui/input";
 import { memberDues, scoopTotals } from "@/lib/contributions";
+import { membershipCounts } from "@/lib/membership";
 import { sortMeetings, upcomingMeetings } from "@/lib/meetings";
 import { overviewByScoop } from "@/lib/overview";
 import { scopedLibrary } from "@/lib/scope";
@@ -571,6 +572,7 @@ export function MembresTab({ scoop }: { scoop: Scoop }) {
       .sort((a, b) => a.m.lastName.localeCompare(b.m.lastName, "fr"));
   }, [members, users, rules, payments, scoop.id]);
 
+  const counts = membershipCounts(rows.map((r) => r.m));
   const needle = q.trim().toLowerCase();
   const shown = rows.filter(
     (r) =>
@@ -580,6 +582,12 @@ export function MembresTab({ scoop }: { scoop: Scoop }) {
 
   return (
     <>
+      <p className="mb-3 text-xs text-muted-foreground">
+        {t("cooperatives.fiche.membres.activeHint", {
+          active: counts.active,
+          roster: counts.roster,
+        })}
+      </p>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <FilterPill
           active={status === "tous"}
