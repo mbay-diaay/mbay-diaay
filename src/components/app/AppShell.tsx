@@ -160,31 +160,33 @@ export function AppShell({
                 <GlobalFilters />
               </div>
             )}
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              <LanguageSwitcher className="hidden lg:inline-flex" />
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <LanguageSwitcher className="hidden xl:inline-flex" />
               <button
+                type="button"
                 onClick={() => setPaletteOpen(true)}
-                className="grid size-10 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-touch lg:flex lg:h-9 lg:w-auto lg:items-center lg:gap-2 lg:border lg:bg-background lg:pl-3 lg:pr-1.5 lg:text-sm pointer-coarse:lg:h-touch"
+                aria-label={t("shell.searchAria")}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:h-touch pointer-coarse:w-touch xl:h-9 xl:w-auto xl:gap-2 xl:border xl:bg-background xl:pl-3 xl:pr-1.5 xl:text-sm"
               >
-                <Search className="size-4 shrink-0" />
-                <span className="sr-only lg:not-sr-only lg:truncate">{t("shell.searchAria")}</span>
-                <kbd className="hidden shrink-0 rounded border bg-muted px-1.5 py-0.5 text-[11px] lg:inline">
+                <Search className="size-4 shrink-0" aria-hidden />
+                <span className="hidden truncate xl:inline">{t("shell.searchAria")}</span>
+                <kbd className="hidden shrink-0 rounded border bg-muted px-1.5 py-0.5 text-[11px] xl:inline">
                   {modKey} K
                 </kbd>
               </button>
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-2 rounded-md p-1 text-left hover:bg-muted lg:px-2">
+                <DropdownMenuTrigger className="flex max-w-[11rem] shrink-0 items-center gap-2 rounded-md p-1 text-left hover:bg-muted sm:max-w-[13rem] xl:max-w-[16rem] xl:px-2">
                   <span className="sr-only">{t("shell.accountAria")}</span>
-                  <span className="grid size-8 place-items-center rounded-full bg-primary-soft text-xs font-semibold text-primary pointer-coarse:size-10 lg:hidden">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-xs font-semibold text-primary pointer-coarse:size-10 xl:hidden">
                     {initials}
                   </span>
-                  <span className="hidden max-w-[10rem] leading-tight lg:block xl:max-w-[14rem]">
+                  <span className="hidden min-w-0 leading-tight xl:block">
                     <span className="block truncate text-sm font-semibold">{session.name}</span>
                     <span className="block truncate text-xs text-muted-foreground">
                       {tEnum("role", session.role)}
                     </span>
                   </span>
-                  <ChevronDown className="hidden size-4 shrink-0 text-muted-foreground lg:block" />
+                  <ChevronDown className="hidden size-4 shrink-0 text-muted-foreground xl:block" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72">
                   <DropdownMenuLabel className="font-normal">
@@ -212,10 +214,10 @@ export function AppShell({
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <div className="px-2 py-1.5 lg:hidden">
+                  <div className="px-2 py-1.5 xl:hidden">
                     <LanguageSwitcher />
                   </div>
-                  <DropdownMenuSeparator className="lg:hidden" />
+                  <DropdownMenuSeparator className="xl:hidden" />
                   <DropdownMenuItem onSelect={() => actions.logout()}>
                     <LogOut /> {t("shell.logout")}
                   </DropdownMenuItem>
