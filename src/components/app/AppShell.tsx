@@ -141,9 +141,9 @@ export function AppShell({
           </div>
         )}
         <header className="sticky top-0 z-40 border-b bg-card/90 backdrop-blur">
-          <div className="flex h-14 items-center gap-2 px-2 sm:gap-3 sm:px-4 md:h-16 md:px-8">
+          <div className="flex h-14 items-center gap-2 overflow-hidden px-2 sm:gap-3 sm:px-4 md:h-16 md:px-8">
             <button
-              className="grid size-10 place-items-center rounded-md hover:bg-muted pointer-coarse:size-touch lg:hidden"
+              className="grid size-10 shrink-0 place-items-center rounded-md hover:bg-muted pointer-coarse:size-touch lg:hidden"
               onClick={() => setOpen(true)}
               aria-label={t("shell.openMenu")}
             >
@@ -151,73 +151,77 @@ export function AppShell({
             </button>
             <div className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{scopeLabel}</span>
-              <span className="hidden sm:inline"> · {t("shell.demoData")}</span>
+              {DEMO_MODE && (
+                <span className="hidden sm:inline"> · {t("shell.demoData")}</span>
+              )}
             </div>
             {filtered && (
-              <div className="hidden xl:block">
+              <div className="hidden shrink-0 xl:block">
                 <GlobalFilters />
               </div>
             )}
-            <LanguageSwitcher className="hidden sm:inline-flex" />
-            <button
-              onClick={() => setPaletteOpen(true)}
-              className="grid size-10 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-touch sm:flex sm:h-9 sm:w-auto sm:items-center sm:gap-2 sm:border sm:bg-background sm:pl-3 sm:pr-1.5 sm:text-sm pointer-coarse:sm:h-touch"
-            >
-              <Search className="size-4" />
-              <span className="sr-only sm:not-sr-only">{t("shell.searchAria")}</span>
-              <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 text-[11px] sm:inline">
-                {modKey} K
-              </kbd>
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex shrink-0 items-center gap-2 rounded-md p-1 text-left hover:bg-muted md:px-2">
-                <span className="sr-only">{t("shell.accountAria")}</span>
-                <span className="grid size-8 place-items-center rounded-full bg-primary-soft text-xs font-semibold text-primary pointer-coarse:size-10 md:hidden">
-                  {initials}
-                </span>
-                <span className="hidden leading-tight md:block">
-                  <span className="block text-sm font-semibold">{session.name}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {tEnum("role", session.role)}
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <LanguageSwitcher className="hidden lg:inline-flex" />
+              <button
+                onClick={() => setPaletteOpen(true)}
+                className="grid size-10 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-touch lg:flex lg:h-9 lg:w-auto lg:items-center lg:gap-2 lg:border lg:bg-background lg:pl-3 lg:pr-1.5 lg:text-sm pointer-coarse:lg:h-touch"
+              >
+                <Search className="size-4 shrink-0" />
+                <span className="sr-only lg:not-sr-only lg:truncate">{t("shell.searchAria")}</span>
+                <kbd className="hidden shrink-0 rounded border bg-muted px-1.5 py-0.5 text-[11px] lg:inline">
+                  {modKey} K
+                </kbd>
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 rounded-md p-1 text-left hover:bg-muted lg:px-2">
+                  <span className="sr-only">{t("shell.accountAria")}</span>
+                  <span className="grid size-8 place-items-center rounded-full bg-primary-soft text-xs font-semibold text-primary pointer-coarse:size-10 lg:hidden">
+                    {initials}
                   </span>
-                </span>
-                <ChevronDown className="hidden size-4 text-muted-foreground md:block" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="font-semibold">{session.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {tEnum("role", session.role)} · {scopeLabel}
+                  <span className="hidden max-w-[10rem] leading-tight lg:block xl:max-w-[14rem]">
+                    <span className="block truncate text-sm font-semibold">{session.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {tEnum("role", session.role)}
+                    </span>
+                  </span>
+                  <ChevronDown className="hidden size-4 shrink-0 text-muted-foreground lg:block" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="font-semibold">{session.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {tEnum("role", session.role)} · {scopeLabel}
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {DEMO_MODE && (
+                    <>
+                      <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
+                        {t("shell.demoProfile")}
+                      </DropdownMenuLabel>
+                      <DropdownMenuRadioGroup
+                        value={session.role}
+                        onValueChange={(v) => actions.switchRole(v as RoleId)}
+                      >
+                        {(Object.keys(ROLE_LABEL) as RoleId[]).map((r) => (
+                          <DropdownMenuRadioItem key={r} value={r}>
+                            {tEnum("role", r)}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <div className="px-2 py-1.5 lg:hidden">
+                    <LanguageSwitcher />
                   </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {DEMO_MODE && (
-                  <>
-                    <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
-                      {t("shell.demoProfile")}
-                    </DropdownMenuLabel>
-                    <DropdownMenuRadioGroup
-                      value={session.role}
-                      onValueChange={(v) => actions.switchRole(v as RoleId)}
-                    >
-                      {(Object.keys(ROLE_LABEL) as RoleId[]).map((r) => (
-                        <DropdownMenuRadioItem key={r} value={r}>
-                          {tEnum("role", r)}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <div className="px-2 py-1.5 sm:hidden">
-                  <LanguageSwitcher />
-                </div>
-                <DropdownMenuSeparator className="sm:hidden" />
-                <DropdownMenuItem onSelect={() => actions.logout()}>
-                  <LogOut /> {t("shell.logout")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuSeparator className="lg:hidden" />
+                  <DropdownMenuItem onSelect={() => actions.logout()}>
+                    <LogOut /> {t("shell.logout")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           {filtered && (
             <div className="border-t px-3 py-2 sm:px-4 md:px-8 xl:hidden">
