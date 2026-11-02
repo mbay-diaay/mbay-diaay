@@ -152,6 +152,8 @@ import {
   type ScoopInput,
 } from "./scoops";
 import { canEditMinutes, canMeetingTransition, isMeetingEditable } from "./meetings";
+import { isApiMode } from "./api/config";
+import { clearTokens } from "./api/tokens";
 import { DEMO_MODE } from "./auth/config";
 import { tNow, type MessageKey, type TranslateParams } from "./i18n";
 import {
@@ -680,7 +682,30 @@ export const actions = {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
       if (!raw) return;
-      // Hors mode démonstration, le navigateur ne suffit pas à ouvrir une session : elle vient du serveur.
+      // Mode API : session locale seulement si un jeton d'accès est encore là (rafraîchi via /auth/refresh).
+      if (isApiMode()) {
+        const s = JSON.parse(raw) as Partial<StoredSession>;
+        if (
+          typeof s.name === "string" &&
+          typeof s.email === "string" &&
+          typeof s.expiresAt === "number" &&
+          s.expiresAt > Date.now() &&
+          isRole(s.role)
+        ) {
+          set({
+            session: buildSession({
+              name: s.name,
+              email: s.email,
+              role: s.role,
+              expiresAt: s.expiresAt,
+            }),
+          });
+          return;
+        }
+        localStorage.removeItem(SESSION_KEY);
+        return;
+      }
+      // Hors mode démonstration sans API : pas de session navigateur seule.
       if (!DEMO_MODE) {
         localStorage.removeItem(SESSION_KEY);
         return;
@@ -721,12 +746,13 @@ export const actions = {
   },
   logout() {
     if (state.session) audit("Déconnexion", "Session", state.session.role);
+    if (isApiMode()) clearTokens();
     localStorage.removeItem(SESSION_KEY);
     set({ session: null });
   },
   switchRole(role: RoleId) {
-    // Changer de profil n'existe que dans la démonstration.
-    if (!DEMO_MODE) return;
+    // Changer de profil n'existe que dans la démonstration (pas en mode API).
+    if (!DEMO_MODE || isApiMode()) return;
     const s = state.session;
     if (!s) return;
     actions.login(s.name, s.email, role);
@@ -856,11 +882,37 @@ export const actions = {
       reason ?? "",
     );
   },
-  addUser(u: Omit<AppUser, "id" | "active">) {
+  addUser(u: Omit<AppUser, "id" | "active"> & { id?: string }) {
     requirePermission("user.manage");
-    const id = nextId("u", state.users);
-    set((s) => ({ users: [...s.users, { ...u, id, active: true }] }));
+    const id = u.id ?? nextId("u", state.users);
+    const { id: _ignore, ...rest } = u as typeof u & { id?: string };
+    set((s) => ({ users: [...s.users, { ...rest, id, active: true }] }));
     audit("Création utilisateur", "Utilisateur", u.name);
+  },
+  /** Remplace la liste locale par celle de l'API (mode `VITE_API_URL`). */
+  replaceUsersFromApi(
+    items: Array<{
+      id: string;
+      name: string;
+      email: string;
+      role: RoleId;
+      scoopId: string | null;
+      phone: string | null;
+      active: boolean;
+    }>,
+  ) {
+    requirePermission("user.manage");
+    set({
+      users: items.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone ?? "",
+        role: u.role,
+        scoopId: u.scoopId ?? undefined,
+        active: u.active,
+      })),
+    });
   },
   toggleUser(id: string) {
     requirePermission("user.manage");

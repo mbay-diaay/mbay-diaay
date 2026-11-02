@@ -26,6 +26,7 @@ import { FILTERED_PATHS } from "@/lib/nav";
 import { CommandPalette } from "./CommandPalette";
 import { ShellSkeleton } from "./skeletons";
 import { SidebarNav } from "./SidebarNav";
+import { hydrateSessionFromApi } from "@/lib/api/session";
 import { DEMO_MODE } from "@/lib/auth/config";
 import { useI18n } from "@/lib/i18n";
 
@@ -51,8 +52,14 @@ export function AppShell({
   const path = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
-    if (!getSessionLoaded()) actions.restoreSession();
-    setReady(true);
+    let cancelled = false;
+    void (async () => {
+      if (!getSessionLoaded()) await hydrateSessionFromApi();
+      if (!cancelled) setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
   useEffect(() => {
     if (ready && !session) navigate({ to: "/login", search: { motdepasse: undefined } });

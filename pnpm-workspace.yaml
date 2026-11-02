@@ -1,6 +1,3 @@
-# Configuration pnpm.
-overrides:
-  rolldown: 1.2.1
-
-# Garde chaîne d'approvisionnement : 24 h (en minutes).
-minimumReleaseAge: 1440
+# Monorepo à un seul paquet (le front). Les overrides vivent dans package.json.
+packages:
+  - "."

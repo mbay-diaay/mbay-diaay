@@ -23,6 +23,7 @@ export const GUARDED: [string, "result" | "throws", Permission | Permission[]][]
   ["updateAlerts", "throws", "alert.manage"],
   ["reviewPlot", "throws", "plot.validate"],
   ["addUser", "throws", "user.manage"],
+  ["replaceUsersFromApi", "throws", "user.manage"],
   ["toggleUser", "throws", "user.manage"],
   ["addImport", "throws", "import.manage"],
   ["submitCorrection", "throws", "producer.read"],

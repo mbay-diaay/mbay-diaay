@@ -1,26 +1,38 @@
+import { isApiMode } from "../api/config";
 import { DEMO_MODE } from "./config";
 import { actions, getState } from "../store";
+import { createApiAuthService, apiLogout } from "./api-service";
 import { createDemoAuthService } from "./demo-service";
 import { AuthError, type AuthService } from "./types";
 
 const demo = createDemoAuthService({
   latencyMs: 450,
-  enabled: DEMO_MODE,
+  enabled: DEMO_MODE && !isApiMode(),
   // La désactivation d'un utilisateur (écran Utilisateurs et rôles) bloque aussi la connexion.
   isActive: (email) => getState().users.find((u) => u.email === email)?.active ?? true,
 });
 
-/** Service utilisé par les écrans. Remplacer par le client HTTP de l'API réelle au branchement du backend. */
-export const authService: AuthService = {
-  ...demo,
-  async acceptInvitation(token, newPassword) {
-    const user = await demo.acceptInvitation(token, newPassword);
-    // Le compte du store s'active seulement quand le mot de passe est choisi ; invitation expirée côté store : refus.
-    if (!actions.activateInvitedAccount(user.email)) throw new AuthError("invitation_invalid");
-    return user;
-  },
-};
+/**
+ * Service utilisé par les écrans.
+ * - `VITE_API_URL` défini → API NestJS réelle
+ * - sinon → démonstration en mémoire (si DEMO_MODE)
+ */
+export const authService: AuthService = isApiMode()
+  ? createApiAuthService()
+  : {
+      ...demo,
+      async acceptInvitation(token, newPassword) {
+        const user = await demo.acceptInvitation(token, newPassword);
+        if (!actions.activateInvitedAccount(user.email)) throw new AuthError("invitation_invalid");
+        return user;
+      },
+    };
+
 export const demoMailbox = demo.mailbox;
+
+export function logoutAuthSideEffects() {
+  if (isApiMode()) apiLogout();
+}
 
 export interface InvitationLink {
   email: string;
@@ -35,7 +47,7 @@ export interface InvitationLink {
  * Le serveur réel envoie ce courriel lui-même ; ici le lien est affiché dans l'encadré « courriel simulé ».
  */
 export function pendingInvitationLinks(): InvitationLink[] {
-  if (!DEMO_MODE) return [];
+  if (!DEMO_MODE || isApiMode()) return [];
   return getState()
     .users.filter((u) => !u.active && u.invited && Date.parse(u.invited.expiresAt) > Date.now())
     .map((u) => {

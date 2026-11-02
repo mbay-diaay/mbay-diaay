@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Plus, Check, Minus, Smartphone, Link2, ScrollText, UserX, UserCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -25,6 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { isApiMode } from "@/lib/api/config";
+import {
+  createUser as apiCreateUser,
+  listUsers as apiListUsers,
+  toggleUserActive as apiToggleUser,
+} from "@/lib/api/users";
 import { actions, useStore, useScoops } from "@/lib/store";
 import {
   PERMISSION_LABEL,
@@ -79,6 +85,7 @@ function Users() {
   );
   const devicesOf = (id: string) => devices.filter((d) => d.userId === id);
   const [open, setOpen] = useState(false);
+  const [apiLoading, setApiLoading] = useState(isApiMode());
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -86,6 +93,24 @@ function Users() {
     role: "gestionnaire" as RoleId,
     scoopId: "s1",
   });
+
+  useEffect(() => {
+    if (!isApiMode()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { items } = await apiListUsers();
+        if (!cancelled) actions.replaceUsersFromApi(items);
+      } catch {
+        if (!cancelled) toast.error(t("utilisateurs.title"));
+      } finally {
+        if (!cancelled) setApiLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
 
   const typedEmail = normalizeEmail(form.email);
   const emailError =
@@ -117,6 +142,9 @@ function Users() {
           <TabsTrigger value="roles">{t("utilisateurs.tab.roles")}</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-4">
+          {apiLoading && (
+            <p className="mb-3 text-sm text-muted-foreground">{t("utilisateurs.tab.users")}…</p>
+          )}
           <div className="surface overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted text-left text-xs text-muted-foreground">
@@ -204,20 +232,40 @@ function Users() {
                                 icon: UserX,
                                 danger: true,
                                 onSelect: () => {
-                                  actions.toggleUser(u.id);
-                                  toast(t("utilisateurs.toast.deactivated"), {
-                                    description: u.name,
-                                  });
+                                  void (async () => {
+                                    if (isApiMode()) {
+                                      try {
+                                        await apiToggleUser(u.id);
+                                      } catch {
+                                        toast.error(t("utilisateurs.toast.deactivated"));
+                                        return;
+                                      }
+                                    }
+                                    actions.toggleUser(u.id);
+                                    toast(t("utilisateurs.toast.deactivated"), {
+                                      description: u.name,
+                                    });
+                                  })();
                                 },
                               }
                             : {
                                 label: t("utilisateurs.action.reactivate"),
                                 icon: UserCheck,
                                 onSelect: () => {
-                                  actions.toggleUser(u.id);
-                                  toast.success(t("utilisateurs.toast.reactivated"), {
-                                    description: u.name,
-                                  });
+                                  void (async () => {
+                                    if (isApiMode()) {
+                                      try {
+                                        await apiToggleUser(u.id);
+                                      } catch {
+                                        toast.error(t("utilisateurs.toast.reactivated"));
+                                        return;
+                                      }
+                                    }
+                                    actions.toggleUser(u.id);
+                                    toast.success(t("utilisateurs.toast.reactivated"), {
+                                      description: u.name,
+                                    });
+                                  })();
                                 },
                               },
                         ]}
@@ -373,16 +421,42 @@ function Users() {
                 !!phoneError
               }
               onClick={() => {
-                actions.addUser({
-                  name: form.name.trim(),
-                  email: normalizeEmail(form.email)!,
-                  phone: form.phone.trim(),
-                  role: form.role,
-                  scoopId: ROLE_IS_SCOPED[form.role] ? form.scoopId : undefined,
-                });
-                toast.success(t("utilisateurs.toast.created"));
-                setOpen(false);
-                setForm({ ...form, name: "", email: "", phone: "" });
+                void (async () => {
+                  const payload = {
+                    name: form.name.trim(),
+                    email: normalizeEmail(form.email)!,
+                    phone: form.phone.trim(),
+                    role: form.role,
+                    scoopId: ROLE_IS_SCOPED[form.role] ? form.scoopId : undefined,
+                  };
+                  if (isApiMode()) {
+                    try {
+                      const created = await apiCreateUser({
+                        name: payload.name,
+                        email: payload.email,
+                        role: payload.role,
+                        ...(payload.scoopId ? { scoopId: payload.scoopId } : {}),
+                        ...(payload.phone ? { phone: payload.phone } : {}),
+                      });
+                      actions.addUser({
+                        id: created.id,
+                        name: created.name,
+                        email: created.email,
+                        phone: created.phone ?? "",
+                        role: created.role,
+                        scoopId: created.scoopId ?? undefined,
+                      });
+                    } catch {
+                      toast.error(t("utilisateurs.toast.created"));
+                      return;
+                    }
+                  } else {
+                    actions.addUser(payload);
+                  }
+                  toast.success(t("utilisateurs.toast.created"));
+                  setOpen(false);
+                  setForm({ ...form, name: "", email: "", phone: "" });
+                })();
               }}
             >
               {t("utilisateurs.create")}
