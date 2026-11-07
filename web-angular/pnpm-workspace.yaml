@@ -1,0 +1,7 @@
+# Config pnpm 11+ (plus dans package.json → "pnpm").
+# Requis sur Vercel : sans ça, `pnpm install` sort en erreur ERR_PNPM_IGNORED_BUILDS.
+allowBuilds:
+  esbuild: true
+  '@parcel/watcher': true
+  lmdb: true
+  msgpackr-extract: true

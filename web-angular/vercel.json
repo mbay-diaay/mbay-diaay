@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "pnpm install --ignore-workspace",
+  "installCommand": "pnpm install --ignore-workspace --config.dangerouslyAllowAllBuilds=true",
   "buildCommand": "pnpm build",
   "headers": [
     {
