@@ -15,7 +15,9 @@ import { toSignal } from "@angular/core/rxjs-interop";
 import { filter, map } from "rxjs";
 import { LucideAngularModule, LogOut, Menu, Search, ChevronDown, ShieldAlert } from "lucide-angular";
 
+import { hydrateSessionFromApi } from "@/lib/api/session";
 import { DEMO_MODE } from "@/lib/auth/config";
+import { logoutAuthSideEffects } from "@/lib/auth";
 import type { Permission, RoleId } from "@/lib/permissions";
 import { ROLE_LABEL } from "@/lib/permissions";
 import { qualityCounts } from "@/lib/quality-nav";
@@ -30,6 +32,15 @@ import { GlobalFiltersComponent } from "./global-filters.component";
 import { CommandPaletteComponent } from "./command-palette.component";
 import { ToastHostComponent } from "./toast-host.component";
 import { UiModalA11yDirective } from "./ui/modal-a11y.directive";
+
+/** Une seule hydratation par chargement de page (plusieurs `<app-shell>` possibles). */
+let sessionHydration: Promise<void> | null = null;
+function ensureSessionHydrated(): Promise<void> {
+  if (!sessionHydration) {
+    sessionHydration = hydrateSessionFromApi().then(() => undefined);
+  }
+  return sessionHydration;
+}
 
 /**
  * Angular port of src/components/app/AppShell.tsx. Each ported page wraps
@@ -120,11 +131,14 @@ import { UiModalA11yDirective } from "./ui/modal-a11y.directive";
                     >{{ modKey() }} K</kbd
                   >
                 </button>
-                <div class="relative">
+                <div class="relative" data-account-menu>
                   <button
                     type="button"
                     class="flex max-w-[11rem] shrink-0 items-center gap-2 rounded-md p-1 text-left hover:bg-muted sm:max-w-[13rem] xl:max-w-[16rem] xl:px-2"
-                    (click)="accountMenuOpen.set(!accountMenuOpen())"
+                    [attr.aria-label]="t()('shell.accountAria')"
+                    [attr.aria-expanded]="accountMenuOpen()"
+                    aria-haspopup="menu"
+                    (click)="toggleAccountMenu($event)"
                   >
                     <span
                       class="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-xs font-semibold text-primary pointer-coarse:size-10"
@@ -141,6 +155,7 @@ import { UiModalA11yDirective } from "./ui/modal-a11y.directive";
                   </button>
                   @if (accountMenuOpen()) {
                     <div
+                      role="menu"
                       class="absolute right-0 z-50 mt-2 w-72 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
                     >
                       <div class="px-2 py-1.5">
@@ -167,6 +182,7 @@ import { UiModalA11yDirective } from "./ui/modal-a11y.directive";
                       }
                       <button
                         type="button"
+                        role="menuitem"
                         class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
                         (click)="logout()"
                       >
@@ -249,7 +265,7 @@ export class AppShellComponent {
     shieldAlert: ShieldAlert,
   };
 
-  protected readonly ready = signal(true); // no async session hydration yet (no API mode)
+  protected readonly ready = signal(false);
   protected readonly session = computed(() => this.store.state().session);
   protected readonly path = toSignal(
     this.router.events.pipe(
@@ -316,6 +332,15 @@ export class AppShellComponent {
       if (typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent)) {
         this.modKey.set("⌘");
       }
+      void ensureSessionHydrated().finally(() => this.ready.set(true));
+
+      const onDocClick = (event: MouseEvent) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (!target.closest("[data-account-menu]")) this.accountMenuOpen.set(false);
+      };
+      document.addEventListener("click", onDocClick);
+      this.destroyRef.onDestroy(() => document.removeEventListener("click", onDocClick));
     });
 
     // Redirect to /login if there's no session (mirrors the React useEffect).
@@ -327,16 +352,22 @@ export class AppShellComponent {
     effect(() => {
       this.path();
       this.mobileOpen.set(false);
+      this.accountMenuOpen.set(false);
     });
 
     // Session expiry watcher (every 15s), logs out silently — no toast lib ported yet.
     const interval = setInterval(() => {
       const session = this.session();
       if (session && Date.now() > session.expiresAt) {
-        this.store.actions.logout();
+        this.logout();
       }
     }, 15000);
     this.destroyRef.onDestroy(() => clearInterval(interval));
+  }
+
+  protected toggleAccountMenu(event: Event): void {
+    event.stopPropagation();
+    this.accountMenuOpen.update((open) => !open);
   }
 
   protected switchRole(role: RoleId): void {
@@ -345,8 +376,10 @@ export class AppShellComponent {
   }
 
   protected logout(): void {
+    logoutAuthSideEffects();
     this.store.actions.logout();
     this.accountMenuOpen.set(false);
+    void this.router.navigateByUrl("/login");
   }
 
   protected openPalette(): void {

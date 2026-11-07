@@ -2,8 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Tests de parcours dans un navigateur (chapitre 3 de docs/DEVELOPPEMENT.md).
+ * Cible l'app production Analog (`web-angular/`), pas l'archive React racine.
  * En local : `pnpm e2e` démarre le serveur de développement sur le port 4173, ou réutilise celui qui tourne.
- * `E2E_BASE_URL` vise un serveur déjà lancé (par exemple http://localhost:8080) et évite d'en démarrer un.
+ * `E2E_BASE_URL` vise un serveur déjà lancé et évite d'en démarrer un.
  */
 const PORT = Number(process.env["E2E_PORT"] ?? 4173);
 const BASE_URL = process.env["E2E_BASE_URL"] ?? `http://localhost:${PORT}`;
@@ -44,10 +45,11 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: `pnpm dev --port ${PORT} --strictPort`,
+          command: `./node_modules/.bin/vite --port ${PORT} --strictPort`,
+          cwd: `${process.cwd()}/web-angular`,
           url: `${BASE_URL}/login`,
           reuseExistingServer: !CI,
-          timeout: 120_000,
+          timeout: 180_000,
         },
       }),
 });

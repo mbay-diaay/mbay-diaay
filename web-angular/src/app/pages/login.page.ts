@@ -1,5 +1,5 @@
 import { Component, DestroyRef, computed, inject, signal } from "@angular/core";
-import { Router } from "@angular/router";
+import { Router, RouterLink } from "@angular/router";
 
 import { BRAND } from "@/config/brand";
 import { authErrorMessage } from "@/lib/auth/messages";
@@ -29,7 +29,7 @@ type Step = { name: "credentials" } | { name: "code"; challengeId: string; sent:
  */
 @Component({
   selector: "app-login-page",
-  imports: [OtpInputComponent],
+  imports: [OtpInputComponent, RouterLink],
   template: `
     <div class="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       <div
@@ -191,7 +191,7 @@ type Step = { name: "credentials" } | { name: "code"; challengeId: string; sent:
           } @else {
             <h1 class="text-xl font-semibold">{{ t()("auth.login.title") }}</h1>
             <div class="mt-1 text-muted-foreground">{{ t()("auth.login.description") }}</div>
-            <form class="mt-6 space-y-5" novalidate (submit)="$event.preventDefault(); submitCredentials()">
+            <form class="mt-6 space-y-5" novalidate (submit)="onCredentialsSubmit($event)">
               <div class="space-y-2">
                 <label for="email" class="text-sm font-medium leading-none">{{
                   t()("auth.login.email")
@@ -211,17 +211,25 @@ type Step = { name: "credentials" } | { name: "code"; challengeId: string; sent:
                 />
               </div>
               <div class="space-y-2">
-                <div class="flex items-baseline justify-between">
+                <div class="flex items-baseline justify-between gap-2">
                   <label for="password" class="text-sm font-medium leading-none">{{
                     t()("auth.login.password")
                   }}</label>
-                  <button
-                    type="button"
-                    class="rounded text-xs font-semibold text-primary hover:underline"
-                    (click)="passwordVisible.set(!passwordVisible())"
-                  >
-                    {{ passwordVisible() ? t()("auth.password.hide") : t()("auth.password.show") }}
-                  </button>
+                  <div class="flex items-center gap-3">
+                    <a
+                      routerLink="/mot-de-passe-oublie"
+                      class="rounded text-xs font-semibold text-primary hover:underline"
+                    >
+                      {{ t()("auth.login.forgot") }}
+                    </a>
+                    <button
+                      type="button"
+                      class="rounded text-xs font-semibold text-primary hover:underline"
+                      (click)="passwordVisible.set(!passwordVisible())"
+                    >
+                      {{ passwordVisible() ? t()("auth.password.hide") : t()("auth.password.show") }}
+                    </button>
+                  </div>
                 </div>
                 <input
                   id="password"
@@ -380,6 +388,11 @@ export default class LoginPage {
     this.email.set(email);
     this.password.set(DEMO_PASSWORD);
     this.error.set("");
+  }
+
+  protected onCredentialsSubmit(event: Event): void {
+    event.preventDefault();
+    void this.submitCredentials();
   }
 
   protected async submitCredentials(): Promise<void> {
