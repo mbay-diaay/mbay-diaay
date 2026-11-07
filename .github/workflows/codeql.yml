@@ -22,13 +22,13 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
       # Dépôt privé sans code scanning : l'upload SARIF échoue avec
       # « Resource not accessible by integration ». On analyse quand même ;
       # passer à upload: always après activation dans
       # Settings → Code security → Code scanning.
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         with:
           upload: never
