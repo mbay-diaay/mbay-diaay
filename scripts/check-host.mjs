@@ -14,7 +14,10 @@ const envProductionPath = resolve(root, ".env.production");
 
 const vite = readFileSync(vitePath, "utf8");
 const hasVercelJson = existsSync(vercelPath);
-const presetMatch = vite.match(/nitro\(\s*\{[^}]*preset:\s*["']([^"']+)["']/);
+// TanStack Start: nitro({ preset: "vercel" }) — Analog: analog({ nitro: { preset: "vercel" } })
+const presetMatch =
+  vite.match(/nitro\(\s*\{[^}]*preset:\s*["']([^"']+)["']/) ??
+  vite.match(/nitro:\s*\{\s*preset:\s*["']([^"']+)["']/);
 const preset = presetMatch?.[1] ?? null;
 
 const errors = [];
@@ -28,7 +31,7 @@ if (hasVercelJson) {
   const vercelRaw = readFileSync(vercelPath, "utf8");
   if (/outputDirectory|["']dist["']/.test(vercelRaw)) {
     errors.push(
-      `vercel.json ne doit pas forcer outputDirectory/dist : TanStack Start + Nitro produit .vercel/output.`,
+      `vercel.json ne doit pas forcer outputDirectory/dist : Nitro preset "vercel" produit .vercel/output.`,
     );
   }
   // vercel.json "env" = runtime des fonctions seulement ; le build lit .env.production.
@@ -48,7 +51,7 @@ if (hasVercelJson) {
   }
 } else if (preset === "vercel") {
   errors.push(
-    `Preset Nitro "vercel" sans vercel.json : ajoutez vercel.json (framework tanstack-start) ou changez le preset.`,
+    `Preset Nitro "vercel" sans vercel.json : ajoutez vercel.json ou changez le preset.`,
   );
 }
 

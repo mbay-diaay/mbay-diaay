@@ -1,0 +1,15 @@
+/dist
+/.vercel
+/tmp
+/out-tsc
+/node_modules
+npm-debug.log
+.angular/cache
+.nx/cache
+.sass-cache/
+/coverage
+/typings
+.DS_Store
+.env*
+!.env.production
+.vitest/

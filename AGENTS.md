@@ -1,5 +1,6 @@
 ## Project rules
 
+- **Migration Angular** : `web-angular/` (Analog.js = Vite + Nitro) est l'app **production** Vercel (Root Directory `web-angular/`, Node **22.x**, overrides Build/Output/Install OFF ; voir `web-angular/MIGRATION.md`). `src/` (React / TanStack Start) reste en archive locale pour rollback (remettre Root Directory à `.`). `cd web-angular && pnpm check:host` (garde-fou Nitro/`vercel.json`/`.env.production`). Analog : Nitro `preset: "vercel"` + sortie `.vercel/output`.
 - All colors/sizes come from the primitive→semantic→component CSS variables in src/styles.css (mirrors design-tokens.json); only the primitive block changes for a new charter.
 - UI reads permissions from src/lib/permissions.ts (stand-in for the server endpoint); never hardcode role checks in components.
 - Data is in-memory demo data (src/lib/mock, src/lib/store.ts) until the real backend API exists.

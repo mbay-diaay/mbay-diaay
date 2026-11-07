@@ -57,6 +57,29 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # Référence fonctionnelle Angular (Analog) — ne remplace pas encore le job React prod.
+  angular:
+    name: Angular (check:host, types, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web-angular
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web-angular/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web-angular/.nvmrc
+          cache: pnpm
+          cache-dependency-path: web-angular/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-workspace
+      - run: pnpm check:host
+      - run: pnpm typecheck
+      - run: pnpm build
+
   security:
     name: Sécurité (dépendances, secrets)
     runs-on: ubuntu-latest
