@@ -13,13 +13,11 @@ import { CommonModule } from "@angular/common";
 import { NavigationEnd, Router, RouterLink } from "@angular/router";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { filter, map } from "rxjs";
-import { LucideAngularModule, LogOut, Menu, Search, ChevronDown, ShieldAlert } from "lucide-angular";
+import { LucideAngularModule, LogOut, Menu, Search, ChevronDown, ShieldAlert, Loader2 } from "lucide-angular";
 
 import { hydrateSessionFromApi } from "@/lib/api/session";
-import { DEMO_MODE } from "@/lib/auth/config";
 import { logoutAuthSideEffects } from "@/lib/auth";
-import type { Permission, RoleId } from "@/lib/permissions";
-import { ROLE_LABEL } from "@/lib/permissions";
+import type { Permission } from "@/lib/permissions";
 import { qualityCounts } from "@/lib/quality-nav";
 import { scoopNamesOf } from "@/lib/scope";
 import { BRAND } from "@/config/brand";
@@ -63,7 +61,36 @@ function ensureSessionHydrated(): Promise<void> {
     UiModalA11yDirective,
   ],
   template: `
-    @if (!ready()) {
+    @if (loggingOut()) {
+      <div
+        class="fixed inset-0 z-[200] flex flex-col bg-background"
+        role="status"
+        [attr.aria-label]="t()('shell.logout.loading')"
+      >
+        <div class="border-b px-4 py-4 md:px-8">
+          <div class="flex items-center justify-between gap-4">
+            <div class="h-4 w-40 animate-pulse rounded bg-muted"></div>
+            <div class="flex gap-2">
+              <div class="size-10 animate-pulse rounded-md bg-muted"></div>
+              <div class="size-10 animate-pulse rounded-full bg-muted"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-4 py-8 md:px-8">
+          <div class="h-7 w-56 animate-pulse rounded bg-muted"></div>
+          <div class="h-4 w-full max-w-md animate-pulse rounded bg-muted"></div>
+          <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            @for (_ of skeletonCards; track $index) {
+              <div class="surface h-28 animate-pulse bg-muted/60"></div>
+            }
+          </div>
+          <p class="mt-auto flex items-center justify-center gap-2 pb-8 text-sm text-muted-foreground">
+            <lucide-angular [img]="icons.loader" class="size-4 animate-spin" aria-hidden />
+            {{ t()("shell.logout.loading") }}
+          </p>
+        </div>
+      </div>
+    } @else if (!ready()) {
       <div class="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         {{ t()("shell.loading") }}
       </div>
@@ -91,12 +118,6 @@ function ensureSessionHydrated(): Promise<void> {
         }
 
         <div class="flex min-w-0 flex-1 flex-col">
-          @if (demoMode) {
-            <div class="bg-warning-bg px-4 py-1.5 text-center text-xs font-medium text-warning-fg md:px-8">
-              <span class="sm:hidden">{{ t()("shell.demoBanner.short") }}</span>
-              <span class="hidden sm:inline">{{ t()("shell.demoBanner.long") }}</span>
-            </div>
-          }
           <header class="sticky top-0 z-50 border-b bg-card/90 backdrop-blur">
             <div class="flex h-14 items-center gap-2 px-2 sm:gap-3 sm:px-4 md:h-16 md:px-8">
               <button
@@ -109,9 +130,6 @@ function ensureSessionHydrated(): Promise<void> {
               </button>
               <div class="min-w-0 flex-1 truncate text-sm text-muted-foreground">
                 <span class="font-medium text-foreground">{{ scopeLabel() }}</span>
-                @if (demoMode) {
-                  <span class="hidden sm:inline"> · {{ t()("shell.demoData") }}</span>
-                }
               </div>
               @if (filtered()) {
                 <div class="hidden shrink-0 xl:block">
@@ -156,7 +174,7 @@ function ensureSessionHydrated(): Promise<void> {
                   @if (accountMenuOpen()) {
                     <div
                       role="menu"
-                      class="absolute right-0 top-full z-[60] mt-1 w-72 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                      class="absolute right-0 top-full z-[60] mt-1 w-64 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
                     >
                       <div class="px-2 py-1.5">
                         <div class="font-semibold">{{ session()!.name }}</div>
@@ -165,21 +183,6 @@ function ensureSessionHydrated(): Promise<void> {
                         </div>
                       </div>
                       <div class="my-1 border-t"></div>
-                      @if (demoMode) {
-                        <div class="px-2 py-1 text-xs font-medium text-muted-foreground">
-                          {{ t()("shell.demoProfile") }}
-                        </div>
-                        <select
-                          class="mx-2 mb-1 h-9 w-[calc(100%-1rem)] rounded-md border bg-transparent px-2 text-sm"
-                          [value]="session()!.role"
-                          (change)="switchRole($any($event.target).value)"
-                        >
-                          @for (role of roles; track role) {
-                            <option [value]="role">{{ localeService.tEnum("role", role) }}</option>
-                          }
-                        </select>
-                        <div class="my-1 border-t"></div>
-                      }
                       <button
                         type="button"
                         role="menuitem"
@@ -223,7 +226,7 @@ function ensureSessionHydrated(): Promise<void> {
 
     <ng-template #sidebarContent>
       <nav class="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-        <div class="flex items-center gap-3 px-5 py-5">
+        <div class="flex shrink-0 items-center gap-3 px-5 py-5">
           <div class="grid size-9 place-items-center rounded-md bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">
             {{ brand.monogram }}
           </div>
@@ -235,7 +238,9 @@ function ensureSessionHydrated(): Promise<void> {
         @if (session(); as s) {
           <app-sidebar-nav [session]="s" [path]="path()" [badge]="badgeFn" />
         }
-        <div class="border-t border-sidebar-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-xs opacity-70">
+        <div
+          class="mt-auto shrink-0 border-t border-sidebar-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-xs opacity-70"
+        >
           {{ brand.partners }}
         </div>
       </nav>
@@ -255,17 +260,18 @@ export class AppShellComponent {
 
   protected readonly t = this.localeService.t;
   protected readonly brand = BRAND;
-  protected readonly demoMode = DEMO_MODE;
-  protected readonly roles = Object.keys(ROLE_LABEL) as RoleId[];
+  protected readonly skeletonCards = [0, 1, 2, 3, 4, 5];
   protected readonly icons = {
     menu: Menu,
     search: Search,
     chevronDown: ChevronDown,
     logOut: LogOut,
     shieldAlert: ShieldAlert,
+    loader: Loader2,
   };
 
   protected readonly ready = signal(false);
+  protected readonly loggingOut = signal(false);
   protected readonly session = computed(() => this.store.state().session);
   protected readonly path = toSignal(
     this.router.events.pipe(
@@ -370,16 +376,15 @@ export class AppShellComponent {
     this.accountMenuOpen.update((open) => !open);
   }
 
-  protected switchRole(role: RoleId): void {
-    this.store.actions.switchRole(role);
-    this.accountMenuOpen.set(false);
-  }
-
   protected logout(): void {
-    logoutAuthSideEffects();
-    this.store.actions.logout();
+    if (this.loggingOut()) return;
     this.accountMenuOpen.set(false);
-    void this.router.navigateByUrl("/login");
+    this.loggingOut.set(true);
+    window.setTimeout(() => {
+      logoutAuthSideEffects();
+      this.store.actions.logout();
+      void this.router.navigateByUrl("/login").finally(() => this.loggingOut.set(false));
+    }, 450);
   }
 
   protected openPalette(): void {

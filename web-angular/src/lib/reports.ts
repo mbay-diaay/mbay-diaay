@@ -46,6 +46,22 @@ export type ReportId =
   | "exploitation"
   | "charges";
 
+/** Familles métier pour filtrer le catalogue (écran Rapports). */
+export type ReportCategory =
+  | "producteurs"
+  | "agriculture"
+  | "finances"
+  | "gouvernance"
+  | "qualite";
+
+export const REPORT_CATEGORIES: ReportCategory[] = [
+  "producteurs",
+  "agriculture",
+  "finances",
+  "gouvernance",
+  "qualite",
+];
+
 export interface ReportDef {
   id: ReportId;
   /** Nom du rapport tel qu'écrit dans le fichier généré (reste en français). */
@@ -53,6 +69,7 @@ export interface ReportDef {
   /** Clés d'affichage au catalogue de l'écran. */
   nameKey: MessageKey;
   descriptionKey: MessageKey;
+  category: ReportCategory;
   /** Droit supplémentaire pour voir ce rapport au catalogue (en plus de « Générer des rapports »). */
   perm?: Permission;
 }
@@ -63,24 +80,28 @@ export const REPORTS: ReportDef[] = [
     name: "Synthèse des effectifs",
     nameKey: "rapports.catalogue.effectifs.name",
     descriptionKey: "rapports.catalogue.effectifs.description",
+    category: "producteurs",
   },
   {
     id: "superficies",
     name: "Superficies par spéculation",
     nameKey: "rapports.catalogue.superficies.name",
     descriptionKey: "rapports.catalogue.superficies.description",
+    category: "agriculture",
   },
   {
     id: "qualite",
     name: "Qualité des données",
     nameKey: "rapports.catalogue.qualite.name",
     descriptionKey: "rapports.catalogue.qualite.description",
+    category: "qualite",
   },
   {
     id: "reprises",
     name: "Parcelles à reprendre",
     nameKey: "rapports.catalogue.reprises.name",
     descriptionKey: "rapports.catalogue.reprises.description",
+    category: "agriculture",
     perm: "plot.validate",
   },
   {
@@ -88,6 +109,7 @@ export const REPORTS: ReportDef[] = [
     name: "Cotisations par membre",
     nameKey: "rapports.catalogue.cotisations.name",
     descriptionKey: "rapports.catalogue.cotisations.description",
+    category: "gouvernance",
     perm: "contribution.read",
   },
   {
@@ -95,6 +117,7 @@ export const REPORTS: ReportDef[] = [
     name: "Réunions et présences",
     nameKey: "rapports.catalogue.reunions.name",
     descriptionKey: "rapports.catalogue.reunions.description",
+    category: "gouvernance",
     perm: "meeting.read",
   },
   {
@@ -102,6 +125,7 @@ export const REPORTS: ReportDef[] = [
     name: "État des stocks d'intrants",
     nameKey: "rapports.catalogue.stocks.name",
     descriptionKey: "rapports.catalogue.stocks.description",
+    category: "finances",
     perm: "stock.read",
   },
   {
@@ -109,6 +133,7 @@ export const REPORTS: ReportDef[] = [
     name: "Encours des crédits",
     nameKey: "rapports.catalogue.credits.name",
     descriptionKey: "rapports.catalogue.credits.description",
+    category: "finances",
     perm: "credit.read",
   },
   {
@@ -116,6 +141,7 @@ export const REPORTS: ReportDef[] = [
     name: "Ventes par culture",
     nameKey: "rapports.catalogue.ventes.name",
     descriptionKey: "rapports.catalogue.ventes.description",
+    category: "finances",
     perm: "sales.read",
   },
   {
@@ -123,6 +149,7 @@ export const REPORTS: ReportDef[] = [
     name: "Comptes d'exploitation par culture",
     nameKey: "rapports.catalogue.exploitation.name",
     descriptionKey: "rapports.catalogue.exploitation.description",
+    category: "finances",
     perm: "exploitation.read",
   },
   {
@@ -130,6 +157,7 @@ export const REPORTS: ReportDef[] = [
     name: "Charges par catégorie",
     nameKey: "rapports.catalogue.charges.name",
     descriptionKey: "rapports.catalogue.charges.description",
+    category: "finances",
     perm: "expense.read",
   },
 ];

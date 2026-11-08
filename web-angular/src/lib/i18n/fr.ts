@@ -35,9 +35,11 @@ export const fr = {
   "shell.demoData": "Données de démonstration",
   "shell.search": "Rechercher",
   "shell.searchAria": "Recherche universelle",
-  "shell.accountAria": "Compte et profil de démonstration",
+  "shell.accountAria": "Compte",
   "shell.demoProfile": "Profil de démo",
   "shell.logout": "Se déconnecter",
+  "shell.logout.loading": "Déconnexion en cours…",
+  "shell.palette.hint": "Recherchez une page, un producteur ou une organisation.",
   "shell.scope.consolidated": "Vue consolidée",
   "shell.soon": "À venir",
 

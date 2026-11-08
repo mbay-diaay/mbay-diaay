@@ -37,8 +37,11 @@ function writeOpen(value: Record<string, boolean>): void {
 @Component({
   selector: "app-sidebar-nav",
   imports: [RouterLink, RouterLinkActive, LucideAngularModule],
+  host: {
+    class: "flex min-h-0 flex-1 flex-col",
+  },
   template: `
-    <div class="flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
+    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
       @for (g of groups(); track g.group) {
         <div class="mt-3">
           @if (!g.flat) {

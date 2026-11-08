@@ -56,6 +56,9 @@ const digits = (s: string) => s.replace(/\D/g, "");
             />
           </div>
           <div class="flex-1 overflow-y-auto p-2 text-sm">
+            @if (!q().trim() && pageItems().length > 0) {
+              <p class="px-2 py-2 text-xs text-muted-foreground">{{ t()("shell.palette.hint") }}</p>
+            }
             @if (hasAnyResults()) {
               @if (pageItems().length > 0) {
                 <div class="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
