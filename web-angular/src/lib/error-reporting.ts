@@ -119,7 +119,58 @@ export function reportError(
   }
 }
 
-/** Écoute les erreurs que React n'attrape pas (script, promesse rejetée). Sans effet si déjà installé. */
+const CHUNK_RELOAD_KEY = "mbd.chunk-reload";
+
+/** Détecte un chunk lazy obsolète (déploiement Vercel pendant une session ouverte). */
+export function isChunkLoadError(error: unknown): boolean {
+  const msg = describeThrown(error);
+  return (
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg) ||
+    /Loading chunk [\w-]+ failed/i.test(msg)
+  );
+}
+
+/**
+ * Après un déploiement, l'ancien shell JS demande des `/assets/*.js` hashés disparus :
+ * le fallback SPA renvoie du HTML → erreur MIME. Un seul rechargement récupère le nouveau shell.
+ */
+export function installChunkLoadRecovery(): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const tryReload = (error: unknown) => {
+    if (!isChunkLoadError(error)) return;
+    try {
+      if (sessionStorage.getItem(CHUNK_RELOAD_KEY) === "1") return;
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+    } catch {
+      /* stockage indisponible : recharger quand même */
+    }
+    window.location.reload();
+  };
+
+  const onRejection = (event: PromiseRejectionEvent) => tryReload(event.reason);
+  const onError = (event: ErrorEvent) => tryReload(event.error ?? event.message);
+  window.addEventListener("unhandledrejection", onRejection);
+  window.addEventListener("error", onError);
+
+  // Après un boot réussi, autoriser un futur reload (prochain déploiement).
+  window.setTimeout(() => {
+    try {
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, 12_000);
+
+  return () => {
+    window.removeEventListener("unhandledrejection", onRejection);
+    window.removeEventListener("error", onError);
+  };
+}
+
+/** Écoute les erreurs que le routeur n'attrape pas (script, promesse rejetée). Sans effet si déjà installé. */
 export function installGlobalErrorHandlers(): () => void {
   if (typeof window === "undefined" || handlersInstalled) return () => {};
   handlersInstalled = true;

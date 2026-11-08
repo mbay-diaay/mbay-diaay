@@ -25,6 +25,10 @@ export default defineConfig(({ mode }) => ({
     analog({
       nitro: {
         preset: "vercel",
+        // Cookie __vdpl quand Skew Protection est activé sur le projet Vercel.
+        vercel: {
+          skewProtection: true,
+        },
       },
     }),
   ],
