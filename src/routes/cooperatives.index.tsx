@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, KpiTile, PageHeader, Pill } from "@/components/app/ui-bits";
+import { ChipRail } from "@/components/app/ChipRail";
 import { FilterPill } from "@/components/app/FilterPill";
 import { RowActions } from "@/components/app/RowActions";
 import { ScoopFormDialog } from "@/components/app/ScoopFormDialog";
@@ -161,8 +162,8 @@ function Cooperatives() {
           sub={t("cooperatives.kpi.producersSub")}
         />
       </div>
-      <div className="surface mb-3 p-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="surface mb-3 space-y-3 p-3">
+        <ChipRail aria-label={t("cooperatives.filter.all")}>
           <FilterPill
             active={filter === "tous"}
             onClick={() => setFilter("tous")}
@@ -180,16 +181,16 @@ function Cooperatives() {
               {t(f.label)}
             </FilterPill>
           ))}
-          <div className="relative ml-auto w-full sm:w-64">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              aria-label={t("cooperatives.search.aria")}
-              placeholder={t("cooperatives.search.placeholder")}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+        </ChipRail>
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label={t("cooperatives.search.aria")}
+            placeholder={t("cooperatives.search.placeholder")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="pl-8"
+          />
         </div>
       </div>
       <div className="surface overflow-x-auto">

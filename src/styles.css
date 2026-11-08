@@ -98,18 +98,19 @@
 
 :root {
   /* ───── primitive (from design-tokens.json — the ONLY block to change) ───── */
-  --p-brand-700: #2f6b3a;
-  --p-brand-600: #3c8450;
-  --p-brand-100: #dcebdd;
-  --p-accent-600: #b7791f;
-  --p-accent-800: #7a4f0f;
-  --p-accent-100: #f6e7c8;
+  --p-brand-700: #4e3228;
+  --p-brand-600: #664336;
+  --p-brand-100: #ebe0dc;
+  --p-accent-600: #394076;
+  --p-accent-800: #1e2344;
+  --p-accent-100: #d4d7ea;
   --p-neutral-0: #ffffff;
-  --p-neutral-50: #f7f8f5;
-  --p-neutral-200: #d9ded9;
-  --p-neutral-400: #8a958e;
-  --p-neutral-600: #55615a;
-  --p-neutral-900: #1f2a24;
+  --p-neutral-50: #f8f6f3;
+  --p-neutral-200: #ddd6d0;
+  --p-neutral-400: #8f857e;
+  --p-neutral-600: #5c524c;
+  --p-neutral-800: #453a35;
+  --p-neutral-900: #2a1f1b;
   --p-status-success: #2e7d32;
   --p-status-success-bg: #ddefdd;
   --p-status-success-fg: #1e5e22;
@@ -155,7 +156,7 @@
   --sem-primary-soft: var(--p-brand-100);
   --sem-on-primary: var(--p-neutral-0);
   --sem-accent: var(--p-accent-600);
-  /* Texte d'accent sur fond clair : 5,8:1 sur le fond doux (le 600 seul n'atteint que 3:1). */
+  /* Texte d'accent sur fond clair : 10,7:1 sur le fond doux (le 600 seul atteint déjà 6,8:1, le 800 est gardé pour la marge). */
   --sem-accent-text: var(--p-accent-800);
   --sem-accent-soft: var(--p-accent-100);
 
@@ -197,20 +198,21 @@
   --destructive-foreground: var(--p-neutral-0);
   --border: var(--sem-border);
   --input: var(--sem-border);
-  --ring: var(--sem-primary-hover);
+  --ring: var(--sem-primary);
   --chart-1: var(--p-brand-700);
   --chart-2: var(--p-accent-600);
   --chart-3: var(--p-status-info);
   --chart-4: var(--p-brand-600);
   --chart-5: var(--p-neutral-400);
-  --sidebar: var(--p-neutral-900);
-  --sidebar-foreground: var(--p-neutral-200);
-  --sidebar-primary: var(--p-brand-600);
-  --sidebar-primary-foreground: var(--p-neutral-0);
-  --sidebar-accent: color-mix(in oklab, var(--p-neutral-0) 8%, transparent);
+  /* Panneau auth + nav : marron CRADESC (pas le vert-noir neutral-900). */
+  --sidebar: var(--p-brand-700);
+  --sidebar-foreground: var(--p-brand-100);
+  --sidebar-primary: var(--p-brand-100);
+  --sidebar-primary-foreground: var(--p-brand-700);
+  --sidebar-accent: color-mix(in oklab, var(--p-neutral-0) 12%, transparent);
   --sidebar-accent-foreground: var(--p-neutral-0);
-  --sidebar-border: color-mix(in oklab, var(--p-neutral-0) 10%, transparent);
-  --sidebar-ring: var(--p-brand-600);
+  --sidebar-border: color-mix(in oklab, var(--p-neutral-0) 14%, transparent);
+  --sidebar-ring: var(--p-brand-100);
 
   /* ───── component ───── */
   --button-height: var(--size-touch-min);
@@ -237,14 +239,16 @@
   }
   ::selection {
     background: var(--sem-primary-soft);
-    color: var(--sem-text);
+    color: var(--sem-primary);
   }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    caret-color: var(--sem-primary);
     font-size: var(--font-size-sm);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    scrollbar-color: color-mix(in oklab, var(--sem-primary) 35%, transparent) transparent;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
@@ -256,6 +260,49 @@
   background: var(--sem-surface);
   border: 1px solid var(--sem-border);
   border-radius: var(--card-radius);
+}
+
+/* Barre filtres / recherche — rythme maquette (respiration, pas collé). */
+@utility toolbar-surface {
+  background: var(--sem-surface);
+  border: 1px solid var(--sem-border);
+  border-radius: var(--card-radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  @media (min-width: 640px) {
+    padding: 1.25rem;
+  }
+}
+
+/* Ligne de liste Operate (dossiers, etc.). */
+@utility list-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  transition: background-color 0.15s ease;
+  @media (pointer: coarse) {
+    padding-block: 1.125rem;
+  }
+  &:hover {
+    background: color-mix(in oklab, var(--sem-primary-soft) 35%, transparent);
+  }
+}
+
+/* Cellules de tableau — colonnes aérées (équipe, etc.). */
+@utility table-cell {
+  padding: 0.875rem 1rem;
+  vertical-align: middle;
+}
+@utility table-cell-head {
+  padding: 0.75rem 1rem;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--sem-text-muted);
+  text-align: left;
 }
 @utility eyebrow {
   font-size: var(--font-size-xs);

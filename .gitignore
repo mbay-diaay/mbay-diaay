@@ -62,3 +62,5 @@ coverage/
 # Tests de parcours (Playwright)
 test-results/
 playwright-report/
+.vercel
+.playwright-cli/

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { DossierHelp, DossierPill } from "@/components/app/DossierBits";
 import { EmptyState, PageHeader } from "@/components/app/ui-bits";
+import { ChipRail } from "@/components/app/ChipRail";
 import { FilterPill } from "@/components/app/FilterPill";
 import { FormDialog } from "@/components/app/FormDialog";
 import { FormField } from "@/components/app/FormField";
@@ -123,8 +124,7 @@ function Dossiers() {
         <h2 id="dossier-filters" className="text-sm font-semibold">
           {t("dossiers.filter.group")}
         </h2>
-        {/* Toujours affiché, jamais replié : les pastilles passent à la ligne, elles ne défilent pas. */}
-        <div className="flex flex-wrap items-center gap-2">
+        <ChipRail aria-label={t("dossiers.filter.group")}>
           {reviewer && (
             <FilterPill
               active={view === "a-traiter"}
@@ -156,7 +156,7 @@ function Dossiers() {
               {t(FILTER_LABEL[s])}
             </FilterPill>
           ))}
-        </div>
+        </ChipRail>
         <div className="relative w-full sm:max-w-sm">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input

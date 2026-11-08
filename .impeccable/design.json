@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-07T10:45:00.000Z",
+  "title": "Design System: Mbay Diaay",
+  "extensions": {
+    "colorMeta": {
+      "brand-700": { "role": "primary", "displayName": "CRADESC Marron", "canonical": "#4E3228" },
+      "accent-600": { "role": "secondary", "displayName": "CRADESC Indigo", "canonical": "#394076" },
+      "neutral-50": { "role": "neutral", "displayName": "Ivoire Niayes", "canonical": "#F7F8F5" },
+      "neutral-900": { "role": "neutral", "displayName": "Encre sidebar", "canonical": "#1F2A24" },
+      "neutral-800": { "role": "neutral", "displayName": "Placeholder mix", "canonical": "#3A453F" }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "Body", "purpose": "Contenu Operate 16px." },
+      "title": { "displayName": "Page title", "purpose": "ui-page-header h1 24px." },
+      "headline": { "displayName": "Headline", "purpose": "Max token 32px — login brand panel." },
+      "label": { "displayName": "Eyebrow", "purpose": "Uppercase tracking metadata." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "sheet-panel", "value": "0.45s cubic-bezier(0.32, 0.72, 0, 1)", "purpose": "ui-sheet panel enter." },
+      { "name": "toast-in", "value": "0.3s ease-out", "purpose": "Toast slide/fade." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "CTA marron CRADESC, hauteur tactile.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Se connecter</button>",
+      "css": ".ds-btn-primary { background: var(--p-brand-700, #4E3228); color: #fff; height: 48px; padding: 0 16px; border: none; border-radius: 12px; font: 600 14px Inter, system-ui, sans-serif; cursor: pointer; } .ds-btn-primary:hover { background: var(--p-brand-600, #664336); } .ds-btn-primary:focus-visible { outline: 2px solid var(--p-accent-600, #394076); outline-offset: 2px; }"
+    },
+    {
+      "name": "Surface card",
+      "kind": "card",
+      "refersTo": "surface-card",
+      "description": "Carte plate bordée pour KPI et listes.",
+      "html": "<div class=\"ds-surface\"><div class=\"ds-surface-label\">Fiches recensées</div><div class=\"ds-surface-value\">1 317</div></div>",
+      "css": ".ds-surface { background: #fff; border: 1px solid var(--p-neutral-200, #D9DED9); border-radius: 12px; padding: 16px; } .ds-surface-label { font: 400 12px Inter, system-ui; color: var(--p-neutral-600, #55615A); } .ds-surface-value { margin-top: 4px; font: 600 24px Inter, system-ui; font-variant-numeric: tabular-nums; color: var(--p-neutral-900, #1F2A24); }"
+    },
+    {
+      "name": "Sidebar",
+      "kind": "nav",
+      "refersTo": "sidebar",
+      "description": "Navigation sombre avec monogramme marron soft.",
+      "html": "<aside class=\"ds-sidebar\"><div class=\"ds-mono\">MD</div><span class=\"ds-brand\">Mbay Diaay</span></aside>",
+      "css": ".ds-sidebar { display: flex; align-items: center; gap: 12px; background: #4E3228; color: #EBE0DC; padding: 16px; } .ds-mono { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px; background: #EBE0DC; color: #4E3228; font: 700 12px Inter, system-ui; } .ds-brand { font: 600 14px Inter, system-ui; color: #fff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le registre des Niayes",
+    "overview": "Interface Operate dense pour le Module 1 administratif Mbay Diaay. Identité portée par le marron CRADESC et l’indigo d’accent ; Angular web-angular/ est la référence. Surfaces tonales plutôt qu’ombres ; charts exclusivement tokenisés.",
+    "keyCharacteristics": [
+      "Marron #4E3228 primary + chart-1",
+      "Fond ivoire, sidebar sombre",
+      "Typo plafonnée à 2xl",
+      "Pas d’oklch inventé"
+    ],
+    "rules": [
+      { "name": "The Marron Rule", "body": "Vert succès / familles cultures ne remplacent pas le marron sur CTA, shell ou charts dashboard.", "section": "colors" },
+      { "name": "The Cap Rule", "body": "KPI max text-2xl ; pas de text-3xl hors tokens.", "section": "typography" }
+    ],
+    "dos": [
+      "Do brancher les couleurs sur les tokens",
+      "Do utiliser ui-page-header",
+      "Do chart-1 / chart-2 pour les graphiques"
+    ],
+    "donts": [
+      "Don't hardcoder oklch/hex dans les pages",
+      "Don't auto-traduire le wolof",
+      "Don't utiliser text-3xl pour les KPI"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "/Users/moha/Dev/mbay-diaay/web-angular/src/app/shared/ui/event-calendar.component.ts"
+        ],
+        "createdAt": "2026-11-06T11:08:12.392Z",
+        "reason": "Port Angular 1:1 de event-calendar React (cartes agenda)"
+      }
+    ]
+  }
+}

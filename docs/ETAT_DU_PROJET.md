@@ -492,7 +492,7 @@ Droits proposés (à confirmer) : `expense.read` (administrateur, faîtière, ge
 | **E-mail** | Fournisseur d'envoi, domaine d'expédition (SPF, DKIM, DMARC), modèles de messages en français et en wolof |
 | **Sécurité** | En-têtes HTTP et CSP, protection CSRF, chiffrement des CNI et des sauvegardes, journal d'audit inaltérable, test d'intrusion (voir `docs/DEVELOPPEMENT.md`, chapitre 4) |
 | **Hébergement** | Cible non choisie ; déploiement continu non écrit |
-| **Charte graphique** | Aucune charte reçue : jetons provisoires. Seul le bloc « primitive » de `styles.css` change à la réception |
+| **Charte graphique** | Couleurs CRADESC reçues et appliquées le 22/04/2026 (bloc « primitive » de `styles.css` et `design-tokens.json`). Logo reçu en PNG opaque (fond blanc) : export transparent/vectoriel encore à fournir avant intégration à l'UI. Graphie officielle du nom et tagline toujours en attente (INF 64) |
 | **Wolof** | Traducteur ou relecteur, glossaire métier, vérification de la police |
 | **Données** | Import réel de la base CRADESC, validation des 11 ou 10 SCOOP |
 | **Exploitation** | Supervision, sauvegarde et restauration testées, plan de reprise |
@@ -530,7 +530,7 @@ Ordre suggéré à présenter : **P1, P3, P8** (valeur immédiate et visible), p
 
 | Sujet | Question | Pour qui |
 |---|---|---|
-| Charte graphique | Calendrier de réception de la charte et des logos (INF 61 à 64) | Client |
+| Charte graphique | ~~Calendrier de réception de la charte et des logos (INF 61 à 64)~~ **Couleurs reçues le 22 avril 2026 et appliquées.** Reste à fournir : logo en export transparent/vectoriel (le PNG reçu a un fond blanc opaque), graphie officielle du nom, tagline (INF 62 à 64) | Client |
 | Hébergement | Où héberger l'application et les données ? Contraintes de localisation des données ? | Client, direction technique |
 | E-mail | Qui fournit le nom de domaine et le service d'envoi ? | Client |
 | Postes de travail | Les gestionnaires ont-ils un ordinateur ? (INF 44) | Client |
@@ -547,7 +547,7 @@ Ordre suggéré à présenter : **P1, P3, P8** (valeur immédiate et visible), p
 | Risque | Effet | Parade |
 |---|---|---|
 | Démonstration prise pour un produit prêt | Attentes de mise en service rapide | Rappeler la section 5 ; bandeau « Mode démonstration » conservé |
-| Charte graphique tardive | Reprise de l'habillage | Variables de design isolées : seul le bloc « primitive » change |
+| Charte graphique tardive | Reprise de l'habillage | Variables de design isolées : seul le bloc « primitive » change. Couleurs déjà reçues et appliquées (22/04/2026) ; le risque résiduel ne porte plus que sur le logo (export transparent/vectoriel) et la graphie du nom |
 | Traduction wolof sous-estimée | Retard et incohérences | Glossaire d'abord, relecture par une personne locutrice, test des clés manquantes |
 | Données personnelles réelles dans le dépôt | Fuite | Règles du chapitre 4 de `DEVELOPPEMENT.md`, recherche de secrets en intégration continue, `data/revue-doublons/` ignoré |
 | Droits appliqués seulement par l'interface | Dans la démonstration, les actions du store (plans, dossiers, membres) vérifient le périmètre SCOOP et les règles de données, mais pas le droit du rôle : c'est l'interface qui masque les boutons. Un appel direct contournerait ce contrôle | Le serveur réel applique les droits à chaque appel (chapitre 4 de `DEVELOPPEMENT.md`) ; à ne jamais livrer sans cette couche |

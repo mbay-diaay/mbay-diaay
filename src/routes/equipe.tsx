@@ -4,6 +4,7 @@ import { ExternalLink, KeyRound, Pencil, Search, ShieldOff, UserPlus, Users } fr
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, Field, PageHeader, Pill } from "@/components/app/ui-bits";
+import { ChipRail } from "@/components/app/ChipRail";
 import { FilterPill } from "@/components/app/FilterPill";
 import { FormDialog } from "@/components/app/FormDialog";
 import { FormField } from "@/components/app/FormField";
@@ -136,8 +137,8 @@ function Team() {
         })}
       </p>
 
-      <div className="surface mb-3 p-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="surface mb-3 space-y-3 p-3">
+        <ChipRail aria-label={t("equipe.filter.all")}>
           <FilterPill active={status === ALL} onClick={() => setStatus(ALL)} count={mine.length}>
             {t("equipe.filter.all")}
           </FilterPill>
@@ -152,16 +153,16 @@ function Team() {
               {t(STATUS_LABEL[s])}
             </FilterPill>
           ))}
-          <div className="relative ml-auto w-full sm:w-64">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              aria-label={t("equipe.search.aria")}
-              placeholder={t("equipe.search.placeholder")}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+        </ChipRail>
+        <div className="relative w-full sm:ml-auto sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label={t("equipe.search.aria")}
+            placeholder={t("equipe.search.placeholder")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="pl-8"
+          />
         </div>
       </div>
 

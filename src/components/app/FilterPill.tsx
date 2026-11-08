@@ -39,7 +39,7 @@ export function FilterPill({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium leading-none transition-colors pointer-coarse:h-touch",
+        "inline-flex h-8 shrink-0 snap-start items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium leading-none transition-colors pointer-coarse:h-touch",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         active
           ? "border-primary bg-primary text-primary-foreground shadow-sm"

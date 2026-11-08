@@ -1,13 +1,13 @@
 {
-  "$description": "Mbay Diaay — design tokens PROVISOIRES. Aucune identité visuelle officielle n'a été transmise (INF 61 à 64). Pour appliquer la charte du client, ne modifier QUE la section « primitive » ; les couches « semantic » et « component » ne changent pas. Les applications web (variables CSS) et mobile (ThemeData) sont générées depuis ce fichier : aucune couleur, taille ou police n'est écrite en dur dans le code.",
-  "$version": "0.1.0",
-  "$status": "provisoire",
+  "$description": "Mbay Diaay — design tokens. Couleurs officielles du CRADESC reçues le 22/04/2026 (« Normes graphiques et identité visuelle du CRADESC ») et appliquées à la section « primitive ». Logo (fichier image), graphie officielle du nom et tagline restent à fournir (INF 62 à 64). Pour une future mise à jour de charte, ne modifier QUE la section « primitive » ; les couches « semantic » et « component » ne changent pas. Les applications web (variables CSS) et mobile (ThemeData) sont générées depuis ce fichier : aucune couleur, taille ou police n'est écrite en dur dans le code.",
+  "$version": "0.2.0",
+  "$status": "partiel",
 
   "brand": {
-    "$description": "Ressources d'identité à fournir par le client (INF 61 à 64). Tant qu'elles ne sont pas reçues, les valeurs sont provisoires ou vides. Servies par GET /v1/branding ; l'icône d'application et l'écran de démarrage mobile sont intégrés au build.",
+    "$description": "Ressources d'identité à fournir par le client (INF 61 à 64). Couleurs reçues et appliquées le 22/04/2026 ; logo, nom et tagline encore en attente. Servies par GET /v1/branding ; l'icône d'application et l'écran de démarrage mobile sont intégrés au build.",
     "name":    { "display": "Mbay Diaay", "status": "à valider (graphie officielle, INF 64)" },
     "tagline": { "value": null, "status": "à valider (INF 64)" },
-    "logo":    { "primary": null, "monochrome": null, "icon": null, "status": "à fournir en SVG/AI/EPS et PNG haute définition (INF 61)" },
+    "logo":    { "primary": null, "monochrome": null, "icon": null, "status": "reçu en PNG opaque (fond blanc, sans transparence) le 22/04/2026 ; export SVG/AI/EPS transparent ou monochrome encore à fournir avant intégration à l'UI (INF 61)" },
     "partners": { "items": [], "status": "logos et mentions obligatoires à fournir (INF 63)" },
     "locale":  { "default": "fr", "status": "français avec pictogrammes ; wolof à évaluer (DEC 13)" }
   },
@@ -21,21 +21,23 @@
   "primitive": {
     "color": {
       "brand": {
-        "700": { "$value": "#2F6B3A", "$type": "color", "$description": "Vert principal provisoire" },
-        "600": { "$value": "#3C8450", "$type": "color" },
-        "100": { "$value": "#DCEBDD", "$type": "color" }
+        "700": { "$value": "#4E3228", "$type": "color", "$description": "Marron principal CRADESC (officiel, charte du 22/04/2026)" },
+        "600": { "$value": "#664336", "$type": "color", "$description": "Teinte éclaircie dérivée pour l'état hover" },
+        "100": { "$value": "#EBE0DC", "$type": "color", "$description": "Teinte très éclaircie dérivée pour les fonds doux" }
       },
       "accent": {
-        "600": { "$value": "#B7791F", "$type": "color", "$description": "Ocre provisoire" },
-        "100": { "$value": "#F6E7C8", "$type": "color" }
+        "600": { "$value": "#394076", "$type": "color", "$description": "Indigo CRADESC (officiel) — retenu comme accent UI unique parmi les 4 teintes secondaires de la charte" },
+        "800": { "$value": "#1E2344", "$type": "color", "$description": "Teinte assombrie dérivée pour un texte d'accent accessible" },
+        "100": { "$value": "#D4D7EA", "$type": "color", "$description": "Teinte très éclaircie dérivée pour les fonds doux" }
       },
       "neutral": {
         "0":   { "$value": "#FFFFFF", "$type": "color" },
-        "50":  { "$value": "#F7F8F5", "$type": "color" },
-        "200": { "$value": "#D9DED9", "$type": "color" },
-        "400": { "$value": "#8A958E", "$type": "color" },
-        "600": { "$value": "#55615A", "$type": "color" },
-        "900": { "$value": "#1F2A24", "$type": "color" }
+        "50":  { "$value": "#F8F6F3", "$type": "color", "$description": "Ivoire chaud dérivé de la charte marron CRADESC (ex-vert-gris)" },
+        "200": { "$value": "#DDD6D0", "$type": "color", "$description": "Bordure neutre réchauffée" },
+        "400": { "$value": "#8F857E", "$type": "color" },
+        "600": { "$value": "#5C524C", "$type": "color" },
+        "800": { "$value": "#453A35", "$type": "color", "$description": "Mix placeholders / texte secondaire chaud" },
+        "900": { "$value": "#2A1F1B", "$type": "color", "$description": "Encre UI — brun-noir CRADESC (remplace l’olive #1F2A24)" }
       },
       "status": {
         "success":     { "$value": "#2E7D32", "$type": "color" },
