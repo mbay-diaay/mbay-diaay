@@ -31,4 +31,4 @@ Date : 31 octobre 2026 (MAJ 8 nov. 2026 : production = `web-angular/`). Source :
 ## Notes
 
 - Des composants UI orphelins M2–M5 peuvent encore exister sous `src/components/app/` (non branchés au menu) : nettoyage ultérieur possible sans urgence.
-- Réintégration M2–M5 : depuis le proto, **par PR / module**.
+- **Port Angular M2–M5 (8 nov. 2026)** : pages dans `web-angular/src/app/pages/` (stocks, credits, ventes, charges, exploitation, plans, campagnes, calendriers, suivi, carte, parcelles) — **fermées en prod** (`VITE_ENABLE_EXTRA_MODULES=false` + `soon` dans `nav.ts`). Voir [`MODULES_EXTRA_ANGULAR.md`](MODULES_EXTRA_ANGULAR.md).

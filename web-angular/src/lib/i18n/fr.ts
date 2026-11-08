@@ -17,10 +17,20 @@ import { sauvegarde } from "./messages/sauvegarde";
 import { imports } from "./messages/imports";
 import { calendrier } from "./messages/calendrier";
 import { guard } from "./messages/guard";
+import { stocks } from "./messages/stocks";
+import { credits } from "./messages/credits";
+import { ventes } from "./messages/ventes";
+import { charges } from "./messages/charges";
+import { exploitation } from "./messages/exploitation";
+import { campagnes } from "./messages/campagnes";
+import { calendriers } from "./messages/calendriers";
+import { suivi } from "./messages/suivi";
+import { carte } from "./messages/carte";
 
 /**
- * Dictionnaire français = référence (Module 1 Angular uniquement).
- * Packs M2–M5 (charges, stocks, ventes…) exclus du bundle web-angular.
+ * Dictionnaire français = référence.
+ * Packs M2–M5 inclus pour le portage Angular ; activation UI via
+ * `VITE_ENABLE_EXTRA_MODULES` + nav (voir `modules-preview.ts`).
  */
 export const fr = {
   "locale.label": "Langue",
@@ -67,6 +77,8 @@ export const fr = {
   "modules.sig.name": "SIG",
   "modules.sig.action": "Localiser",
   "modules.sig.purpose": "Le foncier : parcelles, superficies, carte et anomalies spatiales.",
+  "modules.preview.blocked":
+    "Ce module est porté en Angular mais pas encore ouvert en production. Il sera activé partie par partie.",
 
   "common.count.un": "{count} élément",
   "common.count.autre": "{count} éléments",
@@ -90,6 +102,15 @@ export const fr = {
   ...imports,
   ...calendrier,
   ...guard,
+  ...stocks,
+  ...credits,
+  ...ventes,
+  ...charges,
+  ...exploitation,
+  ...campagnes,
+  ...calendriers,
+  ...suivi,
+  ...carte,
 } as const;
 
 export type MessageKey = keyof typeof fr;

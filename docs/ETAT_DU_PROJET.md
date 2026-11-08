@@ -610,6 +610,8 @@ Ordre suggéré à présenter : **P1, P3, P8** (valeur immédiate et visible), p
 | 26 oct. 2026 | M3 : charges des exploitations (saisie guidée, annulation avec motif, répartition), compte d'exploitation par producteur, culture et campagne (produits, charges, marge, marge par hectare, exploitations en difficulté), agrégats par culture d'abord, consultation d'un compte tracée au journal, deux rapports ; droits `expense.*` et `exploitation.read` (le technicien saisit mais ne voit ni ventes ni marges) | 638 tests ; 194 parcours |
 | 31 oct. 2026 | Dépôt officiel `mbay-diaay/mbay-diaay` : import borné au **Module 1** uniquement (routes M2–M5 retirées, menu et e2e adaptés) ; docs `MISSION_MODULE1_ET_TRELLO.md` + `suivi-trello/` (pas d’API Trello : aucun jeton local) | `pnpm typecheck` ; 723 tests unitaires |
 | 8 nov. 2026 | Cutover front **Angular** en production (`web-angular/`, Node 22.x) branché sur API VPS ; seed recette multi-rôles ; parcours Rapports complet ; shell prod (logout, sans bandeau démo) ; Toolbar Vercel Feedback OFF ; M1-7 : pack `docs/RECETTE_MODULE1.md` + fiche §10.1 ; garde SSR `localStorage`/`sessionStorage` | Prod `www.mbaydiaay.com` + `api.mbaydiaay.com/v1/health` ; `pnpm check:host` |
+| 8 nov. 2026 | Port Angular **M2–M5** depuis le proto (13 routes + garde `VITE_ENABLE_EXTRA_MODULES=false`, menu toujours `soon`) : prêts pour activation partie par partie, **non ouverts en prod** | `docs/MODULES_EXTRA_ANGULAR.md` ; `pnpm build` web-angular |
+| 8 nov. 2026 | Dossier **T1** (L1 + L2) + checklist T1/T2 sur branche `chore/t1-livrables-et-modules-extra` (hors `main`) ; annexe API sur `chore/t1-livrables-architecture` | `docs/livrables/` |
 
 ## 10. Fiches par module : ce qui est fait
 
