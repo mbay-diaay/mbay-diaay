@@ -54,9 +54,9 @@ Le vocabulaire métier (SCOOP, cotisations, recensé…) est bon. La **compositi
 
 ## Reste / hors scope M1
 
-- Backend NestJS + Docker sur VPS (`api.mbaydiaay.com`) — **prochain plan**.
-- SMS, Wave, refonte charte complète, mesure utilisateur formelle.
-- Items secondaires smoke (troncature header, double GlobalFilters, contraste login) si encore visibles.
+- Remap métier Nest ↔ CRADESC (producteurs, dossiers, cotisations…) — auth/users déjà en prod.
+- SMS, Wave, mesure utilisateur formelle, signature UAT SCOOP (`docs/RECETTE_MODULE1.md`).
+- Items secondaires smoke si encore visibles.
 
 ## Critères de succès UX
 

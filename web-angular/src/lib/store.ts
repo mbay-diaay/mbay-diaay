@@ -524,6 +524,35 @@ function audit(action: string, entity: string, detail: string, scoopId?: string)
 }
 
 const SESSION_KEY = "mbd.session";
+
+function browserLocalStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readSessionRaw(): string | null {
+  try {
+    return browserLocalStorage()?.getItem(SESSION_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionRaw(value: string | null) {
+  try {
+    const storage = browserLocalStorage();
+    if (!storage) return;
+    if (value === null) storage.removeItem(SESSION_KEY);
+    else storage.setItem(SESSION_KEY, value);
+  } catch {
+    /* mode privé / SSR : ignorer */
+  }
+}
+
 /** Seul ce qui identifie la session est conservé : droits et périmètre sont recalculés à la restauration. */
 type StoredSession = Pick<Session, "name" | "email" | "role" | "expiresAt">;
 const isRole = (v: unknown): v is RoleId => typeof v === "string" && v in ROLE_LABEL;
@@ -676,7 +705,7 @@ function producerFromDraft(d: ProducerDossier, approver: string, at: string): Pr
 export const actions = {
   restoreSession() {
     try {
-      const raw = localStorage.getItem(SESSION_KEY);
+      const raw = readSessionRaw();
       if (!raw) return;
       // Mode API : session locale seulement si un jeton d'accès est encore là (rafraîchi via /auth/refresh).
       if (isApiMode()) {
@@ -698,12 +727,12 @@ export const actions = {
           });
           return;
         }
-        localStorage.removeItem(SESSION_KEY);
+        writeSessionRaw(null);
         return;
       }
       // Hors mode démonstration sans API : pas de session navigateur seule.
       if (!DEMO_MODE) {
-        localStorage.removeItem(SESSION_KEY);
+        writeSessionRaw(null);
         return;
       }
       const s = JSON.parse(raw) as Partial<StoredSession>;
@@ -716,7 +745,7 @@ export const actions = {
         // Le rôle se relit dans les comptes : on ne croit jamais celui qui est écrit dans le stockage du navigateur.
         const user = state.users.find((u) => u.email.toLowerCase() === s.email!.toLowerCase());
         if (!user || !user.active || !isRole(user.role)) {
-          localStorage.removeItem(SESSION_KEY);
+          writeSessionRaw(null);
           return;
         }
         set({
@@ -728,22 +757,22 @@ export const actions = {
           }),
         });
       } else {
-        localStorage.removeItem(SESSION_KEY);
+        writeSessionRaw(null);
       }
     } catch {
-      localStorage.removeItem(SESSION_KEY);
+      writeSessionRaw(null);
     }
   },
   login(name: string, email: string, role: RoleId) {
     const stored: StoredSession = { name, email, role, expiresAt: Date.now() + TOKEN_MS };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(stored));
+    writeSessionRaw(JSON.stringify(stored));
     set({ session: buildSession(stored) });
     audit("Connexion", "Session", `Profil ${role}`);
   },
   logout() {
     if (state.session) audit("Déconnexion", "Session", state.session.role);
     if (isApiMode()) clearTokens();
-    localStorage.removeItem(SESSION_KEY);
+    writeSessionRaw(null);
     set({ session: null });
   },
   switchRole(role: RoleId) {

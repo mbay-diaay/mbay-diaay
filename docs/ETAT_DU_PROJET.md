@@ -416,7 +416,7 @@ Décisions à obtenir : **D14** champs obligatoires d'une coopérative (code, co
 | [x] | **M1-4 Réunions et procès-verbaux** | Convocation, ordre du jour, présences, PV (brouillon puis validé), pièce jointe | Modèle, store, écran, tests | Droits `meeting.*`, e2e |
 | [x] | **M1-5 Gestion documentaire** | Bibliothèque de la coopérative (statuts, règlement, PV, justificatifs), dépôt, téléchargement tracé, documents sensibles | Écran, store | Droits, journal, e2e |
 | [x] | **M1-6 Tableau de bord administratif** | « Ma coopérative » : adhésions en attente, cotisations en retard, prochaines réunions, documents récents ; cartes du module | Écrans | Tests |
-| [ ] | **M1-7 Recette et fiche de module** | Recette visuelle et d'accessibilité, e2e de bout en bout, fiche M1 du chapitre 10 à jour | Fiche, recette | e2e, droits |
+| [x] | **M1-7 Recette et fiche de module** | Pack de recette (`docs/RECETTE_MODULE1.md`), a11y e2e, fiche §10.1 à jour (8 nov. 2026) ; **signature client** (gestionnaire SCOOP) reste externe | Fiche, recette | e2e, droits |
 
 Règles de la phase : les nouveaux écrans sont écrits directement en clés de traduction (aucun texte en dur), les messages d'erreur passent par `errors.*`, chaque droit a son test, le périmètre passe par `scope.ts`, chaque action sensible écrit au journal.
 
@@ -609,6 +609,7 @@ Ordre suggéré à présenter : **P1, P3, P8** (valeur immédiate et visible), p
 | 26 oct. 2026 | M2 : stocks d'intrants par lot (alertes de stock bas et de péremption), crédits avec échéancier, remboursements et retards, ventes avec encaissements et section par culture ; droits `stock.*`, `credit.*`, `sales.*` ; trou de périmètre repéré par B (le rôle ventes aurait lu les crédits via le sélecteur) corrigé : droit de lecture puis périmètre ; trois rapports du module | 628 tests ; 167 parcours |
 | 26 oct. 2026 | M3 : charges des exploitations (saisie guidée, annulation avec motif, répartition), compte d'exploitation par producteur, culture et campagne (produits, charges, marge, marge par hectare, exploitations en difficulté), agrégats par culture d'abord, consultation d'un compte tracée au journal, deux rapports ; droits `expense.*` et `exploitation.read` (le technicien saisit mais ne voit ni ventes ni marges) | 638 tests ; 194 parcours |
 | 31 oct. 2026 | Dépôt officiel `mbay-diaay/mbay-diaay` : import borné au **Module 1** uniquement (routes M2–M5 retirées, menu et e2e adaptés) ; docs `MISSION_MODULE1_ET_TRELLO.md` + `suivi-trello/` (pas d’API Trello : aucun jeton local) | `pnpm typecheck` ; 723 tests unitaires |
+| 8 nov. 2026 | Cutover front **Angular** en production (`web-angular/`, Node 22.x) branché sur API VPS ; seed recette multi-rôles ; parcours Rapports complet ; shell prod (logout, sans bandeau démo) ; Toolbar Vercel Feedback OFF ; M1-7 : pack `docs/RECETTE_MODULE1.md` + fiche §10.1 ; garde SSR `localStorage`/`sessionStorage` | Prod `www.mbaydiaay.com` + `api.mbaydiaay.com/v1/health` ; `pnpm check:host` |
 
 ## 10. Fiches par module : ce qui est fait
 
@@ -618,7 +619,7 @@ Cette partie répond à une seule question par module : **qu'est-ce qui existe, 
 
 **Objectif** : connaître les personnes et la structure de chaque coopérative, et tenir son administration (note de cadrage §5.1).
 
-**État au 25 octobre 2026 : toutes les fonctions de la note existent dans le prototype ; reste la validation avec les coopératives et le serveur réel.** Une version lisible par toute l'équipe, avec la vision, les rôles, les règles, les décisions et les commentaires, est le document partagé « Mbay Diaay : vision, rôles et suivi du module Administratif » (lien donné à l'utilisateur ; il se met à jour à chaque fin de phase).
+**État au 8 novembre 2026 : Module 1 prêt pour recette** — front production Angular (`web-angular/` → https://www.mbaydiaay.com), API Nest sur VPS (`api.mbaydiaay.com`, auth OTP + utilisateurs branchés ; métier encore partiellement mock/stubs), pack testeurs [`docs/RECETTE_MODULE1.md`](RECETTE_MODULE1.md) + comptes [`COMPTES_RECETTE`](https://github.com/mbay-diaay/mbay-diaay-api/blob/main/docs/COMPTES_RECETTE.md). **Pas une clôture PRD absolue** : décisions client (INF 30, D4/D6–D9/D13–D17), remap métier Nest↔CRADESC et signature UAT SCOOP restent ouverts. Une version lisible par toute l'équipe reste le document partagé « Mbay Diaay : vision, rôles et suivi du module Administratif ».
 
 | Capacité demandée | État | Où | Qui peut |
 |---|---|---|---|
@@ -639,12 +640,15 @@ Cette partie répond à une seule question par module : **qu'est-ce qui existe, 
 | Rapports (effectifs, superficies, qualité, reprises, cotisations, réunions) avec historique et téléchargement tracé | Fait | Rapports | `report.generate`, `report.read`, `report.download` |
 | Comptes, appareils, utilisateurs, référentiels, imports, sauvegarde | Fait | Administration | Administrateur |
 | Accessibilité : contrôle axe WCAG A et AA sur les écrans du module et la coquille | Fait | e2e/a11y-m1.spec.ts | |
-| Menu en sections repliables, cible de 7 entrées visibles | En cours (B) | Menu | |
+| Menu en sections repliables, cible de 7 entrées visibles | Fait (structure) ; allègement final optionnel | Menu Angular | |
+| Shell production (logout seul, pas de bandeau démo, pied sidebar partenaires, recherche) | Fait | Coquille Angular | |
+| Parcours Rapports 3 étapes (périmètre → choix → aperçu/export) | Fait | Rapports | `report.*` |
 | Assistance : l'administrateur aide un utilisateur en lecture seule | Non commencé | | Décision D17 |
+| Pack de recette M1 + comptes multi-rôles | Fait | `docs/RECETTE_MODULE1.md`, API `COMPTES_RECETTE.md` | Testeurs |
 
 **Décisions en attente** : D4, D6 à D9, D13 à D17 (4.5.7 et 4.7) ; règles de cotisation de chaque coopérative et champs obligatoires d'un adhérent (client, INF 30).
 
-**Preuves** : 495 tests unitaires, 96 parcours dans un navigateur, contrôle d'accessibilité, `docs/ETAT_DU_PROJET.md` 4.5 à 4.7.
+**Preuves** : pack `docs/RECETTE_MODULE1.md` ; déploiements Vercel `e47be64`+ ; API health + sign-in OTP verts (8 nov. 2026) ; e2e auth/a11y ; `docs/ETAT_DU_PROJET.md` 4.5 à 4.7.
 
 ### 10.2 M2 Commercial (échanger)
 

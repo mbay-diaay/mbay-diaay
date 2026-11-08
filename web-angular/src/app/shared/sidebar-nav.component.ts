@@ -9,6 +9,7 @@ import { LocaleService } from "./locale.service";
 const STORAGE_KEY = "mbd.nav";
 
 function readOpen(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : {};
@@ -21,6 +22,7 @@ function readOpen(): Record<string, boolean> {
   }
 }
 function writeOpen(value: Record<string, boolean>): void {
+  if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   } catch {
