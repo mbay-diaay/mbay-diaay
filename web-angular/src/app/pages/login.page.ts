@@ -2,6 +2,8 @@ import { Component, DestroyRef, computed, inject, signal } from "@angular/core";
 import { Router, RouterLink } from "@angular/router";
 
 import { BRAND } from "@/config/brand";
+import { isApiMode } from "@/lib/api/config";
+import { DEMO_MODE } from "@/lib/auth/config";
 import { authErrorMessage } from "@/lib/auth/messages";
 import { OTP_LENGTH, OTP_TTL_MS, normalizeEmail } from "@/lib/auth/policy";
 import type { CodeSent } from "@/lib/auth/types";
@@ -147,7 +149,7 @@ type Step = { name: "credentials" } | { name: "code"; challengeId: string; sent:
                     {{ otpInfo() }}
                   </div>
                 }
-                @if (demoMail(); as mail) {
+                @if (showDemoUi() && demoMail(); as mail) {
                   <div role="status" class="rounded-md border border-dashed border-border-strong bg-muted p-3 text-sm">
                     <div class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {{ t()("auth.mail.title") }}
@@ -279,31 +281,33 @@ type Step = { name: "credentials" } | { name: "code"; challengeId: string; sent:
               </div>
             }
 
-            <section class="mt-8 border-t pt-5" aria-labelledby="demo-accounts">
-              <h2 id="demo-accounts" class="text-sm font-semibold">
-                {{ t()("auth.login.demoTitle") }}
-              </h2>
-              <p class="mt-1 text-xs text-muted-foreground">
-                {{ t()("auth.login.demoIntro") }}
-                <span class="font-semibold text-foreground">{{ demoPassword }}</span>
-              </p>
-              <ul class="mt-3 space-y-1.5">
-                @for (account of demoAccounts; track account.email) {
-                  <li>
-                    <button
-                      type="button"
-                      class="w-full rounded-md border px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
-                      [class.border-primary]="email() === account.email"
-                      [class.bg-primary-soft]="email() === account.email"
-                      (click)="fillDemoAccount(account.email)"
-                    >
-                      <span class="block font-semibold">{{ account.label }}</span>
-                      <span class="block text-muted-foreground">{{ account.email }}</span>
-                    </button>
-                  </li>
-                }
-              </ul>
-            </section>
+            @if (showDemoUi()) {
+              <section class="mt-8 border-t pt-5" aria-labelledby="demo-accounts">
+                <h2 id="demo-accounts" class="text-sm font-semibold">
+                  {{ t()("auth.login.demoTitle") }}
+                </h2>
+                <p class="mt-1 text-xs text-muted-foreground">
+                  {{ t()("auth.login.demoIntro") }}
+                  <span class="font-semibold text-foreground">{{ demoPassword }}</span>
+                </p>
+                <ul class="mt-3 space-y-1.5">
+                  @for (account of demoAccounts; track account.email) {
+                    <li>
+                      <button
+                        type="button"
+                        class="w-full rounded-md border px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
+                        [class.border-primary]="email() === account.email"
+                        [class.bg-primary-soft]="email() === account.email"
+                        (click)="fillDemoAccount(account.email)"
+                      >
+                        <span class="block font-semibold">{{ account.label }}</span>
+                        <span class="block text-muted-foreground">{{ account.email }}</span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              </section>
+            }
           }
 
           <p class="mt-8 text-xs text-muted-foreground">{{ t()("auth.login.footer") }}</p>
@@ -320,6 +324,8 @@ export default class LoginPage {
   protected readonly localeService = inject(LocaleService);
 
   protected readonly brand = BRAND;
+  /** Comptes cliquables + courriel simulé : uniquement hors API / mode démo local. */
+  protected readonly showDemoUi = () => DEMO_MODE && !isApiMode();
   protected readonly demoAccounts = DEMO_ACCOUNTS;
   protected readonly demoPassword = DEMO_PASSWORD;
   protected readonly OTP_LENGTH = OTP_LENGTH;
