@@ -119,7 +119,7 @@ const ROLES = Object.keys(ROLE_LABEL) as RoleId[];
             />
           </div>
         </div>
-        <div class="surface overflow-x-auto">
+        <div class="surface" [class.overflow-x-auto]="!userMenuOpenId()">
           <table class="w-full text-sm">
             <thead class="border-b bg-muted text-left text-xs text-muted-foreground">
               <tr>

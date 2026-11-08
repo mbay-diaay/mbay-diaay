@@ -111,7 +111,7 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
         </div>
       </div>
 
-      <div class="surface overflow-x-auto">
+      <div class="surface" [class.overflow-x-auto]="!deviceMenuOpenId()">
         @if (rows().length) {
           <table class="w-full text-sm">
             <thead class="border-b bg-muted text-left text-xs text-muted-foreground">
@@ -432,54 +432,56 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
         </button>
       </ui-dialog>
 
-      <ui-dialog [open]="!!confirm()" (openChange)="onConfirmOpen($event)" [title]="confirmTitle()">
-        <p class="text-sm">
-          {{ t()("appareils.confirm.device") }}
-          <span class="font-semibold">{{ confirm()?.device.label }}</span>
-          {{ t()("appareils.confirm.of") }}
-          {{ user(confirm()!.device.userId)?.name ?? t()("appareils.unknown") }}.
-          @if (confirm()?.kind === 'revoke') {
-            {{ t()("appareils.confirm.revoke.note") }}
-          }
-          @if (confirm()?.kind === 'reactivate') {
-            {{ t()("appareils.confirm.reactivate.note") }}
-          }
-          @if (confirm()?.kind === 'signout') {
-            {{ t()("appareils.confirm.signout.note") }}
-          }
-        </p>
-        <p class="mt-3 rounded-md bg-warning-bg p-3 text-sm text-warning-fg">
-          {{ t()("appareils.confirm.demo") }}
-        </p>
-        <p class="mt-2 text-xs text-muted-foreground">{{ t()("appareils.confirm.desc") }}</p>
-        <button
-          actions
-          type="button"
-          class="inline-flex h-9 items-center rounded-md border px-4 text-sm"
-          (click)="confirm.set(null)"
-        >
-          {{ t()("common.cancel") }}
-        </button>
-        @if (confirm()?.kind === 'reactivate') {
+      @if (confirm(); as c) {
+        <ui-dialog [open]="true" (openChange)="onConfirmOpen($event)" [title]="confirmTitle()">
+          <p class="text-sm">
+            {{ t()("appareils.confirm.device") }}
+            <span class="font-semibold">{{ c.device.label }}</span>
+            {{ t()("appareils.confirm.of") }}
+            {{ user(c.device.userId)?.name ?? t()("appareils.unknown") }}.
+            @if (c.kind === 'revoke') {
+              {{ t()("appareils.confirm.revoke.note") }}
+            }
+            @if (c.kind === 'reactivate') {
+              {{ t()("appareils.confirm.reactivate.note") }}
+            }
+            @if (c.kind === 'signout') {
+              {{ t()("appareils.confirm.signout.note") }}
+            }
+          </p>
+          <p class="mt-3 rounded-md bg-warning-bg p-3 text-sm text-warning-fg">
+            {{ t()("appareils.confirm.demo") }}
+          </p>
+          <p class="mt-2 text-xs text-muted-foreground">{{ t()("appareils.confirm.desc") }}</p>
           <button
             actions
             type="button"
-            class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            (click)="runConfirm()"
+            class="inline-flex h-9 items-center rounded-md border px-4 text-sm"
+            (click)="confirm.set(null)"
           >
-            {{ confirmSubmitLabel() }}
+            {{ t()("common.cancel") }}
           </button>
-        } @else {
-          <button
-            actions
-            type="button"
-            class="inline-flex h-9 items-center rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
-            (click)="runConfirm()"
-          >
-            {{ confirmSubmitLabel() }}
-          </button>
-        }
-      </ui-dialog>
+          @if (c.kind === 'reactivate') {
+            <button
+              actions
+              type="button"
+              class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              (click)="runConfirm()"
+            >
+              {{ confirmSubmitLabel() }}
+            </button>
+          } @else {
+            <button
+              actions
+              type="button"
+              class="inline-flex h-9 items-center rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              (click)="runConfirm()"
+            >
+              {{ confirmSubmitLabel() }}
+            </button>
+          }
+        </ui-dialog>
+      }
     </app-shell>
   `,
 })

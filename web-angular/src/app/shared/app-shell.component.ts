@@ -97,8 +97,8 @@ function ensureSessionHydrated(): Promise<void> {
               <span class="hidden sm:inline">{{ t()("shell.demoBanner.long") }}</span>
             </div>
           }
-          <header class="sticky top-0 z-40 border-b bg-card/90 backdrop-blur">
-            <div class="flex h-14 items-center gap-2 overflow-hidden px-2 sm:gap-3 sm:px-4 md:h-16 md:px-8">
+          <header class="sticky top-0 z-50 border-b bg-card/90 backdrop-blur">
+            <div class="flex h-14 items-center gap-2 px-2 sm:gap-3 sm:px-4 md:h-16 md:px-8">
               <button
                 type="button"
                 class="grid size-10 shrink-0 place-items-center rounded-md hover:bg-muted pointer-coarse:size-touch lg:hidden"
@@ -156,7 +156,7 @@ function ensureSessionHydrated(): Promise<void> {
                   @if (accountMenuOpen()) {
                     <div
                       role="menu"
-                      class="absolute right-0 z-50 mt-2 w-72 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                      class="absolute right-0 top-full z-[60] mt-1 w-72 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
                     >
                       <div class="px-2 py-1.5">
                         <div class="font-semibold">{{ session()!.name }}</div>
