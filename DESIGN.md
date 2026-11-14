@@ -2,12 +2,17 @@
 name: Mbay Diaay
 description: Module 1 administratif SCOOP / CRADESC — Operate dense, marron charte
 colors:
+  brand-900: "#2F1D17"
+  brand-800: "#3D281F"
   brand-700: "#4E3228"
   brand-600: "#664336"
   brand-100: "#EBE0DC"
   accent-600: "#394076"
   accent-800: "#1E2344"
   accent-100: "#D4D7EA"
+  mist-500: "#959DBB"
+  taupe-500: "#A69895"
+  mauve-500: "#A199A1"
   neutral-0: "#FFFFFF"
   neutral-50: "#F8F6F3"
   neutral-200: "#DDD6D0"
@@ -102,6 +107,18 @@ Palette CRADESC (primitive dans `docs/prd/design-tokens.json`) → semantic → 
 ### Secondary
 - **Indigo CRADESC** (`#394076`): accent unique, `--chart-2` (ex. série femmes), accents UI.
 - **Indigo text** (`#1E2344`) / **soft** (`#D4D7EA`): texte accent et fonds doux.
+
+### Secondaires d'illustration (charte CRADESC)
+La charte compte **5 couleurs officielles** : le marron `#4E3228`, l'indigo `#394076` et trois teintes reprises du laurier du logo CRADESC. Chacune a des variantes 100 / 300 / 500 (officielle) / 700.
+- **Bleu brume** (`#959DBB`, `--p-mist-*`) : haut du laurier ; soleil et halos des illustrations.
+- **Taupe** (`#A69895`, `--p-taupe-*`) : bas du laurier ; dunes, champs, texte secondaire sur marron (`taupe-300`).
+- **Mauve gris** (`#A199A1`, `--p-mauve-*`) : dunes lointaines et champs.
+
+Ces trois teintes servent aux **illustrations et surfaces décoratives** (tokens `--auth-*`), jamais aux CTA ni aux graphiques de données (The Marron Rule reste valable).
+
+### Logos
+- **Mbay Diaay** (plateforme, marque principale) : composant `ui-brand-logo`. Marque provisoire SVG (pousse + soleil indigo) tant que le logo officiel n'est pas fourni ; renseigner `BRAND.logo` / `BRAND.logoOnDark` dans `web-angular/src/config/brand.ts` pour basculer partout.
+- **CRADESC** (porteur) : `public/brand/cradesc-logo.png` (complet) et `cradesc-embleme.png` (sans sous-titre). PNG transparent repris de cradesc.org ; **sur fond clair uniquement** (lettrage marron). Toujours en second plan, après la marque Mbay Diaay.
 
 ### Neutral
 - **Ivoire chaud** (`#F8F6F3`): fond page (teinte marron, plus d’olive).

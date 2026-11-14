@@ -21,6 +21,8 @@
   "primitive": {
     "color": {
       "brand": {
+        "900": { "$value": "#2F1D17", "$type": "color", "$description": "Dérivée très foncée : bas du dégradé du panneau d'accueil" },
+        "800": { "$value": "#3D281F", "$type": "color", "$description": "Dérivée foncée : rangées de cultures des illustrations" },
         "700": { "$value": "#4E3228", "$type": "color", "$description": "Marron principal CRADESC (officiel, charte du 22/04/2026)" },
         "600": { "$value": "#664336", "$type": "color", "$description": "Teinte éclaircie dérivée pour l'état hover" },
         "100": { "$value": "#EBE0DC", "$type": "color", "$description": "Teinte très éclaircie dérivée pour les fonds doux" }
@@ -29,6 +31,27 @@
         "600": { "$value": "#394076", "$type": "color", "$description": "Indigo CRADESC (officiel) — retenu comme accent UI unique parmi les 4 teintes secondaires de la charte" },
         "800": { "$value": "#1E2344", "$type": "color", "$description": "Teinte assombrie dérivée pour un texte d'accent accessible" },
         "100": { "$value": "#D4D7EA", "$type": "color", "$description": "Teinte très éclaircie dérivée pour les fonds doux" }
+      },
+      "mist": {
+        "$description": "Bleu brume CRADESC (officiel #959DBB, secondaire). Feuillage du laurier du logo ; illustrations et soleil de l'écran de connexion.",
+        "700": { "$value": "#5D6690", "$type": "color", "$description": "Dérivée foncée" },
+        "500": { "$value": "#959DBB", "$type": "color", "$description": "Officielle (charte CRADESC)" },
+        "300": { "$value": "#BCC2D6", "$type": "color", "$description": "Dérivée claire" },
+        "100": { "$value": "#E6E8F1", "$type": "color", "$description": "Dérivée très claire (halos, fonds)" }
+      },
+      "taupe": {
+        "$description": "Taupe CRADESC (officiel #A69895, secondaire). Bas du laurier du logo ; dunes et champs des illustrations.",
+        "700": { "$value": "#6E625F", "$type": "color", "$description": "Dérivée foncée" },
+        "500": { "$value": "#A69895", "$type": "color", "$description": "Officielle (charte CRADESC)" },
+        "300": { "$value": "#C9BFBD", "$type": "color", "$description": "Dérivée claire (texte secondaire sur marron)" },
+        "100": { "$value": "#EEEAE9", "$type": "color", "$description": "Dérivée très claire" }
+      },
+      "mauve": {
+        "$description": "Mauve gris CRADESC (officiel #A199A1, secondaire). Dunes lointaines et champs des illustrations.",
+        "700": { "$value": "#6A626A", "$type": "color", "$description": "Dérivée foncée" },
+        "500": { "$value": "#A199A1", "$type": "color", "$description": "Officielle (charte CRADESC)" },
+        "300": { "$value": "#C6C0C6", "$type": "color", "$description": "Dérivée claire" },
+        "100": { "$value": "#EDEAED", "$type": "color", "$description": "Dérivée très claire" }
       },
       "neutral": {
         "0":   { "$value": "#FFFFFF", "$type": "color" },
