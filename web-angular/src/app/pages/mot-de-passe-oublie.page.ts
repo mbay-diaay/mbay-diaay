@@ -1,22 +1,11 @@
-import {
-  Component,
-  DestroyRef,
-  computed,
-  inject,
-  signal,
-} from "@angular/core";
+import { Component, DestroyRef, computed, inject, signal } from "@angular/core";
 import { Router, RouterLink } from "@angular/router";
 
 import { authErrorMessage } from "@/lib/auth/messages";
-import {
-  OTP_LENGTH,
-  OTP_TTL_MS,
-  isPasswordValid,
-  normalizeEmail,
-} from "@/lib/auth/policy";
+import { OTP_LENGTH, OTP_TTL_MS, isPasswordValid, normalizeEmail } from "@/lib/auth/policy";
 import type { CodeSent } from "@/lib/auth/types";
-import { AuthService } from "../shared/auth.service";
-import { LocaleService } from "../shared/locale.service";
+import { AuthService } from "@shared/auth.service";
+import { LocaleService } from "@shared/locale.service";
 
 type Step =
   | { name: "email" }
@@ -40,7 +29,11 @@ type Step =
 
         @switch (step().name) {
           @case ("email") {
-            <form class="mt-6 space-y-5" novalidate (submit)="$event.preventDefault(); submitEmail()">
+            <form
+              class="mt-6 space-y-5"
+              novalidate
+              (submit)="$event.preventDefault(); submitEmail()"
+            >
               <div class="space-y-2">
                 <label for="email" class="text-sm font-medium leading-none">{{
                   t()("auth.login.email")
@@ -60,7 +53,10 @@ type Step =
                 />
               </div>
               @if (error()) {
-                <div role="alert" class="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
+                <div
+                  role="alert"
+                  class="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg"
+                >
                   {{ error() }}
                 </div>
               }
@@ -101,7 +97,10 @@ type Step =
                   />
                 </div>
                 @if (error()) {
-                  <div role="alert" class="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
+                  <div
+                    role="alert"
+                    class="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg"
+                  >
                     {{ error() }}
                   </div>
                 }
@@ -110,7 +109,9 @@ type Step =
                     role="status"
                     class="rounded-md border border-dashed border-border-strong bg-muted p-3 text-sm"
                   >
-                    <div class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div
+                      class="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                    >
                       {{ t()("auth.mail.title") }}
                     </div>
                     <p class="mt-1">
@@ -141,18 +142,28 @@ type Step =
                       : t()("auth.otp.resend")
                   }}
                 </button>
-                <button type="button" class="text-muted-foreground hover:text-foreground" (click)="backToEmail()">
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-foreground"
+                  (click)="backToEmail()"
+                >
                   {{ t()("auth.otp.back") }}
                 </button>
               </div>
             </div>
           }
           @case ("password") {
-            <form class="mt-6 space-y-5" novalidate (submit)="$event.preventDefault(); submitPassword()">
+            <form
+              class="mt-6 space-y-5"
+              novalidate
+              (submit)="$event.preventDefault(); submitPassword()"
+            >
               <h2 class="text-lg font-semibold">{{ t()("auth.forgot.newTitle") }}</h2>
               <p class="text-sm text-muted-foreground">{{ t()("auth.forgot.newDescription") }}</p>
               <div class="space-y-2">
-                <label for="pw1" class="text-sm font-medium">{{ t()("auth.forgot.newPassword") }}</label>
+                <label for="pw1" class="text-sm font-medium">{{
+                  t()("auth.forgot.newPassword")
+                }}</label>
                 <input
                   id="pw1"
                   type="password"
@@ -164,7 +175,9 @@ type Step =
                 />
               </div>
               <div class="space-y-2">
-                <label for="pw2" class="text-sm font-medium">{{ t()("auth.forgot.confirm") }}</label>
+                <label for="pw2" class="text-sm font-medium">{{
+                  t()("auth.forgot.confirm")
+                }}</label>
                 <input
                   id="pw2"
                   type="password"
@@ -175,11 +188,17 @@ type Step =
                 />
               </div>
               @if (mismatch()) {
-                <div role="alert" class="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
+                <div
+                  role="alert"
+                  class="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg"
+                >
                   {{ t()("auth.forgot.mismatch") }}
                 </div>
               } @else if (error()) {
-                <div role="alert" class="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
+                <div
+                  role="alert"
+                  class="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg"
+                >
                   {{ error() }}
                 </div>
               }
@@ -195,7 +214,10 @@ type Step =
         }
 
         <p class="mt-8 text-center text-sm">
-          <a routerLink="/login" class="font-semibold text-primary hover:underline pointer-coarse:inline-block pointer-coarse:py-2">
+          <a
+            routerLink="/login"
+            class="font-semibold text-primary hover:underline pointer-coarse:inline-block pointer-coarse:py-2"
+          >
             {{ t()("auth.forgot.back") }}
           </a>
         </p>

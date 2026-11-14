@@ -1,408 +1,605 @@
 import { Component, computed, effect, inject, signal } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
-import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { map } from "rxjs";
-import {
-  LucideAngularModule,
-  ArrowLeft,
-  CalendarDays,
-  CircleCheck,
-  FileText,
-  Pencil,
-  Users,
-  XCircle,
-} from "lucide-angular";
 
-import { fmtDate, fmtDateTime } from "@/lib/format";
+import { fmtDate, fmtDateTime, nf } from "@/lib/format";
 import { attendanceStats, canEditMinutes, isMeetingEditable } from "@/lib/meetings";
 import type { Meeting } from "@/lib/mock/cooperative";
 import { scopedMeetings, scopedMembers } from "@/lib/scope";
 import type { MessageKey } from "@/lib/i18n";
 import { AccessDeniedError } from "@/lib/store";
-import { MEETING_KIND_LABEL, MEETING_STATUS_LABEL, MEETING_STATUS_TONE } from "../shared/meeting-kinds";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiButtonComponent } from "../shared/ui/button.component";
-import { UiEmptyComponent } from "../shared/ui/empty.component";
-import { UiModalA11yDirective } from "../shared/ui/modal-a11y.directive";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent } from "../shared/ui/pill.component";
-import { MeetingFormDialogComponent } from "../shared/meeting-form-dialog.component";
+import { MEETING_KIND_LABEL, MEETING_STATUS_LABEL } from "@shared/meeting-kinds";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
+import { MeetingDecisionsComponent } from "@shared/meeting-decisions.component";
+import { MeetingFormDialogComponent } from "@shared/meeting-form-dialog.component";
+import {
+  DetailHeroComponent,
+  IconComponent,
+  initialsOf,
+  ModalComponent,
+  SnackbarService,
+  StatCardsComponent,
+  TONE,
+  V2_PAGE_STYLES,
+  type HeroBadge,
+  type HeroMeta,
+  type StatCard,
+} from "@shared/ui";
 
-/** Fiche réunion : tenue / annulation, procès-verbal (aligné sur reunions.$id.tsx). */
+const DAY = 86_400_000;
+
+/**
+ * Fiche réunion (charte V2) : en-tête, chiffres clés, ordre du jour, présences, procès-verbal
+ * (brouillon puis validation verrouillée), historique ; pointage, annulation et modification en modale.
+ */
 @Component({
   selector: "app-reunion-detail-page",
   imports: [
-    FormsModule,
-    RouterLink,
-    LucideAngularModule,
     AppShellComponent,
+    MeetingDecisionsComponent,
+    DetailHeroComponent,
+    IconComponent,
     MeetingFormDialogComponent,
-    UiPageHeaderComponent,
-    UiEmptyComponent,
-    UiModalA11yDirective,
-    UiPillComponent,
-    UiButtonComponent,
+    ModalComponent,
+    RouterLink,
+    StatCardsComponent,
+  ],
+  styles: [
+    V2_PAGE_STYLES,
+    `
+      .grid-main {
+        display: grid;
+        gap: 16px;
+      }
+      @media (min-width: 1100px) {
+        .grid-main {
+          grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+          align-items: start;
+        }
+      }
+      .agenda li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-top: 1px solid var(--v2-separateur);
+        padding: 12px 20px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .num {
+        display: grid;
+        height: 30px;
+        width: 30px;
+        flex-shrink: 0;
+        place-items: center;
+        border-radius: 999px;
+        background: var(--v2-foret);
+        color: var(--v2-citron);
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .minutes {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        border-radius: 18px;
+        background: var(--v2-creme);
+        padding: 16px 18px;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      .area.big {
+        min-height: 260px;
+        line-height: 1.6;
+      }
+      .meter {
+        display: block;
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--v2-lin);
+      }
+      .meter span {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--v2-vert-pousse);
+      }
+      .people {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .person-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        background: var(--v2-sauge);
+        padding: 3px 10px 3px 3px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .person-chip .i {
+        display: grid;
+        height: 24px;
+        width: 24px;
+        place-items: center;
+        border-radius: 999px;
+        background: var(--v2-foret);
+        color: var(--v2-citron);
+        font-size: 10px;
+        font-weight: 800;
+      }
+      .timeline li {
+        display: flex;
+        gap: 14px;
+        border-top: 1px solid var(--v2-separateur);
+        padding: 12px 20px;
+      }
+      .dot {
+        margin-top: 5px;
+        height: 12px;
+        width: 12px;
+        flex-shrink: 0;
+        border-radius: 999px;
+        background: var(--v2-foret);
+        box-shadow: 0 0 0 4px var(--v2-sauge);
+      }
+      .checklist {
+        max-height: 46vh;
+        overflow-y: auto;
+        border-radius: 18px;
+        border: 1px solid var(--v2-bord-carte);
+      }
+      .checklist label {
+        display: flex;
+        min-height: 52px;
+        align-items: center;
+        gap: 12px;
+        border-top: 1px solid var(--v2-separateur);
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .checklist li:first-child label {
+        border-top: none;
+      }
+      .checklist label:hover {
+        background: var(--v2-creme);
+      }
+      .checklist input {
+        height: 20px;
+        width: 20px;
+        accent-color: var(--v2-foret);
+      }
+    `,
   ],
   template: `
     <app-shell perm="meeting.read" [area]="t()('reunions.detail.area')">
-      @if (!meeting()) {
-        <ui-empty>
-          <div class="mx-auto mb-3 grid size-12 place-items-center text-muted-foreground">
-            <lucide-angular [img]="icons.cal" class="size-8" />
-          </div>
-          <p class="font-semibold">{{ t()("reunions.detail.notFound.title") }}</p>
-          <p class="mt-1 text-sm">{{ t()("reunions.detail.notFound.text") }}</p>
-        </ui-empty>
-      } @else {
-        @if (meeting(); as m) {
-          <a
-            routerLink="/reunions"
-            class="mb-4 inline-flex min-h-10 items-center gap-1 rounded-md text-sm text-muted-foreground hover:text-foreground"
-          >
-            <lucide-angular [img]="icons.arrowLeft" class="size-4" />
-            {{ t()("reunions.detail.back") }}
-          </a>
-
-          @if (fb(); as msg) {
-            <p
-              class="mb-4 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm"
-              [class.text-destructive]="msg.kind === 'error'"
-            >
-              {{ msg.text }}
-            </p>
+      @if (meeting(); as current) {
+        <ui-detail-hero
+          [crumb]="{ label: t()('reunions.title'), link: '/dashboard/reunions' }"
+          [title]="current.title"
+          [eyebrow]="t()(MEETING_KIND_LABEL[current.kind])"
+          icon="event"
+          [badges]="heroBadges()"
+          [meta]="heroMeta()"
+          [backLabel]="t()('reunions.detail.back')"
+        >
+          @if (canManage() && current.status === "planifiée") {
+            <div hero-actions class="flex flex-wrap gap-2">
+              @if (canEditMeeting(current)) {
+                <button
+                  type="button"
+                  class="btn btn-ghost"
+                  style="height: 44px"
+                  (click)="openEditDialog()"
+                >
+                  <ui-icon name="edit" [size]="18" />{{ t()("reunions.detail.edit") }}
+                </button>
+              }
+              @if (isPast(current.date)) {
+                <button
+                  type="button"
+                  class="btn btn-citron"
+                  style="height: 44px"
+                  (click)="openHoldDialog()"
+                >
+                  <ui-icon name="task_alt" [size]="18" />{{ t()("reunions.detail.hold") }}
+                </button>
+              }
+              <button
+                type="button"
+                class="btn btn-ghost"
+                style="height: 44px; color: var(--v2-erreur-fg)"
+                (click)="openCancelDialog()"
+              >
+                <ui-icon name="close" [size]="18" />{{ t()("reunions.detail.cancel") }}
+              </button>
+            </div>
           }
+        </ui-detail-hero>
 
-          <ui-page-header
-            [eyebrow]="t()('reunions.detail.eyebrow', { kind: t()(MEETING_KIND_LABEL[m.kind]) })"
-            [title]="m.title"
-            [description]="
-              fmtDateTime(m.date) +
-              ' · ' +
-              m.place +
-              ' · ' +
-              scoopName(m.scoopId)
-            "
+        @if (current.status === "annulée") {
+          <p
+            class="notice mt-4"
+            style="background: var(--v2-erreur-bg); color: var(--v2-erreur-fg)"
           >
-            <ui-pill actions [tone]="MEETING_STATUS_TONE[m.status]">{{
-              t()(MEETING_STATUS_LABEL[m.status])
-            }}</ui-pill>
-          </ui-page-header>
+            <ui-icon name="warning" [size]="18" />{{
+              t()("reunions.detail.cancelledReason", { reason: current.cancelReason ?? "" })
+            }}
+          </p>
+        }
 
-          @if (m.status === "annulée") {
-            <p class="mb-4 rounded-md bg-muted p-4 text-sm">
-              {{ t()("reunions.detail.cancelledReason", { reason: m.cancelReason ?? "" }) }}
-            </p>
-          }
+        <ui-stat-cards class="rise mt-6" [stats]="kpis()" />
 
-          <div class="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-            <div class="space-y-6">
-              <section class="surface p-5" aria-labelledby="agenda-title">
-                <h2 id="agenda-title" class="font-semibold">{{ t()("reunions.detail.agenda") }}</h2>
-                @if (m.agenda.length) {
-                  <ol class="mt-3 list-decimal space-y-1.5 pl-5 text-sm">
-                    @for (line of m.agenda; track $index) {
-                      <li>{{ line }}</li>
-                    }
-                  </ol>
-                } @else {
-                  <p class="mt-2 text-sm text-muted-foreground">{{ t()("reunions.detail.agendaNone") }}</p>
+        <div class="grid-main mt-6">
+          <div class="grid gap-4">
+            <!-- Ordre du jour -->
+            <section class="sec-card">
+              <div class="sec-head">
+                <h2>
+                  <span class="sec-ico"><ui-icon name="fact_check" [size]="18" /></span
+                  >{{ t()("reunions.detail.agenda")
+                  }}<span class="n">{{ current.agenda.length }}</span>
+                </h2>
+              </div>
+              <ol class="agenda">
+                @for (line of current.agenda; track $index; let position = $index) {
+                  <li>
+                    <span class="num">{{ position + 1 }}</span
+                    ><span class="min-w-0">{{ line }}</span>
+                  </li>
+                } @empty {
+                  <li class="sub" style="font-weight: 500">
+                    {{ t()("reunions.detail.agendaNone") }}
+                  </li>
                 }
-                <dl class="mt-4 grid grid-cols-1 gap-4 border-t pt-4 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt class="text-xs text-muted-foreground">{{ t()("reunions.detail.when") }}</dt>
-                    <dd class="mt-0.5 font-medium">{{ fmtDateTime(m.date) }}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs text-muted-foreground">{{ t()("reunions.detail.where") }}</dt>
-                    <dd class="mt-0.5 font-medium">{{ m.place }}</dd>
-                  </div>
-                  <div class="sm:col-span-2">
-                    <dt class="text-xs text-muted-foreground">{{ t()("reunions.detail.scoop") }}</dt>
-                    <dd class="mt-0.5 font-medium">{{ scoopName(m.scoopId) }}</dd>
-                  </div>
-                </dl>
-              </section>
+              </ol>
+            </section>
 
-              @if (m.status === "tenue") {
-                <section class="surface p-5" aria-labelledby="att-title">
-                  <h2 id="att-title" class="flex items-center gap-2 font-semibold">
-                    <lucide-angular [img]="icons.users" class="size-4" aria-hidden="true" />
-                    {{ t()("reunions.attendance.sectionTitle") }}
+            <!-- Déroulé et convoqués -->
+            <section class="sec-card">
+              <div class="sec-head">
+                <h2>
+                  <span class="sec-ico"><ui-icon name="group" [size]="18" /></span
+                  >{{ t()("reunions.detail.convoked") }}
+                </h2>
+              </div>
+              <p class="sub" style="font-weight: 600">{{ t()(modeKey(current)) }}{{ current.place && current.mode !== "en ligne" ? " · " + current.place : "" }}</p>
+              @if (current.onlineUrl) {
+                <a class="btn btn-primary mt-3 inline-flex" [href]="current.onlineUrl" target="_blank" rel="noopener noreferrer">
+                  {{ t()("reunions.detail.join") }}<span class="btn-chip"><ui-icon name="public" [size]="18" /></span>
+                </a>
+                <p class="sub mt-2 break-all">{{ current.onlineUrl }}</p>
+              }
+              @if (convokedNames().length) {
+                <ul class="mt-4 flex flex-wrap gap-2">
+                  @for (name of convokedNames(); track name) {
+                    <li class="rounded-full px-3 py-1.5 text-[13px] font-bold" style="background: var(--v2-sauge); color: var(--v2-foret)">{{ name }}</li>
+                  }
+                </ul>
+              } @else {
+                <p class="sub mt-3" style="font-weight: 500">{{ t()("reunions.detail.convokedNone") }}</p>
+              }
+            </section>
+
+            <!-- Procès-verbal -->
+            @if (current.status === "tenue") {
+              <section class="sec-card">
+                <div class="sec-head">
+                  <h2>
+                    <span class="sec-ico"><ui-icon name="description" [size]="18" /></span
+                    >{{ t()("reunions.minutes.title") }}
                   </h2>
-                  <p class="mt-2 text-sm">
+                  <span
+                    class="badge"
+                    [style.background]="minutesTone(current).bg"
+                    [style.color]="minutesTone(current).fg"
+                    >{{ minutesStatusLabel(current) }}</span
+                  >
+                </div>
+                <div class="border-t p-5" style="border-color: var(--v2-separateur)">
+                  @if (minutesEditable()) {
+                    <label class="lbl" for="minutes">{{ t()("reunions.minutes.text") }}</label>
+                    <p class="sub mt-1">{{ t()("reunions.minutes.textHint") }}</p>
+                    <textarea
+                      id="minutes"
+                      class="area big mt-2"
+                      [value]="minutesDraft"
+                      (input)="minutesDraft = $any($event.target).value"
+                    ></textarea>
+                    @if (minutesTried() && !minutesDraft.trim()) {
+                      <p
+                        class="mt-1.5 flex items-center gap-1.5 text-[13px] font-bold"
+                        style="color: var(--v2-erreur-fg)"
+                      >
+                        <ui-icon name="warning" [size]="16" />{{
+                          t()("reunions.minutes.emptyText")
+                        }}
+                      </p>
+                    }
+                    @if (current.minutes?.authorName) {
+                      <p class="sub mt-2">{{ t()("reunions.minutes.author", { name: current.minutes?.authorName ?? "" }) }}</p>
+                    }
+                    @if (isMinutesAuthor()) {
+                      <p class="notice mt-3"><ui-icon name="info" [size]="18" />{{ t()("reunions.minutes.authorCannotValidate") }}</p>
+                    }
+                    <div class="mt-4 flex flex-wrap justify-end gap-2">
+                      <button type="button" class="btn btn-ghost" (click)="saveMinutesDraft()">
+                        {{ t()("reunions.minutes.save") }}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-primary"
+                        [disabled]="!minutesDraft.trim() || isMinutesAuthor()"
+                        (click)="openValidateConfirm()"
+                      >
+                        {{ t()("reunions.minutes.validate")
+                        }}<span class="btn-chip"><ui-icon name="check" [size]="18" /></span>
+                      </button>
+                    </div>
+                  } @else if (current.minutes) {
+                    <p class="minutes">{{ current.minutes.text }}</p>
+                    @if (current.minutes.authorName) {
+                      <p class="sub mt-2">{{ t()("reunions.minutes.author", { name: current.minutes.authorName }) }}</p>
+                    }
+                    @if (current.minutes.status === "validé") {
+                      <p
+                        class="notice mt-3"
+                        style="background: var(--v2-sauge); color: var(--v2-vert-pousse)"
+                      >
+                        <ui-icon name="task_alt" [size]="18" />
+                        {{
+                          t()("reunions.minutes.validatedBy", {
+                            by: current.minutes.validatedBy ?? "",
+                            date: current.minutes.validatedAt
+                              ? fmtDate(current.minutes.validatedAt)
+                              : "",
+                          })
+                        }}
+                      </p>
+                      <p class="sub mt-2">{{ t()("reunions.minutes.lockedNote") }}</p>
+                    }
+                  } @else {
+                    <p class="sub">{{ t()("reunions.minutes.readonlyNone") }}</p>
+                  }
+                </div>
+              </section>
+            }
+
+            <!-- Décisions -->
+            @if (current.status !== "annulée") {
+              <app-meeting-decisions [meeting]="current" />
+            }
+          </div>
+
+          <div class="grid gap-4">
+            <!-- Présences -->
+            @if (current.status === "tenue") {
+              <section class="sec-card">
+                <div class="sec-head">
+                  <h2>
+                    <span class="sec-ico"><ui-icon name="group" [size]="18" /></span
+                    >{{ t()("reunions.attendance.sectionTitle") }}
+                  </h2>
+                </div>
+                <div class="border-t p-5" style="border-color: var(--v2-separateur)">
+                  <p class="text-[15px] font-extrabold">
                     {{
                       t()("reunions.attendance.summary", {
                         present: stats().present,
                         absent: stats().absent,
                       })
-                    }}.
+                    }}
+                  </p>
+                  <span class="meter mt-2" aria-hidden="true"
+                    ><span [style.width.%]="stats().rate"></span
+                  ></span>
+                  <p class="sub mt-1.5">
                     {{ t()("reunions.attendance.rate", { rate: stats().rate }) }}
                   </p>
-                </section>
-
-                <section class="surface p-5" aria-labelledby="pv-title">
-                  <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h2 id="pv-title" class="flex items-center gap-2 font-semibold">
-                      <lucide-angular [img]="icons.fileText" class="size-4" aria-hidden="true" />
-                      {{ t()("reunions.minutes.title") }}
-                    </h2>
-                    <ui-pill
-                      [tone]="
-                        m.minutes?.status === 'validé' ? 'success' : m.minutes ? 'warning' : 'neutral'
-                      "
-                    >
-                      {{ minutesStatusLabel(m) }}
-                    </ui-pill>
-                  </div>
-
-                  @if (minutesEditable()) {
-                    <div class="mt-3 space-y-3">
-                      <label class="block text-sm font-medium">
-                        {{ t()("reunions.minutes.text") }}
-                        <span class="block text-xs font-normal text-muted-foreground">{{
-                          t()("reunions.minutes.textHint")
-                        }}</span>
-                        <textarea
-                          name="minutes"
-                          rows="12"
-                          class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          [(ngModel)]="minutesDraft"
-                        ></textarea>
-                      </label>
-                      @if (minutesTried() && !minutesDraft.trim()) {
-                        <p class="text-xs text-destructive">{{ t()("reunions.minutes.emptyText") }}</p>
-                      }
-                      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                        <ui-button type="button" variant="outline" (click)="saveMinutesDraft()">
-                          {{ t()("reunions.minutes.save") }}
-                        </ui-button>
-                        <ui-button
-                          type="button"
-                          [disabled]="!minutesDraft.trim()"
-                          (click)="openValidateConfirm()"
+                  @if (present().length) {
+                    <p class="lbl mt-4">{{ t()("reunions.attendance.presentList") }}</p>
+                    <div class="people mt-2">
+                      @for (presentMember of present(); track presentMember.id) {
+                        <span class="person-chip"
+                          ><span class="i">{{
+                            initials(presentMember.firstName + " " + presentMember.lastName)
+                          }}</span
+                          >{{ presentMember.firstName }} {{ presentMember.lastName }}</span
                         >
-                          <lucide-angular [img]="icons.check" class="size-4" />
-                          {{ t()("reunions.minutes.validate") }}
-                        </ui-button>
-                      </div>
-                    </div>
-                  } @else if (m.minutes) {
-                    <div class="mt-3 space-y-3">
-                      <p class="whitespace-pre-wrap break-words rounded-md bg-muted/60 p-4 text-sm">
-                        {{ m.minutes.text }}
-                      </p>
-                      @if (m.minutes.status === "validé") {
-                        <p class="text-sm font-medium">
-                          {{
-                            t()("reunions.minutes.validatedBy", {
-                              by: m.minutes.validatedBy ?? "",
-                              date: m.minutes.validatedAt ? fmtDate(m.minutes.validatedAt) : "",
-                            })
-                          }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">{{ t()("reunions.minutes.lockedNote") }}</p>
                       }
                     </div>
-                  } @else {
-                    <p class="mt-3 text-sm text-muted-foreground">{{ t()("reunions.minutes.readonlyNone") }}</p>
                   }
-                </section>
-              }
-            </div>
-
-            <div class="space-y-6">
-              @if (canManage() && m.status === 'planifiée') {
-                <section class="surface p-5" aria-labelledby="actions-title">
-                  <h2 id="actions-title" class="font-semibold">{{ t()("reunions.detail.actions") }}</h2>
-                  <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                    @if (canEditMeeting(m)) {
-                      <ui-button variant="outline" (click)="openEditDialog()">
-                        <lucide-angular [img]="icons.pencil" class="size-4" />
-                        {{ t()("reunions.detail.edit") }}
-                      </ui-button>
-                    }
-                    <ui-button (click)="openHoldDialog()">
-                      <lucide-angular [img]="icons.check" class="size-4" />
-                      {{ t()("reunions.detail.hold") }}
-                    </ui-button>
-                    <ui-button variant="outline" (click)="openCancelDialog()">
-                      <lucide-angular [img]="icons.xCircle" class="size-4" />
-                      {{ t()("reunions.detail.cancel") }}
-                    </ui-button>
-                  </div>
-                </section>
-              }
-
-              <section class="surface p-5" aria-labelledby="hist-title">
-                <h2 id="hist-title" class="font-semibold">{{ t()("reunions.detail.history") }}</h2>
-                <ol class="mt-3 space-y-3 text-sm">
-                  @for (h of historyReversed(m); track $index) {
-                    <li class="border-l-2 pl-3">
-                      <div class="font-medium">
-                        {{ historyLabel(h.action) }}
-                      </div>
-                      <div class="text-xs text-muted-foreground">
-                        {{ t()("reunions.detail.historyBy", { by: h.by, date: fmtDateTime(h.at) }) }}
-                      </div>
-                    </li>
-                  }
-                </ol>
+                </div>
               </section>
-            </div>
-          </div>
+            }
 
-          <!-- Dialog pointage → tenue -->
-          @if (holdOpen()) {
-            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-              <div
-                class="surface flex max-h-[90vh] w-full max-w-lg flex-col p-6 shadow-lg"
-                role="dialog"
-                aria-modal="true"
-                uiModalA11y
-                (dismiss)="holdOpen.set(false)"
-              >
-                <h2 class="text-lg font-semibold">{{ t()("reunions.attendance.title") }}</h2>
-                <p class="mt-1 text-sm text-muted-foreground">{{ t()("reunions.attendance.description") }}</p>
-                @if (scoopMembers().length) {
-                  <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
-                    <p class="text-sm font-semibold" aria-live="polite">
-                      {{
-                        t()("reunions.attendance.counter", {
-                          present: holdPresentIds().length,
-                          total: scoopMembers().length,
+            <!-- Historique -->
+            <section class="sec-card">
+              <div class="sec-head">
+                <h2>
+                  <span class="sec-ico"><ui-icon name="event_note" [size]="18" /></span
+                  >{{ t()("reunions.detail.history")
+                  }}<span class="n">{{ current.history.length }}</span>
+                </h2>
+              </div>
+              <ol class="timeline">
+                @for (event of historyReversed(current); track $index) {
+                  <li>
+                    <span class="dot" aria-hidden="true"></span>
+                    <span class="min-w-0">
+                      <span class="block font-bold">{{ historyLabel(event.action) }}</span>
+                      <span class="sub block">{{
+                        t()("reunions.detail.historyBy", {
+                          by: event.by,
+                          date: fmtDateTime(event.at),
                         })
-                      }}
-                    </p>
-                    <ui-button type="button" variant="outline" size="sm" (click)="toggleHoldAll()">
-                      {{
-                        holdAllSelected()
-                          ? t()("reunions.attendance.uncheckAll")
-                          : t()("reunions.attendance.checkAll")
-                      }}
-                    </ui-button>
-                  </div>
-                  <ul
-                    class="mt-2 max-h-[50vh] divide-y overflow-y-auto rounded-md border"
-                    [attr.aria-label]="t()('reunions.attendance.listAria')"
-                  >
-                    @for (mem of scoopMembers(); track mem.id) {
-                      <li>
-                        <label
-                          class="flex min-h-12 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/60"
-                        >
-                          <input
-                            type="checkbox"
-                            [checked]="holdPresentIds().includes(mem.id)"
-                            (change)="toggleHold(mem.id, $event)"
-                          />
-                          <span>{{ mem.firstName }} {{ mem.lastName }}</span>
-                        </label>
-                      </li>
-                    }
-                  </ul>
-                } @else {
-                  <p class="mt-3 text-sm text-muted-foreground">{{ t()("reunions.attendance.noMembers") }}</p>
+                      }}</span>
+                    </span>
+                  </li>
                 }
-                @if (!holdPresentIds().length && scoopMembers().length) {
-                  <p class="mt-2 text-xs text-muted-foreground">{{ t()("reunions.attendance.none") }}</p>
-                }
-                <div class="mt-6 flex justify-end gap-2 border-t pt-4">
-                  <ui-button type="button" variant="outline" (click)="closeHoldDialog()">{{
-                    t()("producteurs.index.cancel")
-                  }}</ui-button>
-                  <ui-button
-                    type="button"
-                    [disabled]="!holdPresentIds().length"
-                    (click)="submitHoldMeeting()"
-                  >
-                    {{ t()("reunions.attendance.submit") }}
-                  </ui-button>
-                </div>
-              </div>
-            </div>
-          }
+              </ol>
+            </section>
+          </div>
+        </div>
 
-          <app-meeting-form-dialog
-            [(open)]="editOpen"
-            [meeting]="meeting()"
-            (notify)="onMeetingFormNotify($event)"
-          />
+        <app-meeting-form-dialog
+          [(open)]="editOpen"
+          [meeting]="current"
+          (notify)="onMeetingFormNotify($event)"
+        />
 
-          <!-- Annulation -->
-          @if (cancelOpen()) {
-            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-              <div
-                class="surface w-full max-w-md p-6 shadow-lg"
-                role="dialog"
-                aria-modal="true"
-                uiModalA11y
-                (dismiss)="cancelOpen.set(false)"
+        <!-- Pointage → tenue -->
+        <ui-modal
+          [open]="holdOpen()"
+          [title]="t()('reunions.attendance.title')"
+          [description]="t()('reunions.attendance.description')"
+          icon="task_alt"
+          [width]="600"
+          [closeLabel]="t()('common.close')"
+          (closed)="closeHoldDialog()"
+        >
+          @if (scoopMembers().length) {
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p class="text-[14px] font-extrabold tabular-nums" aria-live="polite">
+                {{
+                  t()("reunions.attendance.counter", {
+                    present: holdPresentIds().length,
+                    total: scoopMembers().length,
+                  })
+                }}
+              </p>
+              <button
+                type="button"
+                class="btn btn-ghost"
+                style="height: 40px"
+                (click)="toggleHoldAll()"
               >
-                <h2 class="text-lg font-semibold">{{ t()("reunions.cancel.title") }}</h2>
-                <p class="mt-1 text-sm text-muted-foreground">{{ t()("reunions.cancel.description") }}</p>
-                <form class="mt-4 space-y-3" (ngSubmit)="submitCancelMeeting()">
-                  <label class="block text-sm font-medium">
-                    {{ t()("reunions.cancel.reason") }}
-                    <span class="block text-xs font-normal text-muted-foreground">{{
-                      t()("reunions.cancel.reasonHint")
+                {{
+                  holdAllSelected()
+                    ? t()("reunions.attendance.uncheckAll")
+                    : t()("reunions.attendance.checkAll")
+                }}
+              </button>
+            </div>
+            <ul class="checklist mb-4" [attr.aria-label]="t()('reunions.attendance.listAria')">
+              @for (member of scoopMembers(); track member.id) {
+                <li>
+                  <label>
+                    <input
+                      type="checkbox"
+                      [checked]="holdPresentIds().includes(member.id)"
+                      (change)="toggleHold(member.id, $event)"
+                    />
+                    <span class="avatar" style="height: 32px; width: 32px; font-size: 11px">{{
+                      initials(member.firstName + " " + member.lastName)
                     }}</span>
-                    <textarea
-                      name="cancelReason"
-                      rows="4"
-                      class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      [(ngModel)]="cancelReasonText"
-                    ></textarea>
+                    {{ member.firstName }} {{ member.lastName }}
                   </label>
-                  @if (cancelReasonText.trim().length > 0 && cancelReasonText.trim().length < 3) {
-                    <p class="text-xs text-destructive">{{ t()("reunions.cancel.errorReason") }}</p>
-                  }
-                  <div class="flex justify-end gap-2">
-                    <ui-button type="button" variant="outline" (click)="closeCancelDialog()">
-                      {{ t()("reunions.cancel.keep") }}
-                    </ui-button>
-                    <ui-button
-                      type="submit"
-                      variant="destructive"
-                      [disabled]="cancelReasonText.trim().length < 3"
-                    >
-                      {{ t()("reunions.cancel.submit") }}
-                    </ui-button>
-                  </div>
-                </form>
-              </div>
-            </div>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="sub mb-4">{{ t()("reunions.attendance.noMembers") }}</p>
           }
+          <button modal-footer type="button" class="btn btn-ghost" (click)="closeHoldDialog()">
+            {{ t()("producteurs.index.cancel") }}
+          </button>
+          <button
+            modal-footer
+            type="button"
+            class="btn btn-primary"
+            [disabled]="!holdPresentIds().length"
+            (click)="submitHoldMeeting()"
+          >
+            {{ t()("reunions.attendance.submit")
+            }}<span class="btn-chip"><ui-icon name="check" [size]="18" /></span>
+          </button>
+        </ui-modal>
 
-          <!-- Confirmer validation PV -->
-          @if (validateConfirmOpen()) {
-            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-              <div
-                class="surface w-full max-w-md p-6 shadow-lg"
-                role="dialog"
-                aria-modal="true"
-                uiModalA11y
-                (dismiss)="validateConfirmOpen.set(false)"
-              >
-                <h2 class="text-lg font-semibold">{{ t()("reunions.minutes.confirmTitle") }}</h2>
-                <p class="mt-2 text-sm text-muted-foreground">{{ t()("reunions.minutes.confirmDescription") }}</p>
-                @if (minutesDirty()) {
-                  <p class="mt-2 text-xs text-muted-foreground">{{ t()("reunions.minutes.confirmUnsaved") }}</p>
-                }
-                <div class="mt-6 flex justify-end gap-2">
-                  <ui-button type="button" variant="outline" (click)="closeValidateConfirm()">{{
-                    t()("producteurs.index.cancel")
-                  }}</ui-button>
-                  <ui-button type="button" (click)="confirmValidateMinutes()">{{
-                    t()("reunions.minutes.confirmSubmit")
-                  }}</ui-button>
-                </div>
-              </div>
-            </div>
+        <!-- Annulation -->
+        <ui-modal
+          tone="danger"
+          [open]="cancelOpen()"
+          [title]="t()('reunions.cancel.title')"
+          [description]="t()('reunions.cancel.description')"
+          icon="close"
+          [width]="540"
+          [closeLabel]="t()('common.close')"
+          (closed)="closeCancelDialog()"
+        >
+          <label class="lbl" for="cancel-reason">{{ t()("reunions.cancel.reason") }}</label>
+          <textarea
+            id="cancel-reason"
+            class="area mb-5 mt-2"
+            [placeholder]="t()('reunions.cancel.reasonHint')"
+            [value]="cancelReasonText"
+            (input)="cancelReasonText = $any($event.target).value"
+          ></textarea>
+          <button modal-footer type="button" class="btn btn-ghost" (click)="closeCancelDialog()">
+            {{ t()("reunions.cancel.keep") }}
+          </button>
+          <button
+            modal-footer
+            type="button"
+            class="btn btn-danger"
+            [disabled]="cancelReasonText.trim().length < 3"
+            (click)="submitCancelMeeting()"
+          >
+            {{ t()("reunions.cancel.submit") }}
+          </button>
+        </ui-modal>
+
+        <!-- Valider le procès-verbal -->
+        <ui-modal
+          [open]="validateConfirmOpen()"
+          [title]="t()('reunions.minutes.confirmTitle')"
+          [description]="t()('reunions.minutes.confirmDescription')"
+          icon="task_alt"
+          [width]="520"
+          [closeLabel]="t()('common.close')"
+          (closed)="closeValidateConfirm()"
+        >
+          @if (minutesDirty()) {
+            <p
+              class="notice mb-5"
+              style="background: var(--v2-attente-bg); color: var(--v2-attente-fg)"
+            >
+              <ui-icon name="warning" [size]="18" />{{ t()("reunions.minutes.confirmUnsaved") }}
+            </p>
           }
-        }
+          <button modal-footer type="button" class="btn btn-ghost" (click)="closeValidateConfirm()">
+            {{ t()("producteurs.index.cancel") }}
+          </button>
+          <button
+            modal-footer
+            type="button"
+            class="btn btn-primary"
+            (click)="confirmValidateMinutes()"
+          >
+            {{ t()("reunions.minutes.confirmSubmit")
+            }}<span class="btn-chip"><ui-icon name="check" [size]="18" /></span>
+          </button>
+        </ui-modal>
+      } @else {
+        <div class="card mx-auto mt-16 flex max-w-lg flex-col items-center gap-3 p-10 text-center">
+          <span
+            class="grid size-14 place-items-center rounded-[16px]"
+            style="background: var(--v2-attente-bg); color: var(--v2-attente-fg)"
+            ><ui-icon name="event" [size]="26"
+          /></span>
+          <h1 class="text-[22px] font-extrabold">{{ t()("reunions.detail.notFound.title") }}</h1>
+          <p class="sub">{{ t()("reunions.detail.notFound.text") }}</p>
+          <a class="btn btn-ghost mt-2" routerLink="/dashboard/reunions">{{
+            t()("reunions.detail.back")
+          }}</a>
+        </div>
       }
     </app-shell>
   `,
@@ -416,16 +613,8 @@ export default class ReunionDetailPage {
   protected readonly fmtDate = fmtDate;
   protected readonly MEETING_KIND_LABEL = MEETING_KIND_LABEL;
   protected readonly MEETING_STATUS_LABEL = MEETING_STATUS_LABEL;
-  protected readonly MEETING_STATUS_TONE = MEETING_STATUS_TONE;
-  protected readonly icons = {
-    arrowLeft: ArrowLeft,
-    cal: CalendarDays,
-    users: Users,
-    fileText: FileText,
-    check: CircleCheck,
-    xCircle: XCircle,
-    pencil: Pencil,
-  };
+  protected readonly initials = initialsOf;
+  private readonly snackbar = inject(SnackbarService);
 
   private readonly HISTORY_LABEL: Record<string, MessageKey> = {
     créée: "reunions.detail.history.créée",
@@ -434,6 +623,9 @@ export default class ReunionDetailPage {
     annulée: "reunions.detail.history.annulée",
     "procès-verbal enregistré": "reunions.detail.history.procès-verbal enregistré",
     "procès-verbal validé": "reunions.detail.history.procès-verbal validé",
+    "décision ajoutée": "reunions.detail.history.décision ajoutée",
+    "décision en cours": "reunions.detail.history.décision en cours",
+    "décision clôturée": "reunions.detail.history.décision clôturée",
   };
 
   private readonly id = toSignal(this.route.paramMap.pipe(map((p) => p.get("id") ?? "")), {
@@ -476,7 +668,14 @@ export default class ReunionDetailPage {
 
   protected readonly minutesEditable = computed(() => {
     const m = this.meeting();
-    return !!(m && this.canManage() && canEditMinutes(m));
+    return !!(m && this.store.can("minutes.manage") && canEditMinutes(m));
+  });
+
+  /** Le rédacteur du procès-verbal ne le valide pas lui-même (séparation des tâches). */
+  protected readonly isMinutesAuthor = computed(() => {
+    const authorEmail = this.meeting()?.minutes?.authorEmail?.toLowerCase();
+    const sessionEmail = this.store.state().session?.email.toLowerCase();
+    return !!authorEmail && authorEmail === sessionEmail;
   });
 
   /** Brouillon du procès-verbal (two-way avec ngModel). */
@@ -491,9 +690,6 @@ export default class ReunionDetailPage {
   protected cancelReasonText = "";
 
   protected readonly editOpen = signal(false);
-
-  protected readonly fb = signal<{ kind: "success" | "error"; text: string } | null>(null);
-  private fbTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     effect(() => {
@@ -516,6 +712,22 @@ export default class ReunionDetailPage {
     const key = this.HISTORY_LABEL[action];
     return key ? this.t()(key) : action;
   }
+
+  protected modeKey(m: Meeting): MessageKey {
+    return m.mode === "en ligne" ? "reunions.form.mode.online" : m.mode === "mixte" ? "reunions.form.mode.mixed" : "reunions.form.mode.onsite";
+  }
+
+  /** Noms des convoqués : GIE, membres du personnel, puis invités libres. */
+  protected readonly convokedNames = computed(() => {
+    const m = this.meeting();
+    const state = this.store.state();
+    if (!m?.audience) return [];
+    return [
+      ...m.audience.orgIds.map((id) => state.orgs.find((org) => org.id === id)?.name).filter((name): name is string => !!name),
+      ...m.audience.staffIds.map((id) => state.users.find((user) => user.id === id)?.name).filter((name): name is string => !!name),
+      ...m.audience.others,
+    ];
+  });
 
   protected scoopName(scoopId: string): string {
     return this.store.state().scoops.find((c) => c.id === scoopId)?.name ?? "";
@@ -672,13 +884,117 @@ export default class ReunionDetailPage {
   }
 
   private flash(kind: "success" | "error", text: string): void {
-    if (this.fbTimer) clearTimeout(this.fbTimer);
-    this.fb.set({ kind, text });
-    this.fbTimer = setTimeout(() => {
-      this.fb.set(null);
-      this.fbTimer = null;
-    }, 4000);
+    if (kind === "success") this.snackbar.success(text);
+    else this.snackbar.error(text);
   }
+
+  protected isPast(iso: string): boolean {
+    return iso <= new Date().toISOString();
+  }
+
+  protected minutesTone(m: Meeting) {
+    return m.minutes?.status === "validé" ? TONE.succes : m.minutes ? TONE.attente : TONE.neutre;
+  }
+
+  /** Membres pointés présents. */
+  protected readonly present = computed(() => {
+    const m = this.meeting();
+    if (!m) return [];
+    return this.store.state().members.filter((x) => m.presentIds.includes(x.id));
+  });
+
+  protected readonly heroBadges = computed<HeroBadge[]>(() => {
+    const m = this.meeting();
+    if (!m) return [];
+    const t = this.t();
+    const tone: Record<Meeting["status"], HeroBadge["tone"]> = {
+      planifiée: "light",
+      tenue: "citron",
+      annulée: "danger",
+    };
+    return [
+      { label: t(MEETING_STATUS_LABEL[m.status]), tone: tone[m.status] },
+      ...(m.status === "tenue"
+        ? [
+            {
+              label: `${t("reunions.minutes.title")} : ${this.minutesStatusLabel(m)}`,
+              tone: (m.minutes?.status === "validé" ? "glass" : "warn") as HeroBadge["tone"],
+            },
+          ]
+        : []),
+    ];
+  });
+
+  protected readonly heroMeta = computed<HeroMeta[]>(() => {
+    const m = this.meeting();
+    if (!m) return [];
+    return [
+      {
+        icon: "calendar_today",
+        text: this.locale.formatDate(m.date, {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+      { icon: m.mode === "en ligne" ? "public" : "location_on", text: m.mode === "en ligne" ? this.t()("reunions.form.mode.online") : m.place },
+      { icon: "apartment", text: this.scoopName(m.scoopId) },
+    ];
+  });
+
+  protected readonly kpis = computed<StatCard[]>(() => {
+    const m = this.meeting();
+    if (!m) return [];
+    const t = this.t();
+    const st = this.stats();
+    const days = Math.ceil((new Date(m.date).getTime() - Date.now()) / DAY);
+    return [
+      {
+        label: t("reunions.quick.agenda"),
+        value: nf.format(m.agenda.length),
+        sub: t(MEETING_KIND_LABEL[m.kind]),
+        icon: "fact_check",
+        bg: "",
+        fg: "",
+      },
+      m.status === "planifiée" && days >= 0
+        ? {
+            label: t("reunions.quick.daysLeft"),
+            value: nf.format(days),
+            sub: fmtDate(m.date),
+            icon: "calendar_today",
+            ...TONE.attente,
+          }
+        : {
+            label: t("reunions.quick.present"),
+            value: nf.format(st.present),
+            sub: t("reunions.attendance.summary", { present: st.present, absent: st.absent }),
+            icon: "group",
+            ...TONE.succes,
+          },
+      {
+        label: t("reunions.quick.rate"),
+        value: m.status === "tenue" ? `${st.rate} %` : "—",
+        sub: t("reunions.attendance.sectionTitle"),
+        icon: "trending_up",
+        ...TONE.info,
+      },
+      {
+        label: t("reunions.minutes.title"),
+        value: m.minutes ? this.minutesStatusLabel(m) : "—",
+        sub: m.minutes?.validatedAt
+          ? fmtDate(m.minutes.validatedAt)
+          : m.minutes
+            ? t(MEETING_STATUS_LABEL[m.status])
+            : this.minutesStatusLabel(m),
+        icon: "description",
+        ...this.minutesTone(m),
+      },
+    ];
+  });
 
   private errMsg(e: unknown): string {
     if (e instanceof AccessDeniedError) return this.locale.tNow(e.key);

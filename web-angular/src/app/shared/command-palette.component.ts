@@ -7,6 +7,7 @@ import {
   signal,
   afterNextRender,
   HostListener,
+  Injector,
   viewChild,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
@@ -64,14 +65,14 @@ const digits = (s: string) => s.replace(/\D/g, "");
                 <div class="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {{ t()("shell.palette.pages") }}
                 </div>
-                @for (i of pageItems(); track i.to) {
+                @for (item of pageItems(); track item.to) {
                   <button
                     type="button"
                     class="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left hover:bg-muted"
-                    (click)="goPage(i)"
+                    (click)="goPage(item)"
                   >
-                    <lucide-angular [img]="i.icon" class="size-4 shrink-0 text-muted-foreground" />
-                    <span>{{ t()(i.labelKey) }}</span>
+                    <lucide-angular [img]="item.icon" class="size-4 shrink-0 text-muted-foreground" />
+                    <span>{{ t()(item.labelKey) }}</span>
                   </button>
                 }
               }
@@ -79,17 +80,17 @@ const digits = (s: string) => s.replace(/\D/g, "");
                 <div class="mt-2 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {{ t()("shell.palette.producers") }}
                 </div>
-                @for (p of producerHits(); track p.id) {
+                @for (producer of producerHits(); track producer.id) {
                   <button
                     type="button"
                     class="flex w-full flex-col gap-0.5 rounded-sm px-2 py-2 text-left hover:bg-muted sm:flex-row sm:items-center"
-                    (click)="goProducer(p.id)"
+                    (click)="goProducer(producer.id)"
                   >
-                    <span class="font-medium">{{ p.firstName }} {{ p.lastName }}</span>
+                    <span class="font-medium">{{ producer.firstName }} {{ producer.lastName }}</span>
                     <span class="text-xs text-muted-foreground sm:ml-auto">
-                      {{ p.code }} · {{ p.village }}
-                      @if (showPhoneHit()(p)) {
-                        <span> · {{ maskPhone(p.phone) }}</span>
+                      {{ producer.code }} · {{ producer.village }}
+                      @if (showPhoneHit()(producer)) {
+                        <span> · {{ store.phone(producer.phone) }}</span>
                       }
                     </span>
                   </button>
@@ -99,14 +100,14 @@ const digits = (s: string) => s.replace(/\D/g, "");
                 <div class="mt-2 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {{ t()("shell.palette.orgs") }}
                 </div>
-                @for (o of orgHits(); track o.id) {
+                @for (org of orgHits(); track org.id) {
                   <button
                     type="button"
                     class="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left hover:bg-muted"
-                    (click)="goOrg(o.id)"
+                    (click)="goOrg(org.id)"
                   >
-                    <span class="flex-1">{{ o.name }}</span>
-                    <span class="text-xs text-muted-foreground">{{ o.village }}</span>
+                    <span class="flex-1">{{ org.name }}</span>
+                    <span class="text-xs text-muted-foreground">{{ org.village }}</span>
                   </button>
                 }
               }
@@ -123,8 +124,9 @@ const digits = (s: string) => s.replace(/\D/g, "");
 })
 export class CommandPaletteComponent {
   private readonly router = inject(Router);
-  private readonly store = inject(StoreService);
+  protected readonly store = inject(StoreService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
   protected readonly localeService = inject(LocaleService);
 
   private readonly qInput = viewChild<ElementRef<HTMLInputElement>>("qInput");
@@ -237,12 +239,16 @@ export class CommandPaletteComponent {
     this.q.set("");
   }
 
+  /** Appelé depuis un clic ou un raccourci : hors contexte d'injection, on passe l'injecteur (NG0203). */
   private focusInputSoon(): void {
-    afterNextRender(() => {
-      const el = this.qInput()?.nativeElement;
-      el?.focus();
-      el?.select();
-    });
+    afterNextRender(
+      () => {
+        const el = this.qInput()?.nativeElement;
+        el?.focus();
+        el?.select();
+      },
+      { injector: this.injector },
+    );
   }
 
   @HostListener("document:keydown.escape")
@@ -257,11 +263,11 @@ export class CommandPaletteComponent {
 
   protected goProducer(id: string): void {
     this.close();
-    void this.router.navigate(["/producteurs", id]);
+    void this.router.navigate(["/dashboard/producteurs", id]);
   }
 
   protected goOrg(id: string): void {
     this.close();
-    void this.router.navigate(["/organisations", id]);
+    void this.router.navigate(["/dashboard/organisations", id]);
   }
 }

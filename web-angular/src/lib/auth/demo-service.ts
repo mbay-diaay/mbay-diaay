@@ -18,7 +18,21 @@ import { AuthError, type AuthService, type AuthUser, type CodeSent } from "./typ
 /** Mot de passe commun à tous les comptes fictifs. N'existe qu'en mode démonstration. */
 export const DEMO_PASSWORD = "Demonstration2026";
 
+/**
+ * Super administrateur : son propre mot de passe (communiqué hors du dépôt), comparé par empreinte SHA-256.
+ * Le mot de passe en clair n'est jamais écrit dans le code.
+ */
+export const SUPERADMIN_EMAIL = "octus.informatique@gmail.com";
+const SUPERADMIN_PASSWORD_SHA256 =
+  "ba9166544adf0f45187edaac157ec4db6d4679cf9580e7df94803a3de57d7a73";
+
 export const DEMO_ACCOUNTS: (AuthUser & { label: string })[] = [
+  {
+    email: SUPERADMIN_EMAIL,
+    name: "Super administrateur",
+    role: "superadmin",
+    label: "Super administrateur",
+  },
   {
     email: "aissatou.ndiaye@cradesc.example",
     name: "Aïssatou Ndiaye",
@@ -67,7 +81,24 @@ export const DEMO_ACCOUNTS: (AuthUser & { label: string })[] = [
     role: "rapports",
     label: "Responsable des rapports",
   },
+  {
+    email: "cheikh.ndiaye@scoop-kms.example",
+    name: "Cheikh Ndiaye",
+    role: "bureau",
+    label: "Président (bureau de la SCOOP)",
+  },
+  {
+    email: "awa.sy@scoop-kms.example",
+    name: "Awa Sy",
+    role: "surveillance",
+    label: "Conseil de surveillance",
+  },
 ];
+
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 export interface DemoMail {
   id: number;
@@ -86,7 +117,14 @@ export interface DemoMailbox {
 interface Account {
   name: string;
   role: RoleId;
-  password: string;
+  /** Mot de passe en clair (comptes fictifs) ou empreinte SHA-256 (super administrateur). */
+  password?: string;
+  passwordSha256?: string;
+}
+
+async function passwordMatches(account: Account, password: string): Promise<boolean> {
+  if (account.passwordSha256) return (await sha256Hex(password)) === account.passwordSha256;
+  return account.password === password;
 }
 interface CodeState {
   email: string;
@@ -138,7 +176,12 @@ export function createDemoAuthService(options: DemoOptions = {}): AuthService & 
     latency ? new Promise<void>((r) => setTimeout(r, latency)) : Promise.resolve();
 
   const accounts = new Map<string, Account>(
-    DEMO_ACCOUNTS.map((a) => [a.email, { name: a.name, role: a.role, password: DEMO_PASSWORD }]),
+    DEMO_ACCOUNTS.map((a): [string, Account] => [
+      a.email,
+      a.role === "superadmin"
+        ? { name: a.name, role: a.role, passwordSha256: SUPERADMIN_PASSWORD_SHA256 }
+        : { name: a.name, role: a.role, password: DEMO_PASSWORD },
+    ]),
   );
   // Compteur d'échecs par identifiant saisi, qu'il existe ou non : le verrouillage ne révèle rien.
   const failures = new Map<string, { count: number; lockedUntil: number }>();
@@ -229,7 +272,7 @@ export function createDemoAuthService(options: DemoOptions = {}): AuthService & 
       if (f.lockedUntil > now())
         throw new AuthError("locked", { retryAfterMs: f.lockedUntil - now() });
       const account = accounts.get(email);
-      if (!account || account.password !== password || !isActive(email)) {
+      if (!account || !(await passwordMatches(account, password)) || !isActive(email)) {
         f.count += 1;
         if (f.count >= LOGIN_MAX_FAILURES) {
           f.count = 0;
@@ -350,6 +393,7 @@ export function createDemoAuthService(options: DemoOptions = {}): AuthService & 
       const account = accounts.get(t.email);
       if (!account) throw new AuthError("reset_expired");
       account.password = newPassword;
+      delete account.passwordSha256;
       failures.delete(t.email);
       resetTokens.delete(resetToken); // usage unique
     },

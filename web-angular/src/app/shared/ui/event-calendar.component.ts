@@ -82,17 +82,17 @@ const ALL = "__all";
           role="group"
           [attr.aria-label]="t()('calendrier.views.aria')"
         >
-          @for (v of views; track v) {
+          @for (viewOption of views; track viewOption) {
             <button
               type="button"
               class="rounded px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              [class.bg-card]="calendarView() === v"
-              [class.shadow-sm]="calendarView() === v"
-              [class.text-foreground]="calendarView() === v"
-              [class.text-muted-foreground]="calendarView() !== v"
-              (click)="calendarView.set(v)"
+              [class.bg-card]="calendarView() === viewOption"
+              [class.shadow-sm]="calendarView() === viewOption"
+              [class.text-foreground]="calendarView() === viewOption"
+              [class.text-muted-foreground]="calendarView() !== viewOption"
+              (click)="calendarView.set(viewOption)"
             >
-              {{ t()(labelForView(v)) }}
+              {{ t()(labelForView(viewOption)) }}
             </button>
           }
         </div>
@@ -107,8 +107,8 @@ const ALL = "__all";
             (ngModelChange)="category.set($event)"
           >
             <option [ngValue]="allToken">{{ t()("calendrier.filter.all") }}</option>
-            @for (c of categories(); track c[0]) {
-              <option [ngValue]="c[0]">{{ c[1] }}</option>
+            @for (categoryOption of categories(); track categoryOption[0]) {
+              <option [ngValue]="categoryOption[0]">{{ categoryOption[1] }}</option>
             }
           </select>
         </label>
@@ -128,8 +128,8 @@ const ALL = "__all";
     <ng-template #monthTpl>
       <div class="surface overflow-hidden">
         <div class="grid grid-cols-7 border-b bg-muted text-center text-xs font-medium text-muted-foreground">
-          @for (d of weekHead(); track d.getTime()) {
-            <div class="py-2">{{ cap(format(d, "EEE", { locale: frLocale })) }}</div>
+          @for (weekday of weekHead(); track weekday.getTime()) {
+            <div class="py-2">{{ cap(format(weekday, "EEE", { locale: frLocale })) }}</div>
           }
         </div>
         <div class="grid grid-cols-7">
@@ -161,17 +161,17 @@ const ALL = "__all";
                 {{ day.getDate() }}
               </span>
               <span class="flex flex-wrap gap-0.5 md:hidden" aria-hidden="true">
-                @for (e of dayEvents(day).slice(0, 4); track e.id) {
-                  <span [class]="cn('size-1.5 rounded-full', toneStyle(e.tone).dot)"></span>
+                @for (event of dayEvents(day).slice(0, 4); track event.id) {
+                  <span [class]="cn('size-1.5 rounded-full', toneStyle(event.tone).dot)"></span>
                 }
               </span>
               <span class="hidden space-y-0.5 md:block" aria-hidden="true">
-                @for (e of dayEvents(day).slice(0, 2); track e.id) {
+                @for (event of dayEvents(day).slice(0, 2); track event.id) {
                   <span
                     class="block truncate rounded border-l-2 px-1 text-[11px]"
-                    [class]="cn(toneStyle(e.tone).card, e.muted ? 'opacity-60 line-through' : '')"
+                    [class]="cn(toneStyle(event.tone).card, event.muted ? 'opacity-60 line-through' : '')"
                   >
-                    {{ e.title }}
+                    {{ event.title }}
                   </span>
                 }
                 @if (dayEvents(day).length > 2) {
@@ -203,9 +203,9 @@ const ALL = "__all";
           <p class="text-sm text-muted-foreground">{{ t()("calendrier.empty.day") }}</p>
         } @else {
           <div class="space-y-2">
-            @for (e of dayEvents(selected()); track e.id) {
+            @for (event of dayEvents(selected()); track event.id) {
               <ng-container
-                *ngTemplateOutlet="eventCard; context: { $implicit: e, compact: false }"
+                *ngTemplateOutlet="eventCard; context: { $implicit: event, compact: false }"
               />
             }
           </div>
@@ -228,9 +228,9 @@ const ALL = "__all";
               <p class="text-xs text-muted-foreground">{{ t()("calendrier.empty.day") }}</p>
             } @else {
               <div class="space-y-2">
-                @for (e of dayEvents(day); track e.id) {
+                @for (event of dayEvents(day); track event.id) {
                   <ng-container
-                    *ngTemplateOutlet="eventCard; context: { $implicit: e, compact: true }"
+                    *ngTemplateOutlet="eventCard; context: { $implicit: event, compact: true }"
                   />
                 }
               </div>
@@ -246,8 +246,8 @@ const ALL = "__all";
           <p class="text-sm text-muted-foreground">{{ t()("calendrier.empty.day") }}</p>
         } @else {
           <div class="space-y-2">
-            @for (e of dayEvents(cursorDate()); track e.id) {
-              <ng-container *ngTemplateOutlet="eventCard; context: { $implicit: e, compact: false }" />
+            @for (event of dayEvents(cursorDate()); track event.id) {
+              <ng-container *ngTemplateOutlet="eventCard; context: { $implicit: event, compact: false }" />
             }
           </div>
         }
@@ -259,14 +259,14 @@ const ALL = "__all";
         <p class="surface p-5 text-sm text-muted-foreground">{{ t()("calendrier.empty.period") }}</p>
       } @else {
         <div class="space-y-4">
-          @for (g of listGroups(); track g.day.toISOString()) {
+          @for (group of listGroups(); track group.day.toISOString()) {
             <section>
               <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {{ cap(format(g.day, "EEEE d MMMM", { locale: frLocale })) }}
+                {{ cap(format(group.day, "EEEE d MMMM", { locale: frLocale })) }}
               </h3>
               <div class="space-y-2">
-                @for (e of g.events; track e.id) {
-                  <ng-container *ngTemplateOutlet="eventCard; context: { $implicit: e, compact: false }" />
+                @for (event of group.events; track event.id) {
+                  <ng-container *ngTemplateOutlet="eventCard; context: { $implicit: event, compact: false }" />
                 }
               </div>
             </section>

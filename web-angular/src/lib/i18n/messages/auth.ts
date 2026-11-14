@@ -1,8 +1,7 @@
 /** Connexion, code à usage unique et mot de passe oublié (français = référence). */
 export const auth = {
-  "auth.layout.headline": "Des données de producteurs fiables, SCOOP par SCOOP.",
-  "auth.layout.lead":
-    "Membres, organisations, parcelles et qualité des données au même endroit, avec un journal de chaque action.",
+  "auth.layout.headline": "Recensez, cartographiez et suivez vos producteurs, même sans réseau.",
+  "auth.layout.lead": "Une communauté, des coopératives, un avenir commun.",
   "auth.layout.stat.scoop": "SCOOP",
   "auth.layout.stat.plots": "parcelles",
   "auth.layout.stat.producers": "producteurs",
@@ -88,8 +87,6 @@ export const auth = {
   "auth.forgot.saving": "Enregistrement en cours",
   "auth.error.invitation_invalid":
     "Ce lien d'invitation n'est plus valable. Demandez-en un nouveau à votre administrateur.",
-  "auth.login.invitationHint":
-    "Première connexion ? Utilisez le lien d'invitation reçu par e-mail.",
   "auth.invitation.title": "Bienvenue",
   "auth.invitation.description":
     "Choisissez le mot de passe de votre compte. Ce lien ne sert qu'une fois.",
@@ -105,4 +102,22 @@ export const auth = {
   "auth.mail.invitationTitle": "Invitation simulée",
   "auth.mail.invitationLine": "En production, ce lien est envoyé à {to}.",
   "auth.mail.invitationOpen": "Ouvrir le lien d'invitation de {name}",
+
+  "auth.layout.signature": "Cultivons • Gérez • Valorisons",
+
+  "auth.login.eyebrow": "Espace sécurisé",
+  "auth.step.credentials": "Identifiants",
+  "auth.snack.close": "Fermer le message",
+  "auth.step.code": "Vérification",
+  "auth.step.progress": "Étape {current} / {total}",
+
+  "auth.cradesc.carriedBy": "Porté par",
+  "auth.cradesc.fullName":
+    "Centre de Recherche et d'Action sur les Droits Économiques, Sociaux et Culturels",
+  "auth.cradesc.slogan": "Action pour une justice sociale en Afrique",
+  "auth.cradesc.logoAlt": "Logo du CRADESC",
+  "auth.cradesc.visit": "Visiter le site du CRADESC (nouvel onglet)",
+  "auth.help.title": "Besoin d'aide pour vous connecter ?",
+  "brand.logoAlt": "Logo Mbay Diaay",
+  "ui.slideshow.goTo": "Afficher la photo {current} sur {total}",
 } as const;

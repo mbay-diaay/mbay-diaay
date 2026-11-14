@@ -1,22 +1,30 @@
 import { Component, computed, inject, signal } from "@angular/core";
-import { FormsModule } from "@angular/forms";
 import { RouterLink } from "@angular/router";
-import { LucideAngularModule, RotateCcw, Search, SlidersHorizontal } from "lucide-angular";
 
 import { fmtDateTime, maskCni, maskPhone, nf } from "@/lib/format";
 import type { CorrectionRequest, CorrectionStatus, Producer } from "@/lib/mock/data";
 import type { MessageKey } from "@/lib/i18n";
-import { qualityCounts } from "@/lib/quality-nav";
 import { inScope } from "@/lib/scope";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiChipRailComponent } from "../shared/ui/chip-rail.component";
-import { UiEmptyComponent } from "../shared/ui/empty.component";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent, type UiPillTone } from "../shared/ui/pill.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
+import { createPager } from "@shared/pager";
+import {
+  IconComponent,
+  initialsOf,
+  ModalComponent,
+  PaginationComponent,
+  SelectComponent,
+  SnackbarService,
+  StatCardsComponent,
+  TONE,
+  V2_PAGE_STYLES,
+  type SelectOption,
+  type StatCard,
+} from "@shared/ui";
 
 const ALL = "__all";
+const DAY = 86_400_000;
 
 const SENSITIVE: Record<string, (v: string) => string> = {
   Téléphone: maskPhone,
@@ -29,372 +37,382 @@ const STATUS_VALUE_LABEL: Record<CorrectionStatus, MessageKey> = {
   refusée: "qualite.corrections.statusValue.refusée",
 };
 
-const COR_PILL_TONE: Record<CorrectionStatus, UiPillTone> = {
-  "en attente": "warning",
-  approuvée: "success",
-  refusée: "danger",
+const STATUS_TONE: Record<CorrectionStatus, { bg: string; fg: string }> = {
+  "en attente": TONE.attente,
+  approuvée: TONE.succes,
+  refusée: TONE.erreur,
 };
 
-/** Port de src/routes/qualite.corrections.tsx (listes, filtres, examen en dialog). */
+/**
+ * Demandes de correction (charte V2) : statistiques, filtres (état à compteurs, coopérative, champ, tri),
+ * tableau paginé, examen en modale avec l'avant / après, décision motivée (approuver ou refuser).
+ */
 @Component({
   selector: "app-qualite-corrections-page",
   imports: [
-    FormsModule,
-    RouterLink,
-    LucideAngularModule,
     AppShellComponent,
-    UiChipRailComponent,
-    UiPageHeaderComponent,
-    UiEmptyComponent,
-    UiPillComponent,
+    IconComponent,
+    ModalComponent,
+    PaginationComponent,
+    RouterLink,
+    SelectComponent,
+    StatCardsComponent,
+  ],
+  styles: [
+    V2_PAGE_STYLES,
+    `
+      .chg {
+        display: grid;
+        gap: 6px;
+        border-radius: 16px;
+        border: 1px solid var(--v2-bord-carte);
+        padding: 12px 14px;
+      }
+      @media (min-width: 640px) {
+        .chg {
+          grid-template-columns: 9rem 1fr;
+          align-items: center;
+        }
+      }
+      .from {
+        border-radius: 8px;
+        background: var(--v2-lin);
+        padding: 2px 8px;
+        color: var(--v2-gris-texte);
+        text-decoration: line-through;
+      }
+      .to {
+        border-radius: 8px;
+        background: var(--v2-sauge);
+        padding: 2px 8px;
+        font-weight: 800;
+        color: var(--v2-vert-pousse);
+      }
+    `,
   ],
   template: `
     <app-shell perm="correction.manage" [area]="t()('qualite.corrections.area')">
-      <ui-page-header
-        [eyebrow]="t()('qualite.header.eyebrow')"
-        [title]="t()('qualite.header.title')"
-        [description]="t()('qualite.corrections.description')"
-      />
+      <header class="rise">
+        <p class="mono" style="color: var(--v2-gris-texte)">{{ t()("qualite.header.title") }}</p>
+        <h1
+          class="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[38px]"
+        >
+          {{ t()("qualite.nav.corrections") }}
+        </h1>
+        <p class="mt-2 max-w-2xl text-[16px] font-medium" style="color: var(--v2-gris-texte)">
+          {{ t()("qualite.corrections.description") }}
+        </p>
+      </header>
 
-      <nav class="mb-4 border-b border-border pb-4 text-sm">
-        <ui-chip-rail>
-          @if (store.can('quality.review')) {
-            <a routerLink="/qualite/doublons" class="chip-filter chip-filter-sm"
-              >{{ t()('qualite.nav.doublons') }}
-              <span class="chip-filter-count">{{ qCounts().doublons }}</span></a
-            >
-          }
-          @if (store.can('alert.manage')) {
-            <a routerLink="/qualite/alertes" class="chip-filter chip-filter-sm"
-              >{{ t()('qualite.nav.alertes') }}
-              <span class="chip-filter-count">{{ qCounts().alertes }}</span></a
-            >
-          }
-          <a
-            routerLink="/qualite/corrections"
-            class="chip-filter chip-filter-sm chip-filter-active"
-            >{{ t()('qualite.nav.corrections') }}
-            <span class="chip-filter-count">{{ qCounts().corrections }}</span></a
-          >
-        </ui-chip-rail>
-      </nav>
+      <ui-stat-cards class="rise mt-8" [stats]="stats()" />
 
-      <div class="surface mb-3 space-y-3 p-3">
-        <ui-chip-rail>
-          @for (pill of statusPills(); track pill.value) {
-            <button
-              type="button"
-              [attr.aria-pressed]="f().status === pill.value"
-              class="chip-filter chip-filter-sm"
-              [class.chip-filter-active]="f().status === pill.value"
-              (click)="setStatusFilter(pill.value)"
-            >
-              @if (f().status !== pill.value && pill.tone !== 'neutral') {
-                <span
-                  class="size-1.5 shrink-0 rounded-full"
-                  [class.bg-warning]="pill.tone === 'warning'"
-                  [class.bg-success]="pill.tone === 'success'"
-                  [class.bg-danger]="pill.tone === 'danger'"
-                  aria-hidden="true"
-                ></span>
-              }
-              <span>{{ pillLabel(pill) }}</span>
-              <span class="chip-filter-count">{{ pill.count }}</span>
-            </button>
-          }
-        </ui-chip-rail>
-        <div class="flex flex-wrap items-center gap-2">
-          <div class="relative min-w-0 flex-1 basis-48 sm:max-w-xs">
-            <lucide-angular
-              [img]="icons.search"
-              class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
+      <div class="card mt-6 p-2">
+        <div class="toolbar p-0">
+          <label class="search">
+            <ui-icon name="search" [size]="20" />
             <input
-              class="flex h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm shadow-sm pointer-coarse:h-touch focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              [attr.aria-label]="t()('qualite.corrections.searchAria')"
+              type="search"
               [placeholder]="t()('qualite.corrections.searchPlaceholder')"
-              [ngModel]="f().q"
-              (ngModelChange)="patchF({ q: $event })"
+              [attr.aria-label]="t()('qualite.corrections.searchAria')"
+              [value]="f().q"
+              (input)="patchF({ q: $any($event.target).value })"
             />
-          </div>
-          <button
-            type="button"
-            class="inline-flex h-10 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm hover:bg-muted pointer-coarse:h-touch"
-            (click)="more.set(!more())"
-            [attr.aria-expanded]="more()"
-          >
-            <lucide-angular [img]="icons.sliders" class="size-4" />
-            {{ t()('qualite.common.filters') }}
-            @if (extraFilterCount() > 0) {
-              <span class="tabular">({{ extraFilterCount() }})</span>
-            }
-          </button>
-        </div>
-        @if (more()) {
+          </label>
           <div
-            class="mt-3 grid grid-cols-2 gap-2 border-t pt-3 sm:flex sm:flex-wrap sm:items-center sm:gap-3"
+            class="seg"
+            role="radiogroup"
+            [attr.aria-label]="t()('qualite.corrections.col.status')"
           >
-            <label class="flex flex-col gap-1 text-xs sm:w-48">
-              <span class="font-medium text-foreground">{{ t()('qualite.corrections.scoopLabel') }}</span>
-              <select
-                class="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                [ngModel]="f().scoop"
-                (ngModelChange)="patchF({ scoop: $event })"
+            @for (pill of statusPills(); track pill.value) {
+              <button
+                type="button"
+                role="radio"
+                [class.on]="f().status === pill.value"
+                [attr.aria-checked]="f().status === pill.value"
+                (click)="patchF({ status: pill.value })"
               >
-                <option [value]="ALL">{{ t()('qualite.corrections.scoopAll') }}</option>
-                @for (sc of scoops(); track sc.id) {
-                  <option [value]="sc.id">{{ sc.name }}</option>
-                }
-              </select>
-            </label>
-            <label class="flex flex-col gap-1 text-xs sm:w-44">
-              <span class="font-medium text-foreground">{{ t()('qualite.corrections.fieldLabel') }}</span>
-              <select
-                class="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                [ngModel]="f().field"
-                (ngModelChange)="patchF({ field: $event })"
-              >
-                <option [value]="ALL">{{ t()('qualite.common.all') }}</option>
-                @for (field of fields(); track field) {
-                  <option [value]="field">{{ field }}</option>
-                }
-              </select>
-            </label>
-            <select
-              class="h-9 rounded-md border border-input bg-background px-2 text-sm sm:w-48"
-              [attr.aria-label]="t()('qualite.corrections.sortAria')"
-              [ngModel]="sort()"
-              (ngModelChange)="sort.set($event)"
-            >
-              <option value="recent">{{ t()('qualite.corrections.sort.recent') }}</option>
-              <option value="old">{{ t()('qualite.corrections.sort.old') }}</option>
-            </select>
-            <button
-              type="button"
-              class="hidden h-9 items-center rounded-md border border-input px-3 text-sm hover:bg-muted md:inline-flex"
-              (click)="dense.set(!dense())"
-            >
-              {{ densityLabel() }}
-            </button>
+                {{ pillLabel(pill)
+                }}<span class="n" [class.zero]="!pill.count">{{ pill.count }}</span>
+              </button>
+            }
           </div>
-        }
+        </div>
+        <div class="mt-2 grid gap-2 sm:grid-cols-3">
+          <ui-select
+            variant="compact"
+            leadingIcon="apartment"
+            [label]="t()('qualite.corrections.scoopLabel')"
+            [options]="scoopOptions()"
+            [value]="f().scoop"
+            (valueChange)="patchF({ scoop: $event })"
+          />
+          <ui-select
+            variant="compact"
+            leadingIcon="edit"
+            [label]="t()('qualite.corrections.fieldLabel')"
+            [options]="fieldOptions()"
+            [value]="f().field"
+            (valueChange)="patchF({ field: $event })"
+          />
+          <ui-select
+            variant="compact"
+            leadingIcon="event_note"
+            [label]="t()('qualite.corrections.sortAria')"
+            [options]="sortOptions()"
+            [value]="sort()"
+            (valueChange)="sort.set($any($event))"
+          />
+        </div>
       </div>
 
-      <div class="mb-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span class="tabular font-medium text-foreground">{{ nf.format(rows().length) }}</span>
-        {{ t()('qualite.corrections.ofTotal', { total: nf.format(counts().total) }) }}
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <p class="sub" aria-live="polite">
+          <b class="tabular-nums" style="color: var(--v2-encre)">{{ nf.format(rows().length) }}</b>
+          {{ t()("qualite.corrections.ofTotal", { total: nf.format(counts().total) }) }}
+        </p>
         @if (activeFilters() > 0) {
-          <span>{{ t()('qualite.corrections.activeFilters', { n: activeFilters() }) }}</span>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-            (click)="resetFilters()"
-          >
-            <lucide-angular [img]="icons.rotateCcw" class="size-3.5" />
-            {{ t()('qualite.corrections.reset') }}
+          <button type="button" class="reveal" (click)="resetFilters()">
+            <ui-icon name="close" [size]="14" />{{ t()("qualite.corrections.reset") }} ({{
+              activeFilters()
+            }})
           </button>
         }
       </div>
 
-      <div class="surface overflow-hidden">
-        @if (rows().length > 0) {
-          <ul class="divide-y md:hidden">
-            @for (r of rows(); track r.id) {
-              <li>
-                <button
-                  type="button"
-                  class="w-full px-4 py-3 text-left active:bg-muted"
-                  (click)="openDialog(r.id)"
-                >
-                  <div class="flex items-start justify-between gap-2">
-                    <span class="min-w-0 font-medium">{{ producerName(r.producerId) }}</span>
-                    <ui-pill [tone]="corPillTone[r.status]">{{ statusText(r.status) }}</ui-pill>
-                  </div>
-                  <div class="mt-0.5 text-xs text-muted-foreground tabular">{{ producerCode(r.producerId) }}</div>
-                  <div class="mt-1 text-sm">
-                    <span class="tabular font-medium">{{ r.changes.length }}</span>
-                    {{ t()('qualite.corrections.fieldsList') }}
-                    {{ changeFields(r) }}
-                  </div>
-                  <div class="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{{ r.motif }}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">
-                    {{ r.requester }} · {{ fmtDateTime(r.requestedAt) }}
-                  </div>
-                </button>
-              </li>
-            }
-          </ul>
-        }
+      <section class="card mt-3 overflow-hidden">
         @if (rows().length) {
-          <div class="hidden overflow-x-auto md:block">
-            <table class="w-full text-sm">
-              <thead class="text-left text-xs text-muted-foreground">
+          <div class="overflow-x-auto">
+            <table class="tbl min-w-[920px]">
+              <thead>
                 <tr>
-                  <th class="py-3 pl-4">{{ t()('qualite.corrections.col.producer') }}</th>
-                  <th>{{ t()('qualite.corrections.col.changes') }}</th>
-                  <th>{{ t()('qualite.corrections.col.motif') }}</th>
-                  <th class="hidden lg:table-cell">{{ t()('qualite.corrections.col.requester') }}</th>
-                  <th>{{ t()('qualite.corrections.col.date') }}</th>
-                  <th>{{ t()('qualite.corrections.col.status') }}</th>
-                  <th class="pr-4"></th>
+                  <th>{{ t()("qualite.corrections.col.producer") }}</th>
+                  <th>{{ t()("qualite.corrections.col.changes") }}</th>
+                  <th>{{ t()("qualite.corrections.col.motif") }}</th>
+                  <th>{{ t()("qualite.corrections.col.requester") }}</th>
+                  <th>{{ t()("qualite.corrections.col.date") }}</th>
+                  <th>{{ t()("qualite.corrections.col.status") }}</th>
+                  <th class="text-right">{{ t()("organisations.col.actions") }}</th>
                 </tr>
               </thead>
-              <tbody class="divide-y">
-                @for (r of rows(); track r.id) {
-                  <tr class="hover:bg-muted/40" [class.py-0]="dense()">
-                    <td [class]="dense() ? 'py-1.5 pl-4' : 'py-2.5 pl-4'">
-                      @if (prodOf(r.producerId); as p) {
-                        <a
-                          [routerLink]="['/producteurs', p.id]"
-                          class="font-medium hover:text-primary hover:underline"
-                          >{{ p.code }} · {{ p.firstName }} {{ p.lastName }}</a
-                        >
-                      } @else {
-                        {{ t()('qualite.common.notProvided') }}
-                      }
+              <tbody>
+                @for (request of pager.items(); track request.id) {
+                  <tr class="row-link" (click)="openDialog(request.id)">
+                    <td>
+                      <span class="flex items-center gap-3">
+                        <span class="avatar">{{ initials(producerName(request.producerId)) }}</span>
+                        <span class="min-w-0">
+                          <span class="block truncate font-bold">{{
+                            producerName(request.producerId)
+                          }}</span>
+                          <span class="mono block" style="color: var(--v2-gris-texte)">{{
+                            producerCode(request.producerId)
+                          }}</span>
+                        </span>
+                      </span>
                     </td>
                     <td>
-                      <span class="tabular font-medium">{{ r.changes.length }}</span>
-                      {{ t()('qualite.corrections.fieldsList') }}
-                      {{ changeFields(r) }}
+                      <span class="block font-bold">{{
+                        t()("qualite.v2.corr.changes", { count: request.changes.length })
+                      }}</span>
+                      <span class="sub block max-w-48 truncate">{{ changeFields(request) }}</span>
                     </td>
-                    <td class="max-w-48 truncate pr-3 text-muted-foreground lg:max-w-64" [title]="r.motif">
-                      {{ r.motif }}
+                    <td
+                      class="max-w-64 truncate"
+                      style="color: var(--v2-ardoise)"
+                      [title]="request.motif"
+                    >
+                      {{ request.motif }}
                     </td>
-                    <td class="hidden lg:table-cell">{{ r.requester }}</td>
-                    <td class="whitespace-nowrap text-muted-foreground">{{ fmtDateTime(r.requestedAt) }}</td>
+                    <td class="font-medium">{{ request.requester }}</td>
+                    <td class="whitespace-nowrap tabular-nums" style="color: var(--v2-gris-texte)">
+                      {{ fmtDateTime(request.requestedAt) }}
+                    </td>
                     <td>
-                      <ui-pill [tone]="corPillTone[r.status]">{{ statusText(r.status) }}</ui-pill>
-                    </td>
-                    <td class="pr-4 text-right">
-                      <button
-                        type="button"
-                        class="inline-flex h-8 items-center rounded-md border border-input px-2 text-xs hover:bg-muted"
-                        (click)="openDialog(r.id)"
+                      <span
+                        class="badge"
+                        [style.background]="tone[request.status].bg"
+                        [style.color]="tone[request.status].fg"
+                        >{{ statusText(request.status) }}</span
                       >
-                        {{ t()('qualite.corrections.examine') }}
-                      </button>
+                    </td>
+                    <td>
+                      <span class="flex justify-end">
+                        <button
+                          type="button"
+                          class="act"
+                          [title]="t()('qualite.corrections.examine')"
+                          [attr.aria-label]="
+                            t()('qualite.v2.corr.examine', {
+                              name: producerName(request.producerId),
+                            })
+                          "
+                          (click)="$event.stopPropagation(); openDialog(request.id)"
+                        >
+                          <ui-icon name="visibility" [size]="18" />
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
+          <ui-pagination class="px-5 pb-5" [pager]="pager" />
         } @else {
-          <ui-empty>{{ t()('qualite.corrections.empty') }}</ui-empty>
+          <div class="flex flex-col items-center gap-3 p-10 text-center">
+            <span
+              class="grid size-14 place-items-center rounded-[16px]"
+              style="background: var(--v2-sauge); color: var(--v2-foret)"
+              ><ui-icon name="task_alt" [size]="26"
+            /></span>
+            <p class="text-[16px] font-extrabold">{{ t()("qualite.corrections.empty") }}</p>
+          </div>
         }
-      </div>
+      </section>
 
-      @if (open(); as o) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div class="absolute inset-0 bg-black/40" (click)="closeDialog()"></div>
-          <div
-            class="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border bg-card shadow-lg"
-          >
-            <div class="border-b p-4">
-              <h2 class="text-lg font-semibold">{{ t()('qualite.corrections.dialog.title') }}</h2>
-              <p class="mt-1 text-sm text-muted-foreground">{{ t()('qualite.corrections.dialog.description') }}</p>
-            </div>
-            <div class="flex-1 overflow-y-auto p-4 text-sm">
-              @if (openProd(); as op) {
-                <p>
-                  {{ t()('qualite.corrections.dialog.producer') }}
-                  <a [routerLink]="['/producteurs', op.id]" class="font-semibold text-primary hover:underline">
-                    {{ op.code }} · {{ op.firstName }} {{ op.lastName }}
-                  </a>
-                </p>
+      <!-- Examen d'une demande -->
+      @if (open(); as openRequest) {
+        <ui-modal
+          [open]="true"
+          [title]="t()('qualite.corrections.dialog.title')"
+          [description]="t()('qualite.corrections.dialog.description')"
+          icon="edit"
+          [width]="680"
+          [closeLabel]="t()('common.close')"
+          (closed)="closeDialog()"
+        >
+          <div class="grid gap-4 pb-5">
+            @if (openProd(); as requestProducer) {
+              <div
+                class="flex items-center gap-3 rounded-[18px] p-3"
+                style="background: var(--v2-creme)"
+              >
+                <span class="avatar">{{
+                  initials(requestProducer.firstName + " " + requestProducer.lastName)
+                }}</span>
+                <span class="min-w-0 flex-1">
+                  <a
+                    class="block truncate font-extrabold underline-offset-4 hover:underline"
+                    [routerLink]="['/dashboard/producteurs', requestProducer.id]"
+                    (click)="closeDialog()"
+                    >{{ requestProducer.firstName }} {{ requestProducer.lastName }}</a
+                  >
+                  <span class="sub block"
+                    >{{ requestProducer.code }} ·
+                    {{
+                      t()("qualite.corrections.dialog.requestedBy", {
+                        name: openRequest.requester,
+                        date: fmtDateTime(openRequest.requestedAt),
+                      })
+                    }}</span
+                  >
+                </span>
+                <span
+                  class="badge"
+                  [style.background]="tone[openRequest.status].bg"
+                  [style.color]="tone[openRequest.status].fg"
+                  >{{ statusText(openRequest.status) }}</span
+                >
+              </div>
+            }
+            <div class="grid gap-2">
+              @for (change of openRequest.changes; track $index) {
+                <div class="chg">
+                  <span class="font-extrabold">{{ change.field }}</span>
+                  <span class="flex flex-wrap items-center gap-2 tabular-nums">
+                    <span class="from">{{ showVal(change.field, change.from) }}</span>
+                    <ui-icon name="arrow_forward" [size]="16" style="color: var(--v2-gris-texte)" />
+                    <span class="to">{{ showVal(change.field, change.to) }}</span>
+                  </span>
+                </div>
               }
-              <p class="text-muted-foreground">
-                {{
-                  t()('qualite.corrections.dialog.requestedBy', {
-                    name: o.requester,
-                    date: fmtDateTime(o.requestedAt),
+            </div>
+            <div>
+              <p class="lbl">{{ t()("qualite.corrections.dialog.motif") }}</p>
+              <p class="mt-1 text-[15px] font-semibold">« {{ openRequest.motif }} »</p>
+            </div>
+            @if (motifWarn(openRequest)) {
+              <p
+                class="notice"
+                style="background: var(--v2-attente-bg); color: var(--v2-attente-fg)"
+              >
+                <ui-icon name="warning" [size]="18" />{{
+                  t()("qualite.corrections.dialog.motifWarn", {
+                    fields: openRequest.changes.map((c) => c.field).join(", "),
                   })
                 }}
               </p>
-              <div class="mt-3 space-y-2">
-                @for (c of o.changes; track $index) {
-                  <div
-                    class="grid gap-1 rounded-md border p-2.5 sm:grid-cols-[9rem_1fr] sm:items-center sm:gap-2"
-                  >
-                    <span class="font-medium">{{ c.field }}</span>
-                    <span>
-                      <span class="rounded bg-muted px-1.5 py-0.5 tabular line-through">{{
-                        showVal(c.field, c.from)
-                      }}</span>
-                      <span class="mx-2">→</span>
-                      <span class="rounded bg-primary-soft px-1.5 py-0.5 font-semibold tabular">{{
-                        showVal(c.field, c.to)
-                      }}</span>
-                    </span>
-                  </div>
-                }
+            }
+            @if (openRequest.status === "en attente") {
+              <div>
+                <label class="lbl" for="decision">{{
+                  t()("qualite.corrections.dialog.decisionLabel")
+                }}</label>
+                <p class="sub mt-1">{{ t()("qualite.corrections.dialog.decisionHint") }}</p>
+                <textarea
+                  id="decision"
+                  class="area mt-2"
+                  [placeholder]="t()('qualite.corrections.dialog.decisionPlaceholder')"
+                  [value]="decisionComment()"
+                  (input)="decisionComment.set($any($event.target).value)"
+                ></textarea>
               </div>
-              <p class="mt-3">
-                <span class="font-medium">{{ t()('qualite.corrections.dialog.motif') }}</span>
-                {{ o.motif }}
-              </p>
-              @if (motifWarn(o)) {
-                <p class="mt-3 rounded-md border border-warning/40 bg-warning-bg p-3 text-sm text-warning-fg">
+            } @else {
+              <p
+                class="notice"
+                [style.background]="tone[openRequest.status].bg"
+                [style.color]="tone[openRequest.status].fg"
+              >
+                <ui-icon
+                  [name]="openRequest.status === 'approuvée' ? 'task_alt' : 'close'"
+                  [size]="18"
+                />
+                <span>
+                  {{ statusText(openRequest.status) }}
                   {{
-                    t()('qualite.corrections.dialog.motifWarn', {
-                      fields: o.changes.map((c) => c.field).join(', '),
+                    t()("qualite.corrections.dialog.decidedBy", {
+                      name: openRequest.decidedBy ?? "",
                     })
                   }}
-                </p>
-              }
-              @if (o.status === 'en attente') {
-                <label class="mt-4 block">
-                  <span class="font-medium">{{ t()('qualite.corrections.dialog.decisionLabel') }}</span>
-                  <span class="mb-1 block text-xs text-muted-foreground">{{
-                    t()('qualite.corrections.dialog.decisionHint')
-                  }}</span>
-                  <textarea
-                    class="mt-1 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    [placeholder]="t()('qualite.corrections.dialog.decisionPlaceholder')"
-                    [ngModel]="decisionComment()"
-                    (ngModelChange)="decisionComment.set($event)"
-                  ></textarea>
-                </label>
-              } @else {
-                <div class="mt-4 rounded-md bg-muted p-3 text-sm">
-                  <span class="font-medium capitalize">{{ statusText(o.status) }}</span>
-                  {{ t()('qualite.corrections.dialog.decidedBy', { name: o.decidedBy ?? '' }) }}
-                  {{ fmtDateTime(o.decidedAt ?? '') }}
-                  @if (o.decisionComment) {
-                    <div class="mt-1 text-muted-foreground">« {{ o.decisionComment }} »</div>
+                  {{ fmtDateTime(openRequest.decidedAt ?? "") }}
+                  @if (openRequest.decisionComment) {
+                    <span class="block font-semibold">« {{ openRequest.decisionComment }} »</span>
                   }
-                </div>
-              }
-              <p class="mt-4 text-xs text-muted-foreground">
-                {{ t()('qualite.corrections.dialog.trace') }}
-                <a routerLink="/audit" class="font-semibold text-primary hover:underline">{{
-                  t()('qualite.corrections.dialog.auditLink')
-                }}</a
-                >.
+                </span>
               </p>
-            </div>
-            @if (o.status === 'en attente') {
-              <div class="flex flex-wrap justify-end gap-2 border-t p-4">
-                <button
-                  type="button"
-                  class="rounded-md border border-input px-3 py-1.5 text-sm text-danger-fg hover:bg-muted disabled:opacity-50"
-                  [disabled]="decisionComment().trim().length < 3"
-                  (click)="decide(false)"
-                >
-                  {{ t()('qualite.corrections.dialog.refuse') }}
-                </button>
-                <button
-                  type="button"
-                  class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-95"
-                  (click)="decide(true)"
-                >
-                  {{ t()('qualite.corrections.dialog.approve') }}
-                </button>
-              </div>
             }
+            <p class="sub">
+              {{ t()("qualite.corrections.dialog.trace") }}
+              <a
+                class="font-bold underline underline-offset-4"
+                routerLink="/dashboard/audit"
+                (click)="closeDialog()"
+                >{{ t()("qualite.corrections.dialog.auditLink") }}</a
+              >.
+            </p>
           </div>
-        </div>
+          @if (openRequest.status === "en attente") {
+            <!-- Un seul élément racine : le bloc est bien projeté dans le pied de la modale. -->
+            <div modal-footer class="contents">
+              <button
+                type="button"
+                class="btn btn-danger"
+                [disabled]="decisionComment().trim().length < 3"
+                (click)="decide(false)"
+              >
+                {{ t()("qualite.corrections.dialog.refuse") }}
+              </button>
+              <button type="button" class="btn btn-primary" (click)="decide(true)">
+                {{ t()("qualite.corrections.dialog.approve")
+                }}<span class="btn-chip"><ui-icon name="check" [size]="18" /></span>
+              </button>
+            </div>
+          } @else {
+            <button modal-footer type="button" class="btn btn-ghost" (click)="closeDialog()">
+              {{ t()("common.close") }}
+            </button>
+          }
+        </ui-modal>
       }
     </app-shell>
   `,
@@ -406,19 +424,9 @@ export default class QualiteCorrectionsPage {
   protected readonly ALL = ALL;
   protected readonly nf = nf;
   protected readonly fmtDateTime = fmtDateTime;
-  protected readonly icons = { search: Search, sliders: SlidersHorizontal, rotateCcw: RotateCcw };
-  protected readonly statusValueLabel = STATUS_VALUE_LABEL;
-  protected readonly corPillTone = COR_PILL_TONE;
-
-  protected readonly densityLabel = computed(() =>
-    this.t()("qualite.corrections.density", {
-      mode: this.t()(
-        this.dense()
-          ? "qualite.corrections.density.compact"
-          : "qualite.corrections.density.comfortable",
-      ),
-    }),
-  );
+  protected readonly tone = STATUS_TONE;
+  protected readonly initials = initialsOf;
+  private readonly snackbar = inject(SnackbarService);
 
   protected readonly f = signal({
     status: "en attente" as string,
@@ -426,13 +434,9 @@ export default class QualiteCorrectionsPage {
     field: ALL,
     q: "",
   });
-  protected readonly more = signal(false);
   protected readonly sort = signal<"recent" | "old">("recent");
-  protected readonly dense = signal(false);
   protected readonly openId = signal<string | undefined>(undefined);
   protected readonly decisionComment = signal("");
-
-  protected qCounts = computed(() => qualityCounts(this.store.state()));
 
   protected scoped = computed(() => {
     const s = this.store.state();
@@ -466,7 +470,12 @@ export default class QualiteCorrectionsPage {
   protected statusPills = computed(() => {
     const c = this.counts();
     return [
-      { value: ALL, labelKey: "qualite.common.all" as MessageKey, count: c.total, tone: "neutral" as const },
+      {
+        value: ALL,
+        labelKey: "qualite.common.all" as MessageKey,
+        count: c.total,
+        tone: "neutral" as const,
+      },
       {
         value: "en attente",
         labelKey: "qualite.corrections.status.en attente",
@@ -504,7 +513,9 @@ export default class QualiteCorrectionsPage {
       .filter((r) => {
         if (!needle) return true;
         const p = pm.get(r.producerId);
-        return `${p?.code ?? ""} ${p?.firstName ?? ""} ${p?.lastName ?? ""}`.toLowerCase().includes(needle);
+        return `${p?.code ?? ""} ${p?.firstName ?? ""} ${p?.lastName ?? ""}`
+          .toLowerCase()
+          .includes(needle);
       })
       .sort((a, b) =>
         sort === "recent"
@@ -518,9 +529,78 @@ export default class QualiteCorrectionsPage {
     return (scoop !== ALL ? 1 : 0) + (field !== ALL ? 1 : 0) + (q.trim() ? 1 : 0);
   });
 
-  protected extraFilterCount = computed(() => {
-    const { scoop, field } = this.f();
-    return (scoop !== ALL ? 1 : 0) + (field !== ALL ? 1 : 0);
+  protected readonly scoopOptions = computed<SelectOption[]>(() => {
+    const s = this.store.state();
+    const visible = inScope(
+      s.scoops.filter((c) => !c.archived).map((c) => ({ ...c, scoopId: c.id })),
+      s.session,
+    );
+    return [
+      { value: ALL, label: this.t()("qualite.corrections.scoopAll") },
+      ...visible.map((c) => ({ value: c.id, label: c.name })),
+    ];
+  });
+
+  protected readonly fieldOptions = computed<SelectOption[]>(() => [
+    { value: ALL, label: this.t()("qualite.v2.corr.fieldAll") },
+    ...this.fields().map((f) => ({ value: f, label: f })),
+  ]);
+
+  protected readonly sortOptions = computed<SelectOption[]>(() => [
+    { value: "recent", label: this.t()("qualite.corrections.sort.recent") },
+    { value: "old", label: this.t()("qualite.corrections.sort.old") },
+  ]);
+
+  protected readonly stats = computed<StatCard[]>(() => {
+    const t = this.t();
+    const c = this.counts();
+    const s = this.store.state();
+    const scoped = this.scoped();
+    const mine = s.corrections.filter((r) => scoped.has(r.producerId));
+    const pending = mine
+      .filter((r) => r.status === "en attente")
+      .sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
+    const oldest = pending[0]
+      ? Math.max(0, Math.floor((Date.now() - new Date(pending[0].requestedAt).getTime()) / DAY))
+      : null;
+    const fieldCount = new Map<string, number>();
+    for (const r of mine)
+      for (const ch of r.changes) fieldCount.set(ch.field, (fieldCount.get(ch.field) ?? 0) + 1);
+    const top = [...fieldCount].sort((a, b) => b[1] - a[1])[0];
+    return [
+      {
+        label: t("qualite.v2.corr.stat.pending"),
+        value: nf.format(c.pending),
+        sub:
+          oldest === null
+            ? t("qualite.v2.corr.stat.pendingNone")
+            : t("qualite.v2.corr.stat.pendingSub", { days: oldest }),
+        icon: "edit",
+        bg: "",
+        fg: "",
+      },
+      {
+        label: t("qualite.v2.corr.stat.approved"),
+        value: nf.format(c.approved),
+        sub: t("qualite.v2.corr.stat.approvedSub"),
+        icon: "task_alt",
+        ...TONE.succes,
+      },
+      {
+        label: t("qualite.v2.corr.stat.refused"),
+        value: nf.format(c.refused),
+        sub: t("qualite.v2.corr.stat.refusedSub"),
+        icon: "close",
+        ...TONE.erreur,
+      },
+      {
+        label: t("qualite.v2.corr.stat.field"),
+        value: top ? nf.format(top[1]) : "—",
+        sub: top?.[0] ?? "—",
+        icon: "analytics",
+        ...TONE.culture,
+      },
+    ];
   });
 
   protected open = computed((): CorrectionRequest | undefined => {
@@ -565,6 +645,8 @@ export default class QualiteCorrectionsPage {
   }
 
   protected showVal(field: string, v: string): string {
+    // Téléphone en clair avec le droit `contact.read` (admin) ; la CNI reste toujours masquée ici.
+    if (field === "Téléphone" && v && this.store.can("contact.read")) return v;
     const mask = SENSITIVE[field];
     if (mask) return v ? mask(v) : this.t()("qualite.common.notProvided");
     return v || this.t()("qualite.common.notProvided");
@@ -614,5 +696,10 @@ export default class QualiteCorrectionsPage {
       cmt || "Approuvée après vérification du justificatif.",
     );
     this.closeDialog();
+    if (approved) this.snackbar.success(this.t()("qualite.v2.corr.approved"));
+    else this.snackbar.info(this.t()("qualite.v2.corr.refused"));
   }
+
+  /** Pagination (rows) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly pager = createPager(() => this.rows());
 }

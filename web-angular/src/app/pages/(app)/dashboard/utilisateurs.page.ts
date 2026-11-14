@@ -1,386 +1,218 @@
-import {
-  Component,
-  computed,
-  effect,
-  HostListener,
-  inject,
-  signal,
-} from "@angular/core";
-import { FormsModule } from "@angular/forms";
+import { Component, computed, effect, inject, signal } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { map } from "rxjs";
-import {
-  LucideAngularModule,
-  Link2,
-  MoreVertical,
-  Plus,
-  ScrollText,
-  Search,
-  Smartphone,
-  UserCheck,
-  UserX,
-} from "lucide-angular";
 
-import { createUser, listUsers, toggleUserActive } from "@/lib/api/users";
 import { isApiMode } from "@/lib/api/config";
+import { fetchAllPages } from "@/lib/api/pagination";
+import { listRolePermissions } from "@/lib/api/roles";
+import { createUser, listUsers } from "@/lib/api/users";
 import { normalizeEmail } from "@/lib/auth/policy";
+import { nf } from "@/lib/format";
+import { LOCKED_ROLE, roleAllowsManyScoops, SUPER_ADMIN_ONLY_ROLES, type RoleId } from "@/lib/permissions";
+import type { AppUser } from "@/lib/store";
+import { AccountActionsComponent } from "@shared/account-actions.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { createPager } from "@shared/pager";
+import { StoreService } from "@shared/store.service";
+import { TechnicianDialogComponent } from "@shared/technician-dialog.component";
+import { UserRoleDialogComponent } from "@shared/user-role-dialog.component";
 import {
-  PERMISSION_LABEL,
-  ROLE_IS_SCOPED,
-  ROLE_LABEL,
-  ROLE_PERMISSIONS,
-  type Permission,
-  type RoleId,
-} from "@/lib/permissions";
-import type { MessageKey } from "@/lib/i18n";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiDialogComponent } from "../shared/ui/dialog.component";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent } from "../shared/ui/pill.component";
+  CheckListComponent,
+  IconComponent,
+  initialsOf,
+  ModalComponent,
+  PaginationComponent,
+  SelectComponent,
+  SnackbarService,
+  StatCardsComponent,
+  TextFieldComponent,
+  TONE,
+  V2_PAGE_STYLES,
+  type SelectOption,
+  type StatCard,
+} from "@shared/ui";
 
-const ROLES = Object.keys(ROLE_LABEL) as RoleId[];
+const ALL = "tous";
+type NewUserErrors = Partial<Record<"name" | "email" | "phone" | "scoop", string>>;
 
-/** Port de src/routes/utilisateurs.tsx — liste, matrice, création, activation. */
+/**
+ * Utilisateurs & rôles (charte V2) : comptes de la plateforme (création, rôle, activation, invitation de
+ * technicien). La configuration des rôles eux-mêmes vit à part, dans le bloc « Super administration ».
+ */
 @Component({
   selector: "app-utilisateurs-page",
   imports: [
-    FormsModule,
-    RouterLink,
-    LucideAngularModule,
+    AccountActionsComponent,
     AppShellComponent,
-    UiDialogComponent,
-    UiPageHeaderComponent,
-    UiPillComponent,
+    CheckListComponent,
+    IconComponent,
+    ModalComponent,
+    PaginationComponent,
+    RouterLink,
+    SelectComponent,
+    StatCardsComponent,
+    TechnicianDialogComponent,
+    TextFieldComponent,
+    UserRoleDialogComponent,
+  ],
+  styles: [
+    V2_PAGE_STYLES,
+    `
+      .role-filter {
+        min-width: 240px;
+      }
+      /* Colonne Actions toujours visible : collée au bord droit quand le tableau défile. */
+      .pin-right {
+        position: sticky;
+        right: 0;
+        z-index: 1;
+        background: var(--v2-blanc);
+        box-shadow: -1px 0 0 var(--v2-separateur);
+      }
+    `,
   ],
   template: `
     <app-shell perm="user.manage" [area]="t()('utilisateurs.area')">
-      <ui-page-header
-        [eyebrow]="t()('utilisateurs.eyebrow')"
-        [title]="t()('utilisateurs.title')"
-      >
-        @if (tab() === 'users') {
-          <button
-            actions
-            type="button"
-            class="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-            (click)="newOpen.set(true)"
-          >
-            <lucide-angular [img]="icons.plus" class="size-4" />
-            {{ t()("utilisateurs.new") }}
-          </button>
-        }
-      </ui-page-header>
-
-      @if (flash()) {
-        <p class="mb-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">{{ flash() }}</p>
-      }
-
-      <div class="mb-4 flex gap-2 border-b pb-1">
-        <button
-          type="button"
-          class="rounded-md px-3 py-2 text-sm font-medium"
-          [class.bg-muted]="tab() === 'users'"
-          [class.text-foreground]="tab() === 'users'"
-          [class.text-muted-foreground]="tab() !== 'users'"
-          (click)="setTab('users')"
-        >
-          {{ t()("utilisateurs.tab.users") }}
-        </button>
-        <button
-          type="button"
-          class="rounded-md px-3 py-2 text-sm font-medium"
-          [class.bg-muted]="tab() === 'roles'"
-          [class.text-foreground]="tab() === 'roles'"
-          [class.text-muted-foreground]="tab() !== 'roles'"
-          (click)="setTab('roles')"
-        >
-          {{ t()("utilisateurs.tab.roles") }}
-        </button>
-      </div>
-
-      @if (tab() === 'users') {
-        @if (apiLoading()) {
-          <p class="mb-3 text-sm text-muted-foreground">{{ t()("utilisateurs.tab.users") }}…</p>
-        }
-        <div class="surface mb-3 p-3">
-          <div class="relative">
-            <lucide-angular
-              [img]="icons.search"
-              class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              class="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              [attr.aria-label]="t()('utilisateurs.col.name')"
-              [ngModel]="q()"
-              (ngModelChange)="onQChange($event)"
-            />
-          </div>
+      <header class="rise flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div class="min-w-0">
+          <p class="mono" style="color: var(--v2-gris-texte)">{{ t()("utilisateurs.eyebrow") }}</p>
+          <h1 class="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[38px]">{{ t()("utilisateurs.title") }}</h1>
+          <p class="mt-2 max-w-2xl text-[16px] font-medium" style="color: var(--v2-gris-texte)">{{ t()("utilisateurs.v2.description") }}</p>
         </div>
-        <div class="surface" [class.overflow-x-auto]="!userMenuOpenId()">
-          <table class="w-full text-sm">
-            <thead class="border-b bg-muted text-left text-xs text-muted-foreground">
-              <tr>
-                <th class="px-4 py-3">{{ t()("utilisateurs.col.name") }}</th>
-                <th>{{ t()("utilisateurs.col.email") }}</th>
-                <th>{{ t()("utilisateurs.col.phone") }}</th>
-                <th>{{ t()("utilisateurs.col.role") }}</th>
-                <th>{{ t()("utilisateurs.col.devices") }}</th>
-                <th>{{ t()("utilisateurs.col.scope") }}</th>
-                <th>{{ t()("utilisateurs.col.state") }}</th>
-                <th class="w-12 pr-4" aria-hidden="true"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              @for (u of shownUsers(); track u.id) {
-                <tr>
-                  <td class="px-4 py-3 font-medium">{{ u.name }}</td>
-                  <td class="break-all">{{ u.email }}</td>
-                  <td class="tabular">{{ u.phone || t()("utilisateurs.phoneNone") }}</td>
-                  <td>{{ locale.tEnum("role", u.role) }}</td>
-                  <td>
-                    @if (devicesOf(u.id).length) {
-                      <a
-                        [routerLink]="['/appareils']"
-                        [queryParams]="{ user: u.id }"
-                        class="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
-                      >
-                        <lucide-angular [img]="icons.phone" class="size-3.5" />
-                        {{
-                          t()("utilisateurs.devicesActive", {
-                            active: devicesOf(u.id).filter((d) => d.active).length,
-                            total: devicesOf(u.id).length,
-                          })
-                        }}
-                      </a>
-                    } @else {
-                      <span class="text-muted-foreground">{{ t()("utilisateurs.devicesNone") }}</span>
-                    }
-                  </td>
-                  <td>
-                    {{ u.scoopId ? scoopName(u.scoopId) : t()("utilisateurs.scopeAll") }}
-                  </td>
-                  <td>
-                    @if (u.active) {
-                      <ui-pill tone="success">{{ t()("utilisateurs.state.active") }}</ui-pill>
-                    } @else {
-                      <ui-pill tone="neutral">{{ t()("utilisateurs.state.inactive") }}</ui-pill>
-                    }
-                  </td>
-                  <td class="relative pr-4 text-right" data-user-menu (click)="$event.stopPropagation()">
-                    <button
-                      type="button"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input text-muted-foreground hover:bg-muted pointer-coarse:size-touch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      [attr.aria-expanded]="userMenuOpenId() === u.id"
-                      [attr.aria-label]="t()('utilisateurs.action.menu')"
-                      (click)="toggleUserMenu(u.id, $event)"
-                    >
-                      <lucide-angular [img]="icons.more" class="size-4" />
-                    </button>
-                    @if (userMenuOpenId() === u.id) {
-                      <div
-                        class="absolute right-4 z-20 mt-1 min-w-56 rounded-md border bg-popover p-1 text-left text-sm shadow-md"
-                        data-user-menu
-                      >
-                        @if (store.can('device.manage')) {
-                          <a
-                            [routerLink]="['/appareils']"
-                            [queryParams]="{ user: u.id }"
-                            class="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
-                            (click)="userMenuOpenId.set(null)"
-                          >
-                            <lucide-angular [img]="icons.phone" class="size-4 shrink-0" />
-                            {{ t()("utilisateurs.action.devices") }}
-                          </a>
-                        }
-                        @if (store.can('account.manage')) {
-                          <a
-                            [routerLink]="['/comptes']"
-                            [queryParams]="{
-                              vue: hasLink(u.id) ? 'liees' : 'a-rapprocher',
-                            }"
-                            class="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
-                            (click)="userMenuOpenId.set(null)"
-                          >
-                            <lucide-angular [img]="icons.link" class="size-4 shrink-0" />
-                            {{
-                              hasLink(u.id)
-                                ? t()("utilisateurs.action.linked")
-                                : t()("utilisateurs.action.link")
-                            }}
-                          </a>
-                        }
-                        @if (store.can('audit.read')) {
-                          <a
-                            [routerLink]="['/audit']"
-                            [queryParams]="{ q: u.name }"
-                            class="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
-                            (click)="userMenuOpenId.set(null)"
-                          >
-                            <lucide-angular [img]="icons.scroll" class="size-4 shrink-0" />
-                            {{ t()("utilisateurs.action.audit") }}
-                          </a>
-                        }
-                        @if (u.active) {
-                          <button
-                            type="button"
-                            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-danger-fg hover:bg-muted"
-                            (click)="deactivateUser(u); userMenuOpenId.set(null)"
-                          >
-                            <lucide-angular [img]="icons.userX" class="size-4 shrink-0" />
-                            {{ t()("utilisateurs.action.deactivate") }}
-                          </button>
-                        } @else {
-                          <button
-                            type="button"
-                            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted"
-                            (click)="reactivateUser(u); userMenuOpenId.set(null)"
-                          >
-                            <lucide-angular [img]="icons.userCheck" class="size-4 shrink-0" />
-                            {{ t()("utilisateurs.action.reactivate") }}
-                          </button>
-                        }
-                      </div>
-                    }
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      } @else {
-        <div class="surface overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="border-b bg-muted text-xs text-muted-foreground">
-              <tr>
-                <th class="px-4 py-3 text-left">{{ t()("utilisateurs.col.permission") }}</th>
-                @for (r of roles; track r) {
-                  <th class="px-3">{{ locale.tEnum("role", r) }}</th>
-                }
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              @for (p of permissionsList(); track p) {
-                <tr>
-                  <td class="px-4 py-2.5">{{ permLabel(p) }}</td>
-                  @for (r of roles; track r) {
-                    <td class="px-1 py-1.5 text-center">
-                      @if (ROLE_PERMISSIONS[r].includes(p)) {
-                        <span
-                          class="mx-auto inline-flex size-7 items-center justify-center rounded-md bg-success-bg text-success-fg"
-                          [attr.aria-label]="t()('utilisateurs.yes')"
-                        >
-                          ✓
-                        </span>
-                      } @else {
-                        <span
-                          class="mx-auto inline-flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground"
-                          [attr.aria-label]="t()('utilisateurs.no')"
-                        >
-                          −
-                        </span>
-                      }
-                    </td>
-                  }
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-        <p class="mt-3 text-xs text-muted-foreground">{{ t()("utilisateurs.rolesNote") }}</p>
-      }
+        <span class="flex flex-wrap gap-2">
+            <button type="button" class="btn btn-ghost" (click)="techOpen.set(true)"><ui-icon name="person_add" [size]="18" />{{ t()("tech.add") }}</button>
+            <button type="button" class="btn btn-primary" (click)="openNewUser()">
+              {{ t()("utilisateurs.new") }}<span class="btn-chip"><ui-icon name="add" [size]="20" /></span>
+            </button>
+          </span>
+      </header>
 
-      <ui-dialog
-        [open]="newOpen()"
-        (openChange)="onNewOpen($event)"
-        [title]="t()('utilisateurs.new')"
-      >
-        <div class="space-y-3">
-          <label class="block text-sm font-medium">
-            {{ t()("utilisateurs.form.name") }}
-            <span class="text-destructive">*</span>
-            <input
-              class="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal"
-              [(ngModel)]="formName"
-              [placeholder]="t()('utilisateurs.form.namePh')"
-              autocomplete="off"
-            />
+      <ui-stat-cards class="rise mt-8" [stats]="stats()" />
+
+        <div class="toolbar card mt-6">
+          <label class="search">
+            <ui-icon name="search" [size]="20" />
+            <input type="search" [placeholder]="t()('utilisateurs.v2.search')" [attr.aria-label]="t()('utilisateurs.v2.search')" [value]="query()" (input)="onQueryChange($any($event.target).value)" />
           </label>
-          <div>
-            <label class="block text-sm font-medium">
-              {{ t()("utilisateurs.form.email") }}
-              <span class="text-destructive">*</span>
-            </label>
-            <p class="text-xs text-muted-foreground">{{ t()("utilisateurs.form.emailHint") }}</p>
-            <input
-              class="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal"
-              type="email"
-              [(ngModel)]="formEmail"
-              [placeholder]="t()('utilisateurs.form.emailPh')"
-              autocomplete="off"
-              autocapitalize="none"
-              spellcheck="false"
-            />
-            @if (emailError()) {
-              <p class="mt-1 text-xs text-destructive">{{ emailError() }}</p>
+          <ui-select class="role-filter" variant="compact" [options]="roleFilterOptions()" [value]="roleFilter()" leadingIcon="admin_panel_settings" (valueChange)="roleFilter.set($event)" />
+        </div>
+
+        <p class="sub mt-4" aria-live="polite">{{ t()("utilisateurs.v2.count", { shown: nf.format(shownUsers().length), total: nf.format(users().length) }) }}</p>
+
+        <section class="card mt-3 overflow-hidden">
+          @if (loading()) {
+            <p class="sub p-6">{{ t()("utilisateurs.v2.loading") }}</p>
+          } @else if (shownUsers().length) {
+            <div class="overflow-x-auto">
+              <table class="tbl min-w-[860px]">
+                <thead>
+                  <tr>
+                    <th>{{ t()("utilisateurs.col.name") }}</th>
+                    <th>{{ t()("utilisateurs.col.role") }}</th>
+                    <th>{{ t()("utilisateurs.col.scope") }}</th>
+                    <th>{{ t()("utilisateurs.col.devices") }}</th>
+                    <th>{{ t()("utilisateurs.col.state") }}</th>
+                    <th class="pin-right text-right">{{ t()("utilisateurs.v2.col.actions") }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (user of usersPager.items(); track user.id) {
+                    <tr>
+                      <td>
+                        <span class="flex items-center gap-3">
+                          <span class="avatar" [style.background]="tone(user.role).bg" [style.color]="tone(user.role).fg">{{ initials(user.name) }}</span>
+                          <span class="min-w-0">
+                            <span class="block max-w-64 truncate font-bold">{{ user.name }}</span>
+                            <span class="sub block max-w-64 truncate">{{ user.email }}</span>
+                            <span class="sub block tabular" [class.zero]="!user.phone">{{ user.phone ? store.phone(user.phone) : t()("utilisateurs.phoneNone") }}</span>
+                          </span>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge" [style.background]="tone(user.role).bg" [style.color]="tone(user.role).fg">
+                          @if (user.role === lockedRole) {
+                            <ui-icon name="lock" [size]="14" />
+                          }
+                          {{ store.roleLabel(user.role) }}
+                        </span>
+                      </td>
+                      <td class="max-w-56 truncate font-medium">{{ scopeLabel(user) }}</td>
+                      <td>
+                        @if (devicesOf(user.id).length) {
+                          <a class="inline-flex items-center gap-1.5 font-bold underline-offset-4 hover:underline" style="color: var(--v2-foret)" [routerLink]="['/dashboard/appareils']" [queryParams]="{ user: user.id }">
+                            <ui-icon name="devices" [size]="16" />{{ t()("utilisateurs.devicesActive", { active: activeDevices(user.id), total: devicesOf(user.id).length }) }}
+                          </a>
+                        } @else {
+                          <span class="zero">{{ t()("utilisateurs.devicesNone") }}</span>
+                        }
+                      </td>
+                      <td>
+                        @if (user.invited && !user.active) {
+                          <span class="badge" [style.background]="toneInfo.bg" [style.color]="toneInfo.fg"><ui-icon name="mark_email_unread" [size]="14" />{{ t()("utilisateurs.v2.invited") }}</span>
+                        } @else if (user.active) {
+                          <span class="badge" [style.background]="toneSuccess.bg" [style.color]="toneSuccess.fg">{{ t()("utilisateurs.state.active") }}</span>
+                        } @else {
+                          <span class="badge" [style.background]="toneNeutral.bg" [style.color]="toneNeutral.fg">{{ t()("utilisateurs.state.inactive") }}</span>
+                        }
+                      </td>
+                      <td class="pin-right">
+                        <span class="flex justify-end gap-2">
+                          @if (canEditRole(user)) {
+                            <button type="button" class="act" [title]="t()('utilisateurs.v2.changeRole')" [attr.aria-label]="t()('utilisateurs.v2.changeRoleFor', { name: user.name })" (click)="openRole(user)"><ui-icon name="admin_panel_settings" [size]="18" /></button>
+                          }
+                          @if (store.can("account.manage")) {
+                            <a class="act" [title]="hasLink(user.id) ? t()('utilisateurs.action.linked') : t()('utilisateurs.action.link')" [attr.aria-label]="hasLink(user.id) ? t()('utilisateurs.action.linked') : t()('utilisateurs.action.link')" [routerLink]="['/dashboard/comptes']" [queryParams]="{ vue: hasLink(user.id) ? 'liees' : 'a-rapprocher' }"><ui-icon name="link" [size]="18" /></a>
+                          }
+                          @if (store.can("audit.read")) {
+                            <a class="act" [title]="t()('utilisateurs.action.audit')" [attr.aria-label]="t()('utilisateurs.action.audit')" [routerLink]="['/dashboard/audit']" [queryParams]="{ q: user.name }"><ui-icon name="history" [size]="18" /></a>
+                          }
+                          <app-account-actions [user]="user" />
+                        </span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <ui-pagination class="px-5 pb-5" [pager]="usersPager" />
+          } @else {
+            <div class="flex flex-col items-center gap-3 p-10 text-center">
+              <span class="grid size-14 place-items-center rounded-[16px]" style="background: var(--v2-sauge); color: var(--v2-foret)"><ui-icon name="group" [size]="26" /></span>
+              <p class="text-[16px] font-extrabold">{{ t()("utilisateurs.v2.empty") }}</p>
+            </div>
+          }
+        </section>
+
+      <!-- Nouvel utilisateur -->
+      <ui-modal [open]="newOpen()" [title]="t()('utilisateurs.new')" [description]="t()('utilisateurs.v2.newDescription')" icon="person_add" [width]="680" [closeLabel]="t()('common.close')" (closed)="newOpen.set(false)">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <ui-text-field class="sm:col-span-2" [label]="t()('utilisateurs.form.name')" preset="firstName" [placeholder]="t()('utilisateurs.form.namePh')" [value]="newName()" [error]="newErrors().name ?? ''" (valueChange)="newName.set($event)" />
+          <ui-text-field [label]="t()('utilisateurs.form.email')" preset="email" [hint]="t()('utilisateurs.form.emailHint')" [value]="newEmail()" [error]="newErrors().email ?? ''" (valueChange)="newEmail.set($event)" />
+          <ui-text-field [label]="t()('utilisateurs.form.phone')" preset="phone" [optional]="t()('utilisateurs.v2.optional')" [value]="newPhone()" [error]="newErrors().phone ?? ''" (valueChange)="newPhone.set($event)" />
+          <ui-select class="sm:col-span-2" [label]="t()('utilisateurs.form.role')" [options]="assignableRoleOptions()" [value]="newRole()" leadingIcon="admin_panel_settings" (valueChange)="pickNewRole($event)" />
+          @if (newRoleScoped()) {
+            @if (newManyScoops()) {
+              <ui-check-list class="sm:col-span-2" [label]="t()('roles.dialog.scoops')" [options]="scoopOptions()" [value]="newScoopIds()" [error]="newErrors().scoop ?? ''" (valueChange)="newScoopIds.set($event)" />
+            } @else {
+              <div class="sm:col-span-2">
+                <ui-select [label]="t()('roles.dialog.scoop')" [options]="scoopOptions()" [value]="newScoopIds()[0] ?? ''" [placeholder]="t()('roles.dialog.scoopPh')" leadingIcon="apartment" (valueChange)="newScoopIds.set([$event])" />
+                @if (newErrors().scoop; as scoopError) {
+                  <p class="mt-1.5 flex items-center gap-1.5 text-[13px] font-bold" style="color: var(--v2-erreur-fg)" role="alert"><ui-icon name="warning" [size]="16" />{{ scoopError }}</p>
+                }
+              </div>
             }
-          </div>
-          <div>
-            <label class="block text-sm font-medium">{{ t()("utilisateurs.form.phone") }}</label>
-            <input
-              class="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal"
-              [(ngModel)]="formPhone"
-              [placeholder]="t()('utilisateurs.form.phonePh')"
-              inputmode="tel"
-              autocomplete="off"
-            />
-            @if (phoneError()) {
-              <p class="mt-1 text-xs text-destructive">{{ phoneError() }}</p>
-            }
-          </div>
-          <label class="block text-sm font-medium">{{ t()("utilisateurs.form.role") }}</label>
-          <select
-            class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            [ngModel]="formRole()"
-            (ngModelChange)="formRole.set($event)"
-          >
-            @for (r of roles; track r) {
-              <option [value]="r">{{ locale.tEnum("role", r) }}</option>
-            }
-          </select>
-          @if (ROLE_IS_SCOPED[formRole()]) {
-            <label class="mt-1 block text-sm font-medium">{{ t()("utilisateurs.form.scoop") }}</label>
-            <select
-              class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              [ngModel]="formScoopId()"
-              (ngModelChange)="formScoopId.set($event)"
-            >
-              @for (s of store.state().scoops; track s.id) {
-                <option [value]="s.id">{{ s.name }}</option>
-              }
-            </select>
           }
         </div>
-        <button
-          actions
-          type="button"
-          class="inline-flex h-9 items-center rounded-md border px-4 text-sm"
-          (click)="newOpen.set(false)"
-        >
-          {{ t()("utilisateurs.cancel") }}
+        <button modal-footer type="button" class="btn btn-ghost" (click)="newOpen.set(false)">{{ t()("common.cancel") }}</button>
+        <button modal-footer type="button" class="btn btn-primary" [disabled]="creating()" (click)="submitNewUser()">
+          {{ t()("utilisateurs.create") }}<span class="btn-chip"><ui-icon name="check" [size]="18" /></span>
         </button>
-        <button
-          actions
-          type="button"
-          class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          [disabled]="!canSubmitNew()"
-          (click)="submitNew()"
-        >
-          {{ t()("utilisateurs.create") }}
-        </button>
-      </ui-dialog>
+      </ui-modal>
+
+      <app-user-role-dialog [(open)]="roleOpen" [user]="roleUser()" />
+      <app-technician-dialog [(open)]="techOpen" />
     </app-shell>
   `,
 })
@@ -388,93 +220,147 @@ export default class UtilisateursPage {
   protected readonly store = inject(StoreService);
   protected readonly locale = inject(LocaleService);
   protected readonly t = this.locale.t;
-  protected readonly ROLE_PERMISSIONS = ROLE_PERMISSIONS;
-  protected readonly ROLE_IS_SCOPED = ROLE_IS_SCOPED;
-  protected readonly roles = ROLES;
-  protected readonly icons = {
-    search: Search,
-    phone: Smartphone,
-    plus: Plus,
-    more: MoreVertical,
-    link: Link2,
-    scroll: ScrollText,
-    userX: UserX,
-    userCheck: UserCheck,
-  };
-
+  private readonly snackbar = inject(SnackbarService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  private readonly qFromRoute = toSignal(
-    this.route.queryParamMap.pipe(map((m) => m.get("q") ?? "")),
+  protected readonly nf = nf;
+  protected readonly lockedRole = LOCKED_ROLE;
+  protected readonly toneInfo = TONE.info;
+  protected readonly toneSuccess = TONE.succes;
+  protected readonly toneNeutral = TONE.neutre;
+  /** Couleur d'un rôle : super administrateur en citron, rôles de coopérative en culture, consolidés en info. */
+  protected tone(role: RoleId) {
+    if (role === LOCKED_ROLE) return { bg: "var(--v2-citron)", fg: "var(--v2-foret)" };
+    return this.store.roleScoped(role) ? TONE.culture : TONE.info;
+  }
+  protected readonly initials = initialsOf;
+
+  private readonly queryFromRoute = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get("q") ?? "")),
     { initialValue: "" },
   );
 
-  protected readonly tab = signal<"users" | "roles">("users");
-  protected readonly q = signal("");
-  protected readonly newOpen = signal(false);
-  protected readonly apiLoading = signal(isApiMode());
-  protected readonly userMenuOpenId = signal<string | null>(null);
-  protected readonly flash = signal<string | null>(null);
+  protected readonly query = signal("");
+  protected readonly roleFilter = signal<string>(ALL);
+  protected readonly loading = signal(isApiMode());
 
-  protected formName = "";
-  protected formEmail = "";
-  protected formPhone = "";
-  protected readonly formRole = signal<RoleId>("gestionnaire");
-  protected readonly formScoopId = signal("s1");
+  protected readonly techOpen = signal(false);
+  protected readonly roleOpen = signal(false);
+  private readonly roleUserId = signal<string | null>(null);
+
+  // Formulaire « Nouvel utilisateur » : erreurs affichées seulement après la première tentative.
+  protected readonly newOpen = signal(false);
+  protected readonly creating = signal(false);
+  protected readonly newName = signal("");
+  protected readonly newEmail = signal("");
+  protected readonly newPhone = signal("");
+  protected readonly newRole = signal<RoleId>("gestionnaire");
+  protected readonly newScoopIds = signal<string[]>([]);
+  private readonly newSubmitted = signal(false);
 
   constructor() {
-    effect(() => this.q.set(this.qFromRoute()));
-    if (isApiMode()) void this.loadUsersFromApi();
-    else this.apiLoading.set(false);
+    effect(() => this.query.set(this.queryFromRoute()));
+    if (isApiMode()) void this.loadFromApi();
   }
 
-  @HostListener("document:click", ["$event"])
-  onDocumentClick(ev: MouseEvent): void {
-    const t = ev.target as HTMLElement;
-    if (!t.closest("[data-user-menu]")) this.userMenuOpenId.set(null);
-  }
-
-  private async loadUsersFromApi(): Promise<void> {
+  private async loadFromApi(): Promise<void> {
     try {
-      const { items } = await listUsers();
-      this.store.actions.replaceUsersFromApi(items);
+      const [users, roles] = await Promise.all([fetchAllPages(listUsers), listRolePermissions()]);
+      this.store.actions.replaceUsersFromApi(users);
+      // Les rôles créés par le super administrateur doivent être connus pour afficher et attribuer les rôles.
+      this.store.actions.replaceRolePermissionsFromApi(
+        Object.fromEntries(roles.items.map((entry) => [entry.role, entry.permissions])),
+        roles.customRoles,
+      );
     } catch {
-      this.flash.set(this.t()("utilisateurs.title"));
+      this.snackbar.error(this.locale.tNow("utilisateurs.v2.loadError"));
     } finally {
-      this.apiLoading.set(false);
+      this.loading.set(false);
     }
   }
 
+  protected readonly users = computed(() => this.store.state().users);
+
   protected readonly shownUsers = computed(() => {
-    const needle = this.q().trim().toLowerCase();
-    const users = this.store.state().users;
-    return users.filter(
-      (u) => !needle || `${u.name} ${u.email}`.toLowerCase().includes(needle),
+    const needle = this.query().trim().toLowerCase();
+    const role = this.roleFilter();
+    return this.users().filter(
+      (user) =>
+        (role === ALL || user.role === role) &&
+        (!needle || `${user.name} ${user.email}`.toLowerCase().includes(needle)),
     );
   });
+  protected readonly usersPager = createPager(() => this.shownUsers());
 
-  protected readonly permissionsList = computed(
-    () => Object.keys(PERMISSION_LABEL) as Permission[],
+  protected readonly stats = computed<StatCard[]>(() => {
+    const t = this.t();
+    const users = this.users();
+    const active = users.filter((user) => user.active).length;
+    const invited = users.filter((user) => user.invited && !user.active).length;
+    return [
+      { label: t("utilisateurs.v2.stat.accounts"), value: nf.format(users.length), sub: t("utilisateurs.v2.stat.accountsSub", { count: nf.format(active) }), icon: "group", bg: "", fg: "" },
+      { label: t("utilisateurs.v2.stat.inactive"), value: nf.format(users.length - active - invited), sub: t("utilisateurs.v2.stat.inactiveSub"), icon: "block", ...TONE.neutre },
+      { label: t("utilisateurs.v2.stat.invited"), value: nf.format(invited), sub: t("utilisateurs.v2.stat.invitedSub"), icon: "mark_email_unread", ...TONE.info },
+      { label: t("utilisateurs.v2.stat.roles"), value: nf.format(new Set(users.map((user) => user.role)).size), sub: t("utilisateurs.v2.stat.rolesSub", { count: nf.format(this.store.allRoles().length) }), icon: "admin_panel_settings", ...TONE.attente },
+    ];
+  });
+
+  protected readonly roleFilterOptions = computed<SelectOption[]>(() => [
+    { value: ALL, label: this.t()("utilisateurs.v2.allRoles"), hint: nf.format(this.users().length) },
+    ...this.store.allRoles().map((role) => ({
+      value: role,
+      label: this.store.roleLabel(role),
+      hint: nf.format(this.users().filter((user) => user.role === role).length),
+    })),
+  ]);
+
+  /** Rôles qu'on peut donner à la création : tous pour le super administrateur, sauf le sien pour les autres. */
+  protected readonly assignableRoleOptions = computed<SelectOption[]>(() => {
+    return this.store
+      .assignableRoleIds(this.newScoopIds())
+      .map((role) => ({
+        value: role,
+        label: this.store.roleLabel(role),
+        icon: role === LOCKED_ROLE ? "lock" : this.store.roleScoped(role) ? "apartment" : "public",
+      }));
+  });
+
+  protected readonly scoopOptions = computed<SelectOption[]>(() =>
+    this.store
+      .state()
+      .scoops.filter((scoop) => !scoop.archived)
+      .map((scoop) => ({ value: scoop.id, label: scoop.name })),
   );
 
-  protected readonly emailError = computed(() => {
-    const trimmed = this.formEmail.trim();
-    const typed = normalizeEmail(this.formEmail);
-    const users = this.store.state().users;
-    if (trimmed && !typed) return this.t()("utilisateurs.err.emailInvalid");
-    if (typed && users.some((u) => u.email === typed)) return this.t()("utilisateurs.err.emailTaken");
-    return undefined;
+  protected readonly newRoleScoped = computed(() => this.store.roleScoped(this.newRole()));
+  protected readonly newManyScoops = computed(() => roleAllowsManyScoops(this.newRole()));
+
+  protected readonly roleUser = computed(
+    () => this.users().find((user) => user.id === this.roleUserId()) ?? null,
+  );
+
+  protected readonly newErrors = computed<NewUserErrors>(() => {
+    if (!this.newSubmitted()) return {};
+    const t = this.t();
+    const errors: NewUserErrors = {};
+    const typedEmail = this.newEmail().trim();
+    const email = normalizeEmail(typedEmail);
+    if (this.newName().trim().replace(/\s+/g, " ").split(" ").length < 2)
+      errors.name = t("utilisateurs.v2.err.name");
+    if (!typedEmail || !email) errors.email = t("utilisateurs.err.emailInvalid");
+    else if (this.users().some((user) => user.email.toLowerCase() === email))
+      errors.email = t("utilisateurs.err.emailTaken");
+    const phone = this.newPhone().trim();
+    if (phone && !/^7[0678]\s?\d{3}\s?\d{2}\s?\d{2}$/.test(phone))
+      errors.phone = t("utilisateurs.err.phone");
+    if (this.newRoleScoped() && !this.newScoopIds().length)
+      errors.scoop = t("errors.roles.scoopRequired");
+    return errors;
   });
 
-  protected readonly phoneError = computed(() => {
-    const p = this.formPhone.trim();
-    if (!p) return undefined;
-    return /^7[0678]\s?\d{3}\s?\d{2}\s?\d{2}$/.test(p) ? undefined : this.t()("utilisateurs.err.phone");
-  });
-
-  onQChange(value: string): void {
-    this.q.set(value);
+  protected onQueryChange(value: string): void {
+    this.query.set(value);
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { q: value.trim() || null },
@@ -483,69 +369,71 @@ export default class UtilisateursPage {
     });
   }
 
-  setTab(v: "users" | "roles"): void {
-    this.tab.set(v);
+  protected scopeLabel(user: AppUser): string {
+    const ids = user.scoopIds ?? (user.scoopId ? [user.scoopId] : []);
+    if (!ids.length) return this.t()("utilisateurs.scopeAll");
+    const names = ids.map((id) => this.store.state().scoops.find((scoop) => scoop.id === id)?.name ?? id);
+    return names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ");
   }
 
-  toggleUserMenu(id: string, ev: Event): void {
-    ev.stopPropagation();
-    this.userMenuOpenId.update((cur) => (cur === id ? null : id));
+  protected devicesOf(userId: string) {
+    return this.store.state().devices.filter((device) => device.userId === userId);
   }
 
-  hasLink(userId: string): boolean {
-    return this.store.state().links.some((l) => l.userId === userId);
+  protected activeDevices(userId: string): number {
+    return this.devicesOf(userId).filter((device) => device.active).length;
   }
 
-  devicesOf(userId: string) {
-    return this.store.state().devices.filter((d) => d.userId === userId);
+  protected hasLink(userId: string): boolean {
+    return this.store.state().links.some((link) => link.userId === userId);
   }
 
-  scoopName(id: string): string {
-    return this.store.state().scoops.find((s) => s.id === id)?.name ?? id;
+  /** Les comptes administrateur et super administrateur ne se modifient que par un super administrateur. */
+  protected canEditRole(user: AppUser): boolean {
+    return !SUPER_ADMIN_ONLY_ROLES.includes(user.role as never) || this.store.can("role.configure");
   }
 
-  permLabel(p: Permission): string {
-    return this.t()(`perm.${p}` as MessageKey);
+  protected openRole(user: AppUser): void {
+    this.roleUserId.set(user.id);
+    this.roleOpen.set(true);
   }
 
-  onNewOpen(open: boolean): void {
-    this.newOpen.set(open);
-    if (!open) this.resetForm();
+  protected openNewUser(): void {
+    this.newName.set("");
+    this.newEmail.set("");
+    this.newPhone.set("");
+    this.newRole.set("gestionnaire");
+    this.newScoopIds.set([]);
+    this.newSubmitted.set(false);
+    this.newOpen.set(true);
   }
 
-  private resetForm(): void {
-    this.formName = "";
-    this.formEmail = "";
-    this.formPhone = "";
-    this.formRole.set("gestionnaire");
-    this.formScoopId.set("s1");
+  protected pickNewRole(value: string): void {
+    const role = value as RoleId;
+    this.newRole.set(role);
+    if (!roleAllowsManyScoops(role)) this.newScoopIds.update((ids) => ids.slice(0, 1));
+    if (!this.store.roleScoped(role)) this.newScoopIds.set([]);
   }
 
-  canSubmitNew(): boolean {
-    const nameOk = this.formName.trim().length >= 3;
-    const email = normalizeEmail(this.formEmail);
-    return !!(nameOk && email && !this.emailError() && !this.phoneError());
-  }
-
-  async submitNew(): Promise<void> {
-    if (!this.canSubmitNew()) return;
-    const email = normalizeEmail(this.formEmail)!;
-    const role = this.formRole();
+  protected async submitNewUser(): Promise<void> {
+    this.newSubmitted.set(true);
+    if (Object.keys(this.newErrors()).length) return;
+    const role = this.newRole();
+    const scoopIds = this.newRoleScoped() ? this.newScoopIds() : [];
     const payload = {
-      name: this.formName.trim(),
-      email,
-      phone: this.formPhone.trim(),
+      name: this.newName().trim().replace(/\s+/g, " "),
+      email: normalizeEmail(this.newEmail())!,
+      phone: this.newPhone().trim(),
       role,
-      scoopId: ROLE_IS_SCOPED[role] ? this.formScoopId() : undefined,
     };
-
-    if (isApiMode()) {
-      try {
+    this.creating.set(true);
+    try {
+      if (isApiMode()) {
         const created = await createUser({
           name: payload.name,
           email: payload.email,
           role: payload.role,
-          ...(payload.scoopId ? { scoopId: payload.scoopId } : {}),
+          ...(scoopIds[0] ? { scoopId: scoopIds[0] } : {}),
           ...(payload.phone ? { phone: payload.phone } : {}),
         });
         this.store.actions.addUser({
@@ -555,43 +443,22 @@ export default class UtilisateursPage {
           phone: created.phone ?? "",
           role: created.role,
           scoopId: created.scoopId ?? undefined,
+          ...(roleAllowsManyScoops(role) && { scoopIds }),
         });
-      } catch {
-        this.flash.set(this.t()("utilisateurs.toast.created"));
-        return;
+      } else {
+        this.store.actions.addUser({
+          ...payload,
+          scoopId: roleAllowsManyScoops(role) ? undefined : scoopIds[0],
+          ...(roleAllowsManyScoops(role) && { scoopIds }),
+        });
       }
-    } else {
-      this.store.actions.addUser(payload);
+    } catch {
+      this.snackbar.error(this.locale.tNow("utilisateurs.v2.apiError"));
+      return;
+    } finally {
+      this.creating.set(false);
     }
-
-    this.flash.set(this.t()("utilisateurs.toast.created"));
+    this.snackbar.success(this.locale.tNow("utilisateurs.toast.created"));
     this.newOpen.set(false);
-    this.resetForm();
-  }
-
-  async deactivateUser(u: { id: string; name: string }): Promise<void> {
-    if (isApiMode()) {
-      try {
-        await toggleUserActive(u.id);
-      } catch {
-        this.flash.set(this.t()("utilisateurs.toast.deactivated"));
-        return;
-      }
-    }
-    this.store.actions.toggleUser(u.id);
-    this.flash.set(this.t()("utilisateurs.toast.deactivated"));
-  }
-
-  async reactivateUser(u: { id: string; name: string }): Promise<void> {
-    if (isApiMode()) {
-      try {
-        await toggleUserActive(u.id);
-      } catch {
-        this.flash.set(this.t()("utilisateurs.toast.reactivated"));
-        return;
-      }
-    }
-    this.store.actions.toggleUser(u.id);
-    this.flash.set(this.t()("utilisateurs.toast.reactivated"));
   }
 }

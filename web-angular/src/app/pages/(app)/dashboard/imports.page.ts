@@ -38,13 +38,17 @@ import {
 import { downloadWorkbook, headers, templateSheets } from "@/lib/io/workbook";
 import { actions, can, getState, type ImportBatch } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiButtonComponent } from "../shared/ui/button.component";
-import { UiKpiTileComponent } from "../shared/ui/kpi-tile.component";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent } from "../shared/ui/pill.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
+import {
+  PaginationComponent,
+  UiButtonComponent,
+  UiKpiTileComponent,
+  UiPageHeaderComponent,
+  UiPillComponent,
+} from "@shared/ui";
+import { createPager } from "@shared/pager";
 
 const SCRIPT = "import-web-1.0";
 const IGNORE = "__ignore";
@@ -65,6 +69,7 @@ interface Loaded {
 @Component({
   selector: "app-imports-page",
   imports: [
+    PaginationComponent,
     CommonModule,
     FormsModule,
     RouterLink,
@@ -103,14 +108,14 @@ interface Loaded {
                 class="absolute right-0 z-10 mt-1 min-w-56 rounded-md border bg-popover p-2 text-sm shadow-md"
                 data-csv-menu
               >
-                  @for (e of entityOrder; track e) {
+                @for (entity of entityOrder; track entity) {
                   <button
                     type="button"
                     class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted"
-                    (click)="downloadEntityCsv(e); csvOpen.set(false)"
+                    (click)="downloadEntityCsv(entity); csvOpen.set(false)"
                   >
                     <lucide-angular [img]="icons.download" class="size-4" />
-                    {{ t()("imports.template.entity", { label: entityLabel(e) }) }}
+                    {{ t()("imports.template.entity", { label: entityLabel(entity) }) }}
                   </button>
                 }
               </div>
@@ -120,30 +125,38 @@ interface Loaded {
       </ui-page-header>
 
       @if (flash()) {
-        <p class="mb-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">{{ flash() }}</p>
+        <p class="mb-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
+          {{ flash() }}
+        </p>
       }
 
-      <ol class="mb-5 flex flex-wrap items-center gap-2 text-sm" [attr.aria-label]="t()('imports.steps.label')">
-        @for (k of STEPS; track k; let i = $index) {
+      <ol
+        class="mb-5 flex flex-wrap items-center gap-2 text-sm"
+        [attr.aria-label]="t()('imports.steps.label')"
+      >
+        @for (stepName of STEPS; track stepName; let position = $index) {
           <li class="flex items-center gap-2">
             <span
               class="grid size-6 place-items-center rounded-full text-xs font-semibold"
               [class]="
                 cn(
-                  i < stepIdx()
+                  position < stepIdx()
                     ? 'bg-primary text-primary-foreground'
-                    : i === stepIdx()
+                    : position === stepIdx()
                       ? 'bg-primary-soft text-primary ring-2 ring-primary'
                       : 'bg-muted text-muted-foreground'
                 )
               "
             >
-              {{ i + 1 }}
+              {{ position + 1 }}
             </span>
-            <span [class.font-semibold]="i === stepIdx()" [class.text-muted-foreground]="i !== stepIdx()">
-              {{ locale.tEnum("imports.step", k) }}
+            <span
+              [class.font-semibold]="position === stepIdx()"
+              [class.text-muted-foreground]="position !== stepIdx()"
+            >
+              {{ locale.tEnum("imports.step", stepName) }}
             </span>
-            @if (i < STEPS.length - 1) {
+            @if (position < STEPS.length - 1) {
               <span class="mx-1 h-px w-6 bg-border"></span>
             }
           </li>
@@ -204,28 +217,35 @@ interface Loaded {
               }}
             </p>
           }
-          @for (s of L.sheets; track s.name; let i = $index) {
+          @for (sheet of L.sheets; track sheet.name; let position = $index) {
             <div class="surface p-4">
               <div class="flex flex-wrap items-center gap-3">
-                <h2 class="font-semibold">{{ t()("imports.sheet.title", { name: s.name }) }}</h2>
+                <h2 class="font-semibold">
+                  {{ t()("imports.sheet.title", { name: sheet.name }) }}
+                </h2>
                 <span class="text-sm text-muted-foreground">
-                  {{ t()("imports.rows.autre", { count: s.rows.length, n: nf.format(s.rows.length) }) }}
+                  {{
+                    t()("imports.rows.autre", {
+                      count: sheet.rows.length,
+                      n: nf.format(sheet.rows.length),
+                    })
+                  }}
                 </span>
                 <select
                   class="ml-auto h-9 w-56 rounded-md border border-input bg-background px-3 text-sm"
-                  [attr.aria-label]="t()('imports.sheet.contentAria', { name: s.name })"
-                  [ngModel]="s.entityChoice"
-                  (ngModelChange)="onEntityChoice(i, $event)"
+                  [attr.aria-label]="t()('imports.sheet.contentAria', { name: sheet.name })"
+                  [ngModel]="sheet.entityChoice"
+                  (ngModelChange)="onEntityChoice(position, $event)"
                 >
                   <option [value]="IGNORE">{{ t()("imports.sheet.ignore") }}</option>
-                  @for (e of entityOrder; track e) {
-                    <option [value]="e">
-                      {{ t()("imports.sheet.contains", { label: entityLabel(e) }) }}
+                  @for (entity of entityOrder; track entity) {
+                    <option [value]="entity">
+                      {{ t()("imports.sheet.contains", { label: entityLabel(entity) }) }}
                     </option>
                   }
                 </select>
               </div>
-              @if (s.entityChoice !== IGNORE) {
+              @if (sheet.entityChoice !== IGNORE) {
                 <div class="mt-3 overflow-x-auto">
                   <table class="w-full text-sm">
                     <thead class="border-b text-left text-xs text-muted-foreground">
@@ -236,35 +256,46 @@ interface Loaded {
                       </tr>
                     </thead>
                     <tbody class="divide-y">
-                      @for (c of SCHEMA[asEntity(s.entityChoice)].columns; track c.key) {
-                        <tr [class.bg-danger-bg/40]="c.required && s.mapping[c.key] === null">
+                      @for (
+                        column of SCHEMA[asEntity(sheet.entityChoice)].columns;
+                        track column.key
+                      ) {
+                        <tr
+                          [class.bg-danger-bg/40]="
+                            column.required && sheet.mapping[column.key] === null
+                          "
+                        >
                           <td class="py-2 pr-3">
-                            <span class="font-medium">{{ c.label }}</span>
-                            @if (c.required) {
+                            <span class="font-medium">{{ column.label }}</span>
+                            @if (column.required) {
                               <span class="text-danger-fg"> *</span>
                             }
-                            @if (c.hint) {
-                              <div class="text-xs text-muted-foreground">{{ c.hint }}</div>
+                            @if (column.hint) {
+                              <div class="text-xs text-muted-foreground">{{ column.hint }}</div>
                             }
                           </td>
                           <td class="pr-3">
                             <select
                               class="h-9 w-56 rounded-md border border-input bg-background px-3 text-sm"
-                              [class.border-danger]="c.required && s.mapping[c.key] === null"
-                              [attr.aria-label]="t()('imports.map.columnFor', { label: c.label })"
-                              [ngModel]="mapSelectValue(s.mapping[c.key])"
-                              (ngModelChange)="onMapping(i, c.key, $event)"
+                              [class.border-danger]="
+                                column.required && sheet.mapping[column.key] === null
+                              "
+                              [attr.aria-label]="
+                                t()('imports.map.columnFor', { label: column.label })
+                              "
+                              [ngModel]="mapSelectValue(sheet.mapping[column.key])"
+                              (ngModelChange)="onMapping(position, column.key, $event)"
                             >
                               <option [value]="NONE">{{ t()("imports.map.notProvided") }}</option>
-                              @for (h of s.headers; track $index; let k = $index) {
-                                <option [value]="colIdxStr(k)">
-                                  {{ h || t()("imports.map.columnN", { n: k + 1 }) }}
+                              @for (header of sheet.headers; track $index; let stepIndex = $index) {
+                                <option [value]="colIdxStr(stepIndex)">
+                                  {{ header || t()("imports.map.columnN", { n: stepIndex + 1 }) }}
                                 </option>
                               }
                             </select>
                           </td>
                           <td class="max-w-80 truncate text-xs text-muted-foreground">
-                            {{ previewCells(s, c.key) }}
+                            {{ previewCells(sheet, column.key) }}
                           </td>
                         </tr>
                       }
@@ -290,7 +321,7 @@ interface Loaded {
         </section>
       }
 
-      @if (step() === "rapport" && plan(); as p) {
+      @if (step() === "rapport" && plan(); as report) {
         <section class="space-y-4">
           <div class="flex items-center gap-2">
             <lucide-angular [img]="icons.flask" class="size-5 text-ochre" />
@@ -300,12 +331,21 @@ interface Loaded {
           </div>
           <p class="text-sm text-muted-foreground">{{ t()("imports.report.intro") }}</p>
           <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-            <ui-kpi-tile [label]="t()('imports.kpi.newOrgs')" [value]="nf.format(p.orgs.length)" />
-            <ui-kpi-tile [label]="t()('imports.kpi.producers')" [value]="nf.format(p.producers.length)" />
-            <ui-kpi-tile [label]="t()('imports.kpi.plots')" [value]="nf.format(p.plots.length)" />
+            <ui-kpi-tile
+              [label]="t()('imports.kpi.newOrgs')"
+              [value]="nf.format(report.orgs.length)"
+            />
+            <ui-kpi-tile
+              [label]="t()('imports.kpi.producers')"
+              [value]="nf.format(report.producers.length)"
+            />
+            <ui-kpi-tile
+              [label]="t()('imports.kpi.plots')"
+              [value]="nf.format(report.plots.length)"
+            />
             <ui-kpi-tile
               [label]="t()('imports.kpi.skipped')"
-              [value]="nf.format(p.skipped.length)"
+              [value]="nf.format(report.skipped.length)"
               [sub]="t()('imports.kpi.skippedSub')"
             />
             <ui-kpi-tile
@@ -325,11 +365,14 @@ interface Loaded {
               [tone]="warnings().length ? 'warning' : 'neutral'"
               [sub]="t()('imports.kpi.warningsSub')"
             />
-            <ui-kpi-tile [label]="t()('imports.kpi.alerts')" [value]="nf.format(p.alerts.length)" />
+            <ui-kpi-tile
+              [label]="t()('imports.kpi.alerts')"
+              [value]="nf.format(report.alerts.length)"
+            />
             <ui-kpi-tile
               [label]="t()('imports.kpi.duplicates')"
-              [value]="nf.format(p.cases.length)"
-              [tone]="p.cases.length ? 'warning' : 'neutral'"
+              [value]="nf.format(report.cases.length)"
+              [tone]="report.cases.length ? 'warning' : 'neutral'"
             />
           </div>
 
@@ -340,18 +383,20 @@ interface Loaded {
                   <th class="px-4 py-2.5 font-semibold">{{ t()("imports.report.sheet") }}</th>
                   <th class="font-semibold">{{ t()("imports.report.content") }}</th>
                   <th class="text-right font-semibold">{{ t()("imports.report.rowsRead") }}</th>
-                  <th class="pr-4 text-right font-semibold">{{ t()("imports.kpi.rejectedRows") }}</th>
+                  <th class="pr-4 text-right font-semibold">
+                    {{ t()("imports.kpi.rejectedRows") }}
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y">
-                @for (s of p.sheets; track s.name) {
+                @for (sheet of report.sheets; track sheet.name) {
                   <tr>
-                    <td class="px-4 py-2 font-medium">{{ s.name }}</td>
-                    <td>{{ SCHEMA[s.entity].label }}</td>
-                    <td class="text-right tabular">{{ nf.format(s.rows) }}</td>
+                    <td class="px-4 py-2 font-medium">{{ sheet.name }}</td>
+                    <td>{{ SCHEMA[sheet.entity].label }}</td>
+                    <td class="text-right tabular">{{ nf.format(sheet.rows) }}</td>
                     <td class="pr-4 text-right tabular">
-                      @if (s.rejects > 0) {
-                        <span class="text-danger-fg">{{ nf.format(s.rejects) }}</span>
+                      @if (sheet.rejects > 0) {
+                        <span class="text-danger-fg">{{ nf.format(sheet.rejects) }}</span>
                       } @else {
                         0
                       }
@@ -362,7 +407,7 @@ interface Loaded {
             </table>
           </div>
 
-          @if (p.issues.length) {
+          @if (report.issues.length) {
             <div class="surface">
               <div class="flex flex-wrap items-center gap-2 border-b p-3">
                 <button
@@ -392,7 +437,12 @@ interface Loaded {
                 >
                   {{ t()("imports.level.all") }}
                 </button>
-                <ui-button variant="outline" size="sm" class="ml-auto h-8" (click)="downloadPlanIssues()">
+                <ui-button
+                  variant="outline"
+                  size="sm"
+                  class="ml-auto h-8"
+                  (click)="downloadPlanIssues()"
+                >
                   <lucide-angular [img]="icons.download" class="size-4" />
                   {{ t()("imports.report.download") }}
                 </ui-button>
@@ -408,24 +458,27 @@ interface Loaded {
                     </tr>
                   </thead>
                   <tbody class="divide-y">
-                    @for (i of shownIssues().slice(0, 500); track $index) {
+                    @for (issue of issuesPager.items(); track $index) {
                       <tr>
-                        <td class="px-4 py-1.5">{{ i.sheet }}</td>
-                        <td class="tabular">{{ i.row }}</td>
-                        <td>{{ i.field }}</td>
+                        <td class="px-4 py-1.5">{{ issue.sheet }}</td>
+                        <td class="tabular">{{ issue.row }}</td>
+                        <td>{{ issue.field }}</td>
                         <td
                           class="pr-4"
-                          [class.text-danger-fg]="i.level === 'rejet'"
-                          [class.text-warning-fg]="i.level !== 'rejet'"
+                          [class.text-danger-fg]="issue.level === 'rejet'"
+                          [class.text-warning-fg]="issue.level !== 'rejet'"
                         >
-                          {{ i.message }}
+                          {{ issue.message }}
                         </td>
                       </tr>
                     }
                   </tbody>
                 </table>
+                <ui-pagination class="px-4 pb-4" [pager]="issuesPager" />
                 @if (shownIssues().length > 500) {
-                  <p class="p-3 text-xs text-muted-foreground">{{ t()("imports.report.truncated") }}</p>
+                  <p class="p-3 text-xs text-muted-foreground">
+                    {{ t()("imports.report.truncated") }}
+                  </p>
                 }
                 @if (!shownIssues().length) {
                   <p class="p-6 text-center text-sm text-muted-foreground">
@@ -461,34 +514,36 @@ interface Loaded {
         </section>
       }
 
-      @if (step() === "termine" && done(); as d) {
-        @if (plan(); as p) {
+      @if (step() === "termine" && done(); as result) {
+        @if (plan(); as importPlan) {
           <section class="surface p-6">
             <div class="flex items-center gap-2">
               <lucide-angular [img]="icons.check" class="size-6 text-success" />
-              <h2 class="text-lg font-semibold">{{ t()("imports.done.title", { id: d.id }) }}</h2>
+              <h2 class="text-lg font-semibold">
+                {{ t()("imports.done.title", { id: result.id }) }}
+              </h2>
             </div>
             <p class="mt-1 text-sm text-muted-foreground">
               {{
                 t()("imports.done.summary", {
-                  producers: nf.format(p.producers.length),
-                  plots: nf.format(p.plots.length),
-                  orgs: nf.format(p.orgs.length),
-                  alerts: nf.format(p.alerts.length),
-                  cases: nf.format(p.cases.length),
+                  producers: nf.format(importPlan.producers.length),
+                  plots: nf.format(importPlan.plots.length),
+                  orgs: nf.format(importPlan.orgs.length),
+                  alerts: nf.format(importPlan.alerts.length),
+                  cases: nf.format(importPlan.cases.length),
                 })
               }}
             </p>
             <div class="mt-4 flex flex-wrap gap-2">
               <a
-                routerLink="/producteurs"
+                routerLink="/dashboard/producteurs"
                 class="inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
               >
                 {{ t()("imports.done.directory") }}
               </a>
-              @if (p.cases.length > 0 && store.can("quality.review")) {
+              @if (importPlan.cases.length > 0 && store.can("quality.review")) {
                 <a
-                  routerLink="/qualite/doublons"
+                  routerLink="/dashboard/qualite/doublons"
                   class="inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
                 >
                   {{ t()("imports.done.duplicates") }}
@@ -496,23 +551,27 @@ interface Loaded {
               }
               @if (hasUnqualifiedOrgs() && store.can("org.manage")) {
                 <a
-                  routerLink="/organisations"
+                  routerLink="/dashboard/organisations"
                   [queryParams]="{ vue: 'a-qualifier' }"
                   class="inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
                 >
                   {{ t()("imports.done.qualify") }}
                 </a>
               }
-              @if (p.unknownCrops.length > 0 && store.can("config.manage")) {
+              @if (importPlan.unknownCrops.length > 0 && store.can("config.manage")) {
                 <a
-                  routerLink="/referentiels"
+                  routerLink="/dashboard/referentiels"
                   [queryParams]="{ section: 'noms' }"
                   class="inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
                 >
                   {{
-                    p.unknownCrops.length === 1
-                      ? t()("imports.done.crops.un", { n: nf.format(p.unknownCrops.length) })
-                      : t()("imports.done.crops.autre", { n: nf.format(p.unknownCrops.length) })
+                    importPlan.unknownCrops.length === 1
+                      ? t()("imports.done.crops.un", {
+                          n: nf.format(importPlan.unknownCrops.length),
+                        })
+                      : t()("imports.done.crops.autre", {
+                          n: nf.format(importPlan.unknownCrops.length),
+                        })
                   }}
                 </a>
               }
@@ -521,13 +580,15 @@ interface Loaded {
                 {{ t()("imports.done.again") }}
               </ui-button>
             </div>
-            <p class="mt-4 flex items-start gap-2 rounded-md bg-warning-bg p-3 text-sm text-warning-fg">
+            <p
+              class="mt-4 flex items-start gap-2 rounded-md bg-warning-bg p-3 text-sm text-warning-fg"
+            >
               <lucide-angular [img]="icons.warn" class="mt-0.5 size-4 shrink-0" />
               <span>
                 {{ t()("imports.done.demo") }}
                 @if (store.can("data.backup")) {
                   {{ t()("imports.done.backupBefore") }}
-                  <a routerLink="/donnees" class="font-semibold underline">{{
+                  <a routerLink="/dashboard/donnees" class="font-semibold underline">{{
                     t()("imports.done.backupLink")
                   }}</a>
                   {{ t()("imports.done.backupAfter") }}
@@ -561,50 +622,54 @@ interface Loaded {
               <tr>
                 <th class="px-4 py-3 font-semibold">{{ t()("imports.history.batch") }}</th>
                 <th class="font-semibold">{{ t()("imports.history.file") }}</th>
-                <th class="hidden font-semibold lg:table-cell">{{ t()("imports.history.hash") }}</th>
+                <th class="hidden font-semibold lg:table-cell">
+                  {{ t()("imports.history.hash") }}
+                </th>
                 <th class="font-semibold">{{ t()("imports.history.date") }}</th>
-                <th class="hidden font-semibold lg:table-cell">{{ t()("imports.history.script") }}</th>
+                <th class="hidden font-semibold lg:table-cell">
+                  {{ t()("imports.history.script") }}
+                </th>
                 <th class="font-semibold">{{ t()("imports.history.mode") }}</th>
                 <th class="text-right font-semibold">{{ t()("imports.history.counts") }}</th>
                 <th class="pr-4 text-right font-semibold"></th>
               </tr>
             </thead>
             <tbody class="divide-y">
-              @for (b of filteredBatches(); track b.id + b.at) {
+              @for (batch of batchPager.items(); track batch.id + batch.at) {
                 <tr>
-                  <td class="px-4 py-2.5 font-medium">{{ b.id }}</td>
-                  <td>{{ b.file }}</td>
-                  <td class="hidden font-mono text-xs lg:table-cell">{{ b.hash }}</td>
-                  <td class="whitespace-nowrap">{{ fmtDateTime(b.at) }}</td>
-                  <td class="hidden text-xs lg:table-cell">{{ b.script }}</td>
+                  <td class="px-4 py-2.5 font-medium">{{ batch.id }}</td>
+                  <td>{{ batch.file }}</td>
+                  <td class="hidden font-mono text-xs lg:table-cell">{{ batch.hash }}</td>
+                  <td class="whitespace-nowrap">{{ fmtDateTime(batch.at) }}</td>
+                  <td class="hidden text-xs lg:table-cell">{{ batch.script }}</td>
                   <td>
-                    @if (b.mode === "réel") {
-                      <ui-pill tone="brand">{{ locale.tEnum("imports.mode", b.mode) }}</ui-pill>
+                    @if (batch.mode === "réel") {
+                      <ui-pill tone="brand">{{ locale.tEnum("imports.mode", batch.mode) }}</ui-pill>
                     } @else {
-                      <ui-pill tone="ochre">{{ locale.tEnum("imports.mode", b.mode) }}</ui-pill>
+                      <ui-pill tone="ochre">{{ locale.tEnum("imports.mode", batch.mode) }}</ui-pill>
                     }
                   </td>
                   <td class="text-right tabular">
-                    {{ nf.format(b.counts.producers) }} · {{ nf.format(b.counts.plots) }} ·
-                    <span [class.text-danger-fg]="b.counts.rejects > 0">{{
-                      nf.format(b.counts.rejects)
+                    {{ nf.format(batch.counts.producers) }} · {{ nf.format(batch.counts.plots) }} ·
+                    <span [class.text-danger-fg]="batch.counts.rejects > 0">{{
+                      nf.format(batch.counts.rejects)
                     }}</span>
                   </td>
                   <td class="pr-4 text-right">
-                    @if (hasStoredReport(b.id)) {
-                      <ui-button size="sm" variant="ghost" (click)="downloadBatchReport(b.id)">
+                    @if (hasStoredReport(batch.id)) {
+                      <ui-button size="sm" variant="ghost" (click)="downloadBatchReport(batch.id)">
                         <lucide-angular [img]="icons.download" class="size-4" />
                         {{ t()("imports.report.download") }}
                       </ui-button>
                     }
-                    <ui-button size="sm" variant="ghost" (click)="downloadSheetsCsv(b)">
+                    <ui-button size="sm" variant="ghost" (click)="downloadSheetsCsv(batch)">
                       <lucide-angular [img]="icons.sheet" class="size-4" />
                       {{ t()("imports.history.sheetsCsv") }}
                     </ui-button>
                     @if (canAudit()) {
                       <a
-                        routerLink="/audit"
-                        [queryParams]="{ q: b.id }"
+                        routerLink="/dashboard/audit"
+                        [queryParams]="{ q: batch.id }"
                         class="ml-2 text-xs font-semibold text-primary hover:underline"
                       >
                         {{ t()("imports.history.viewJournal") }}
@@ -615,6 +680,7 @@ interface Loaded {
               }
             </tbody>
           </table>
+          <ui-pagination class="px-4 pb-4" [pager]="batchPager" />
         } @else {
           <div class="px-4 py-10 text-center text-muted-foreground">
             <lucide-angular [img]="icons.upload" class="mx-auto mb-2 size-10 opacity-50" />
@@ -801,7 +867,9 @@ export default class ImportsPage {
   private async onFile(f: File | undefined): Promise<void> {
     if (!isPlatformBrowser(this.platformId) || !f) return;
     if (!/\.(xlsx|xls|csv|txt)$/i.test(f.name)) {
-      this.flash.set(`${this.t()("imports.error.format")} — ${this.t()("imports.error.formatHint")}`);
+      this.flash.set(
+        `${this.t()("imports.error.format")} — ${this.t()("imports.error.formatHint")}`,
+      );
       return;
     }
     this.busy.set(true);
@@ -811,7 +879,8 @@ export default class ImportsPage {
       const sheets: SheetState[] = raw.map((r: RawSheet) => {
         const [head = [], ...rows] = r.rows;
         const headersRow = head.map((h) => h.trim());
-        const entity = detectEntity(r.name, headersRow) ?? (raw.length === 1 ? "producteurs" : null);
+        const entity =
+          detectEntity(r.name, headersRow) ?? (raw.length === 1 ? "producteurs" : null);
         const ent = entity ?? "producteurs";
         return {
           name: r.name,
@@ -944,10 +1013,7 @@ export default class ImportsPage {
     const L = this.loaded();
     const p = this.plan();
     if (!L || !p) return;
-    this.downloadIssues(
-      p.issues,
-      `rapport_import_a_blanc_${L.file.replace(/\.[^.]+$/, "")}.csv`,
-    );
+    this.downloadIssues(p.issues, `rapport_import_a_blanc_${L.file.replace(/\.[^.]+$/, "")}.csv`);
   }
 
   protected downloadBatchReport(id: string): void {
@@ -977,4 +1043,10 @@ export default class ImportsPage {
       ...b.sheets.map((s) => [s.name, s.rows, s.rejects]),
     ]);
   }
+
+  /** Pagination (shownIssues) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly issuesPager = createPager(() => this.shownIssues());
+
+  /** Pagination (filteredBatches) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly batchPager = createPager(() => this.filteredBatches());
 }

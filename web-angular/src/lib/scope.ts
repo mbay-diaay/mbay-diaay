@@ -29,6 +29,18 @@ export function scoopIdsOf(s: Session | null): Set<string> {
   return new Set(scoopIds ?? (scoopId !== undefined ? [scoopId] : []));
 }
 
+/**
+ * Coopérative d'accueil d'un compte : celle de son périmètre quand il est rattaché à **une seule** coopérative et
+ * qu'il peut ouvrir sa fiche (`org.read`). Ces comptes arrivent sur la fiche de leur coopérative, sans tableau de bord
+ * ni centre de rapports du réseau. Ni les rôles de réseau, ni un compte lié à plusieurs coopératives (technicien,
+ * faîtière) n'en ont : ils gardent le tableau de bord.
+ */
+export function cooperativeHomeId(session: Session | null): string | null {
+  if (!session || isConsolidated(session) || !session.permissions.includes("org.read")) return null;
+  const scoopIds = [...scoopIdsOf(session)];
+  return scoopIds.length === 1 ? (scoopIds[0] ?? null) : null;
+}
+
 /** Noms des SCOOP visibles, séparés par une virgule (vide en vue consolidée). */
 export function scoopNamesOf(s: Session | null, scoops: Scoop[]): string {
   const ids = scoopIdsOf(s);
@@ -122,22 +134,22 @@ export function scopedDossiers(dossiers: ProducerDossier[], s: Session | null): 
   return s?.role === "technicien" ? mine.filter((d) => d.createdByEmail === s.email) : mine;
 }
 
-/** Une pièce sensible (CNI) n'est jamais lisible sans le droit `cni.read`, quel que soit le droit sur les pièces. */
+/** Une pièce sensible (CNI) n'est jamais lisible sans le droit `identity.read_full`, quel que soit le droit sur les pièces. */
 export function canReadDocument(s: Session | null, doc: DocumentMeta): boolean {
   if (!s?.permissions.includes("document.read")) return false;
-  return !doc.sensitive || s.permissions.includes("cni.read");
+  return !doc.sensitive || s.permissions.includes("identity.read_full");
 }
 
 /**
  * Téléchargement d'une pièce. Document de la coopérative (statuts, règlement, procès-verbal) : il suit
  * `library.read`, la secrétaire peut donc télécharger les pièces non sensibles de sa bibliothèque.
  * Pièce d'un dossier, d'un producteur ou d'un membre : `document.download`.
- * Une pièce sensible exige toujours `cni.read` en plus.
+ * Une pièce sensible exige toujours `identity.read_full` en plus.
  */
 export function canDownloadDocument(s: Session | null, doc: DocumentMeta): boolean {
   const needed = doc.ownerType === "scoop" ? "library.read" : "document.download";
   if (!s?.permissions.includes(needed)) return false;
-  return !doc.sensitive || s.permissions.includes("cni.read");
+  return !doc.sensitive || s.permissions.includes("identity.read_full");
 }
 
 /** Pièces visibles : dans le périmètre, lisibles selon leur sensibilité, et pour un technicien celles de ses dossiers. */
@@ -184,7 +196,7 @@ export const scopedRules = (rules: ContributionRule[], s: Session | null) =>
 export const scopedMeetings = (meetings: Meeting[], s: Session | null) =>
   readable(meetings, s, "meeting.read");
 
-/** Documents propres à la coopérative : droit `library.read`, périmètre ; une pièce sensible demande en plus `cni.read`. */
+/** Documents propres à la coopérative : droit `library.read`, périmètre ; une pièce sensible demande en plus `identity.read_full`. */
 export const scopedLibrary = (documents: DocumentMeta[], s: Session | null): DocumentMeta[] =>
   s?.permissions.includes("library.read")
     ? inScope(

@@ -28,6 +28,8 @@ const STATUS_VAR: Record<PlotStatus, string> = {
  */
 @Component({
   selector: "app-plot-map",
+  // Contexte d'empilement propre : les calques Leaflet (z-index 400 à 1000) restent sous les modales et menus.
+  host: { class: "relative isolate block h-full w-full", style: "z-index: 0" },
   template: `
     @if (browser) {
       <div #host class="h-full w-full"></div>

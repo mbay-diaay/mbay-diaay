@@ -28,19 +28,19 @@ import { OTP_LENGTH } from "@/lib/auth/policy";
   },
   template: `
     <div class="flex justify-center gap-2 max-[359px]:gap-1.5" [class.pointer-events-none]="disabled()">
-      @for (i of indices(); track i) {
+      @for (digitIndex of indices(); track digitIndex) {
         <input
           #cell
           type="text"
           inputmode="numeric"
           autocomplete="one-time-code"
           maxlength="1"
-          [attr.id]="i === 0 ? fieldId() : null"
+          [attr.id]="digitIndex === 0 ? fieldId() : null"
           class="size-12 max-[359px]:size-10 rounded-md border border-input bg-transparent text-center text-lg tabular shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           [disabled]="disabled()"
-          [value]="digits()[i]"
-          (input)="onCellInput(i, $event)"
-          (keydown)="onCellKeydown(i, $event)"
+          [value]="digits()[digitIndex]"
+          (input)="onCellInput(digitIndex, $event)"
+          (keydown)="onCellKeydown(digitIndex, $event)"
           (paste)="onCellPaste($event)"
         />
       }

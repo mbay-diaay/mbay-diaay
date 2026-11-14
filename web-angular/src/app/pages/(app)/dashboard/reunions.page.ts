@@ -1,268 +1,262 @@
 import { Component, computed, inject, signal } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
-import { FormsModule } from "@angular/forms";
-import { ActivatedRoute, Router, RouterLink } from "@angular/router";
+import { ActivatedRoute, Router } from "@angular/router";
 import { map, startWith } from "rxjs";
-import { CalendarDays, CalendarPlus, LucideAngularModule, Search } from "lucide-angular";
 
 import type { CalendarEvent } from "@/lib/calendar";
 import { attendanceStats, sortMeetings } from "@/lib/meetings";
 import type { Meeting, Member } from "@/lib/mock/cooperative";
 import { MEETING_KINDS } from "@/lib/mock/cooperative";
 import { scopedMeetings, scopedMembers } from "@/lib/scope";
-import { fmtDateTime, nf } from "@/lib/format";
+import { fmtDate, fmtDateTime, nf } from "@/lib/format";
 import type { MessageKey } from "@/lib/i18n";
 import { AccessDeniedError } from "@/lib/store";
+import { MEETING_KIND_LABEL, MEETING_STATUS_LABEL } from "@shared/meeting-kinds";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { GlobalFiltersComponent } from "@shared/global-filters.component";
+import { LocaleService } from "@shared/locale.service";
+import { MeetingFormDialogComponent } from "@shared/meeting-form-dialog.component";
+import { createPager } from "@shared/pager";
+import { StoreService } from "@shared/store.service";
 import {
-  MEETING_KIND_LABEL,
-  MEETING_STATUS_LABEL,
-  MEETING_STATUS_TONE,
-} from "../shared/meeting-kinds";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiButtonComponent } from "../shared/ui/button.component";
-import { UiChipRailComponent } from "../shared/ui/chip-rail.component";
-import { UiEmptyComponent } from "../shared/ui/empty.component";
-import { UiEventCalendarComponent } from "../shared/ui/event-calendar.component";
-import { UiModalA11yDirective } from "../shared/ui/modal-a11y.directive";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent, type UiPillTone } from "../shared/ui/pill.component";
-import { MeetingFormDialogComponent } from "../shared/meeting-form-dialog.component";
+  detailFact,
+  detailKpi,
+  DetailModalComponent,
+  IconComponent,
+  initialsOf,
+  ModalComponent,
+  PaginationComponent,
+  SnackbarService,
+  StatCardsComponent,
+  TONE,
+  UiEventCalendarComponent,
+  V2_PAGE_STYLES,
+  type DetailView,
+  type StatCard,
+} from "@shared/ui";
 
 type Filter = "tous" | "upcoming" | "held" | "cancelled" | "minutesTodo";
 
-const FILTERS: {
-  id: Exclude<Filter, "tous">;
-  label: MessageKey;
-  test: (m: Meeting) => boolean;
-}[] = [
-  { id: "upcoming", label: "reunions.filter.upcoming", test: (m) => m.status === "planifiée" },
-  { id: "held", label: "reunions.filter.held", test: (m) => m.status === "tenue" },
-  { id: "cancelled", label: "reunions.filter.cancelled", test: (m) => m.status === "annulée" },
-  {
-    id: "minutesTodo",
-    label: "reunions.filter.minutesTodo",
-    test: (m) => m.status === "tenue" && m.minutes?.status !== "validé",
-  },
-];
+const FILTERS: { id: Exclude<Filter, "tous">; label: MessageKey; test: (m: Meeting) => boolean }[] =
+  [
+    { id: "upcoming", label: "reunions.filter.upcoming", test: (m) => m.status === "planifiée" },
+    { id: "held", label: "reunions.filter.held", test: (m) => m.status === "tenue" },
+    { id: "cancelled", label: "reunions.filter.cancelled", test: (m) => m.status === "annulée" },
+    {
+      id: "minutesTodo",
+      label: "reunions.filter.minutesTodo",
+      test: (m) => m.status === "tenue" && m.minutes?.status !== "validé",
+    },
+  ];
 
-const MINUTES_LABEL = {
-  none: "reunions.minutes.none",
-  brouillon: "reunions.minutes.brouillon",
-  validé: "reunions.minutes.validé",
-} as const satisfies Record<string, MessageKey>;
-
-const MINUTES_TONE: Record<"none" | "brouillon" | "validé", UiPillTone> = {
-  none: "neutral",
-  brouillon: "warning",
-  validé: "success",
+/** Couleurs d'état (charte V2). */
+const STATUS = { planifiée: TONE.info, tenue: TONE.succes, annulée: TONE.neutre } as const;
+const MINUTES = {
+  none: { label: "reunions.minutes.none" as MessageKey, ...TONE.neutre },
+  brouillon: { label: "reunions.minutes.brouillon" as MessageKey, ...TONE.attente },
+  validé: { label: "reunions.minutes.validé" as MessageKey, ...TONE.succes },
 };
+const DAY = 86_400_000;
 
-/** Port de reunions.index.tsx — liste filtrable, marquer tenue / annuler pour les réunions planifiées. */
+/**
+ * Réunions et procès-verbaux (charte V2) : statistiques, recherche + filtres à compteurs + coopérative,
+ * vue liste (tableau paginé) ou calendrier, détail en modale, pointage des présences et annulation en modale.
+ */
 @Component({
   selector: "app-reunions-page",
   imports: [
-    FormsModule,
-    RouterLink,
-    LucideAngularModule,
     AppShellComponent,
+    DetailModalComponent,
+    GlobalFiltersComponent,
+    IconComponent,
     MeetingFormDialogComponent,
-    UiChipRailComponent,
-    UiEmptyComponent,
+    ModalComponent,
+    PaginationComponent,
+    StatCardsComponent,
     UiEventCalendarComponent,
-    UiModalA11yDirective,
-    UiPageHeaderComponent,
-    UiPillComponent,
-    UiButtonComponent,
+  ],
+  styles: [
+    V2_PAGE_STYLES,
+    `
+      .date {
+        display: grid;
+        width: 52px;
+        flex-shrink: 0;
+        place-items: center;
+        border-radius: 14px;
+        padding: 6px 0;
+        text-align: center;
+      }
+      .meter {
+        display: block;
+        height: 6px;
+        width: 100%;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--v2-lin);
+      }
+      .meter span {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--v2-vert-pousse);
+      }
+      .act-ok:hover {
+        border-color: var(--v2-vert-pousse);
+        background: var(--v2-sauge);
+        color: var(--v2-vert-pousse);
+      }
+      .act-danger:hover {
+        border-color: var(--v2-erreur-fg);
+        background: var(--v2-erreur-bg);
+        color: var(--v2-erreur-fg);
+      }
+      .people {
+        max-height: 46vh;
+        overflow-y: auto;
+        border-radius: 18px;
+        border: 1px solid var(--v2-bord-carte);
+      }
+      .person {
+        display: flex;
+        min-height: 52px;
+        align-items: center;
+        gap: 12px;
+        border-top: 1px solid var(--v2-separateur);
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .person:first-child {
+        border-top: none;
+      }
+      .person:hover {
+        background: var(--v2-creme);
+      }
+      .person input {
+        height: 20px;
+        width: 20px;
+        accent-color: var(--v2-foret);
+        cursor: pointer;
+      }
+      .area {
+        width: 100%;
+        min-height: 110px;
+        border-radius: 16px;
+        border: 1.5px solid var(--v2-gris-trait);
+        background: var(--v2-blanc);
+        padding: 12px 16px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--v2-encre);
+      }
+      .area::placeholder {
+        color: var(--v2-gris-texte);
+        font-weight: 500;
+      }
+      .area:focus-visible {
+        outline: none;
+        border: 2px solid var(--v2-foret);
+        box-shadow: var(--v2-halo);
+      }
+      .lbl {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--v2-ardoise);
+      }
+    `,
   ],
   template: `
     <app-shell perm="meeting.read" [area]="t()('reunions.area')">
-      <ui-page-header
-        [eyebrow]="t()('reunions.eyebrow')"
-        [title]="t()('reunions.title')"
-        [description]="t()('reunions.description')"
-      >
-        @if (canManage()) {
-          <ui-button actions (click)="openNewMeeting()">
-            <lucide-angular [img]="icons.calendarPlus" class="size-4" />
-            {{ t()("reunions.new") }}
-          </ui-button>
-        }
-      </ui-page-header>
-
-      @if (feedback(); as fb) {
-        <p
-          class="mb-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm"
-          [class.text-destructive]="fb.kind === 'error'"
-        >
-          {{ fb.text }}
-        </p>
-      }
-
-      <div class="surface mb-3 space-y-3 p-3">
-        <div class="relative min-w-0">
-          <lucide-angular
-            [img]="icons.search"
-            class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <input
-            class="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm shadow-sm pointer-coarse:h-touch focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:max-w-sm"
-            [attr.aria-label]="t()('reunions.search.aria')"
-            [placeholder]="t()('reunions.search.placeholder')"
-            [ngModel]="q()"
-            (ngModelChange)="q.set($event)"
-          />
+      <!-- ───── En-tête ───── -->
+      <header class="rise flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div class="min-w-0">
+          <p class="mono" style="color: var(--v2-gris-texte)">{{ t()("reunions.eyebrow") }}</p>
+          <h1
+            class="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[38px]"
+          >
+            {{ t()("reunions.title") }}
+          </h1>
+          <p class="mt-2 max-w-2xl text-[16px] font-medium" style="color: var(--v2-gris-texte)">
+            {{ t()("reunions.description") }}
+          </p>
         </div>
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <ui-chip-rail [attr.aria-label]="t()('reunions.filter.aria')" class="min-w-0 flex-1">
+        @if (canManage()) {
+          <button type="button" class="btn btn-primary" (click)="openNewMeeting()">
+            {{ t()("reunions.new") }}
+            <span class="btn-chip"><ui-icon name="calendar_month" [size]="20" /></span>
+          </button>
+        }
+      </header>
+
+      <!-- ───── Statistiques ───── -->
+      <ui-stat-cards class="rise mt-8" [stats]="stats()" />
+
+      <!-- ───── Recherche · filtres · coopérative · affichage ───── -->
+      <div class="toolbar card mt-6">
+        <label class="search">
+          <ui-icon name="search" [size]="20" />
+          <input
+            type="search"
+            [placeholder]="t()('reunions.search.placeholder')"
+            [attr.aria-label]="t()('reunions.search.aria')"
+            [value]="q()"
+            (input)="q.set($any($event.target).value)"
+          />
+        </label>
+        <app-global-filters />
+        <div class="seg" role="radiogroup" [attr.aria-label]="t()('reunions.filter.aria')">
+          <button
+            type="button"
+            role="radio"
+            [class.on]="filter() === 'tous'"
+            [attr.aria-checked]="filter() === 'tous'"
+            (click)="filter.set('tous')"
+          >
+            {{ t()("reunions.filter.all")
+            }}<span class="n" [class.zero]="!mine().length">{{ nf.format(mine().length) }}</span>
+          </button>
+          @for (filterDef of filters; track filterDef.id) {
             <button
               type="button"
-              class="chip-filter chip-filter-sm"
-              [class.chip-filter-active]="filter() === 'tous'"
-              [attr.aria-pressed]="filter() === 'tous'"
-              (click)="filter.set('tous')"
+              role="radio"
+              [class.on]="filter() === filterDef.id"
+              [attr.aria-checked]="filter() === filterDef.id"
+              (click)="filter.set(filterDef.id)"
             >
-              {{ t()("reunions.filter.all") }}
-              <span class="chip-filter-count">{{ nf.format(mine().length) }}</span>
+              {{ t()(filterDef.label)
+              }}<span class="n" [class.zero]="!countFor(filterDef.id)">{{
+                nf.format(countFor(filterDef.id))
+              }}</span>
             </button>
-            @for (f of filters; track f.id) {
-              <button
-                type="button"
-                class="chip-filter chip-filter-sm"
-                [class.chip-filter-active]="filter() === f.id"
-                [attr.aria-pressed]="filter() === f.id"
-                (click)="filter.set(filter() === f.id ? 'tous' : f.id)"
-              >
-                {{ t()(f.label) }}
-                <span class="chip-filter-count">{{ nf.format(countFor(f.id)) }}</span>
-              </button>
-            }
-          </ui-chip-rail>
-          <div
-            class="inline-flex w-full min-w-0 shrink-0 rounded-md border border-input bg-muted/30 p-0.5 sm:w-auto"
-            role="group"
-            [attr.aria-label]="t()('reunions.view.aria')"
-          >
+          }
+        </div>
+        <div class="seg" role="radiogroup" [attr.aria-label]="t()('reunions.view.aria')">
           <button
             type="button"
-            class="min-w-0 flex-1 rounded px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-touch pointer-coarse:px-3 sm:flex-none"
-            [class.bg-card]="vueMode() === 'liste'"
-            [class.shadow-sm]="vueMode() === 'liste'"
-            [class.text-foreground]="vueMode() === 'liste'"
-            [class.text-muted-foreground]="vueMode() !== 'liste'"
+            role="radio"
+            [class.on]="vueMode() === 'liste'"
+            [attr.aria-checked]="vueMode() === 'liste'"
             (click)="setVueMode('liste')"
           >
-            {{ t()("reunions.view.list") }}
+            <ui-icon name="view_list" [size]="18" />{{ t()("reunions.view.list") }}
           </button>
           <button
             type="button"
-            class="min-w-0 flex-1 rounded px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-touch pointer-coarse:px-3 sm:flex-none"
-            [class.bg-card]="vueMode() === 'calendrier'"
-            [class.shadow-sm]="vueMode() === 'calendrier'"
-            [class.text-foreground]="vueMode() === 'calendrier'"
-            [class.text-muted-foreground]="vueMode() !== 'calendrier'"
+            role="radio"
+            [class.on]="vueMode() === 'calendrier'"
+            [attr.aria-checked]="vueMode() === 'calendrier'"
             (click)="setVueMode('calendrier')"
           >
-            {{ t()("reunions.view.calendar") }}
+            <ui-icon name="calendar_month" [size]="18" />{{ t()("reunions.view.calendar") }}
           </button>
-          </div>
         </div>
       </div>
 
-      @if (vueMode() === "calendrier") {
-        <div class="surface p-3 sm:p-4">
-          <ui-event-calendar
-            [events]="calendarEvents()"
-            [categories]="meetingCategories()"
-            [dayCreateEnabled]="canManage()"
-            (eventClick)="openMeetingFromCalendar($event)"
-            (dayCreate)="onCalendarDayCreate($event)"
-          />
-        </div>
-      } @else {
-      <div class="surface overflow-x-auto">
-        @if (shown().length) {
-          <table class="w-full text-sm">
-            <thead class="border-b bg-muted text-left text-xs text-muted-foreground">
-              <tr>
-                <th class="px-4 py-3 font-semibold">{{ t()("reunions.col.title") }}</th>
-                <th class="font-semibold">{{ t()("reunions.col.status") }}</th>
-                <th class="hidden font-semibold sm:table-cell">{{ t()("reunions.col.date") }}</th>
-                <th class="hidden font-semibold lg:table-cell">{{ t()("reunions.col.place") }}</th>
-                <th class="hidden font-semibold md:table-cell">
-                  {{ t()("reunions.col.attendance") }}
-                </th>
-                <th class="hidden font-semibold md:table-cell">
-                  {{ t()("reunions.col.minutes") }}
-                </th>
-                @if (canManage()) {
-                  <th class="w-44 pr-4 text-right font-semibold">{{ t()("reunions.detail.actions") }}</th>
-                }
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              @for (m of shown(); track m.id) {
-                <tr
-                  class="cursor-pointer hover:bg-muted/60"
-                  [routerLink]="['/reunions', m.id]"
-                >
-                  <td class="px-4 py-2.5">
-                    <div class="font-semibold">{{ m.title }}</div>
-                    <div class="text-xs text-muted-foreground">
-                      {{ t()(kindLabel[m.kind]) }}
-                      <span class="sm:hidden"> · {{ fmtDateTime(m.date) }}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <ui-pill [tone]="statusTone[m.status]">{{ t()(statusLabel[m.status]) }}</ui-pill>
-                  </td>
-                  <td class="hidden whitespace-nowrap sm:table-cell">{{ fmtDateTime(m.date) }}</td>
-                  <td class="hidden lg:table-cell">{{ m.place }}</td>
-                  <td class="hidden md:table-cell">{{ attendanceLine(m) }}</td>
-                  <td class="hidden md:table-cell">
-                    @if (m.status === "tenue") {
-                      <ui-pill [tone]="minutesTone[m.minutes?.status ?? 'none']">
-                        {{ t()(minutesLabel[m.minutes?.status ?? "none"]) }}
-                      </ui-pill>
-                    }
-                  </td>
-                  @if (canManage()) {
-                    <td class="pr-4 text-right" (click)="$event.preventDefault(); $event.stopPropagation()">
-                      @if (m.status === "planifiée") {
-                        <div class="flex flex-wrap justify-end gap-1">
-                          <ui-button size="sm" variant="outline" (click)="openHold(m.id)">
-                            {{ t()("reunions.attendance.submit") }}
-                          </ui-button>
-                          <ui-button size="sm" variant="outline" (click)="openCancel(m.id)">
-                            {{ t()("reunions.cancel.submit") }}
-                          </ui-button>
-                        </div>
-                      }
-                    </td>
-                  }
-                </tr>
-              }
-            </tbody>
-          </table>
-        } @else {
-          <ui-empty>
-            <lucide-angular [img]="icons.calendar" class="mx-auto mb-2 size-8 text-muted-foreground" />
-            <div class="font-semibold">{{ t()("reunions.empty.title") }}</div>
-            <p class="mt-1 text-sm text-muted-foreground">
-              {{
-                mine().length
-                  ? t()("reunions.empty.filtered")
-                  : canManage()
-                    ? t()("reunions.empty.create")
-                    : t()("reunions.empty.readonly")
-              }}
-            </p>
-          </ui-empty>
-        }
-      </div>
-      }
-      <p class="mt-2 text-xs text-muted-foreground">
+      <p class="sub mt-4" aria-live="polite">
         {{
           t()("reunions.count", {
             shown: nf.format(shown().length),
@@ -271,118 +265,312 @@ const MINUTES_TONE: Record<"none" | "brouillon" | "validé", UiPillTone> = {
         }}
       </p>
 
-      <!-- Pointage présence → tenue -->
-      @if (holdMeeting(); as hm) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            class="surface flex max-h-[90vh] w-full max-w-lg flex-col p-6 shadow-lg"
-            role="dialog"
-            aria-modal="true"
-            uiModalA11y
-            (dismiss)="closeHold()"
-            (click)="$event.stopPropagation()"
-          >
-            <h2 class="text-lg font-semibold">{{ t()("reunions.attendance.title") }}</h2>
-            <p class="mt-1 text-sm text-muted-foreground">{{ t()("reunions.attendance.description") }}</p>
-            @if (holdMembers().length) {
-              <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <p class="text-sm font-semibold" aria-live="polite">
-                  {{
-                    t()("reunions.attendance.counter", {
-                      present: holdPresentIds().length,
-                      total: holdMembers().length,
-                    })
-                  }}
-                </p>
-                <ui-button type="button" variant="outline" size="sm" (click)="toggleHoldAll()">
-                  {{
-                    holdAllSelected()
-                      ? t()("reunions.attendance.uncheckAll")
-                      : t()("reunions.attendance.checkAll")
-                  }}
-                </ui-button>
-              </div>
-              <ul
-                class="mt-2 max-h-[50vh] divide-y overflow-y-auto rounded-md border"
-                [attr.aria-label]="t()('reunions.attendance.listAria')"
-              >
-                @for (mem of holdMembers(); track mem.id) {
-                  <li>
-                    <label class="flex min-h-12 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/60">
-                      <input
-                        type="checkbox"
-                        [checked]="holdPresentIds().includes(mem.id)"
-                        (change)="toggleHold(mem.id, $event)"
-                      />
-                      <span>{{ mem.firstName }} {{ mem.lastName }}</span>
-                    </label>
-                  </li>
-                }
-              </ul>
-            } @else {
-              <p class="mt-3 text-sm text-muted-foreground">{{ t()("reunions.attendance.noMembers") }}</p>
-            }
-            @if (!holdPresentIds().length && holdMembers().length) {
-              <p class="mt-2 text-xs text-muted-foreground">{{ t()("reunions.attendance.none") }}</p>
-            }
-            <div class="mt-6 flex justify-end gap-2 border-t pt-4">
-              <ui-button type="button" variant="outline" (click)="closeHold()">{{ t()("producteurs.index.cancel") }}</ui-button>
-              <ui-button type="button" [disabled]="!holdPresentIds().length" (click)="submitHold(hm.id)">
-                {{ t()("reunions.attendance.submit") }}
-              </ui-button>
+      @if (vueMode() === "calendrier") {
+        <section class="card mt-3 p-4 sm:p-5">
+          <ui-event-calendar
+            [events]="calendarEvents()"
+            [categories]="meetingCategories()"
+            [dayCreateEnabled]="canManage()"
+            (eventClick)="detailId.set($event.id)"
+            (dayCreate)="onCalendarDayCreate($event)"
+          />
+        </section>
+      } @else {
+        <section class="card mt-3 overflow-hidden">
+          @if (shown().length) {
+            <div class="overflow-x-auto">
+              <table class="tbl min-w-[900px]">
+                <thead>
+                  <tr>
+                    <th>{{ t()("reunions.col.title") }}</th>
+                    <th>{{ t()("reunions.col.status") }}</th>
+                    <th>{{ t()("reunions.col.place") }}</th>
+                    <th class="w-[180px]">{{ t()("reunions.col.attendance") }}</th>
+                    <th>{{ t()("reunions.col.minutes") }}</th>
+                    <th class="text-right">{{ t()("reunions.col.actions") }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (meeting of pager.items(); track meeting.id) {
+                    <tr class="row-link" (click)="detailId.set(meeting.id)">
+                      <td>
+                        <span class="flex items-center gap-3">
+                          <span
+                            class="date"
+                            [style.background]="
+                              meeting.status === 'planifiée' ? 'var(--v2-foret)' : 'var(--v2-creme)'
+                            "
+                            [style.color]="
+                              meeting.status === 'planifiée'
+                                ? 'var(--v2-blanc)'
+                                : 'var(--v2-ardoise)'
+                            "
+                          >
+                            <span class="text-[18px] font-extrabold leading-none">{{
+                              day(meeting.date)
+                            }}</span>
+                            <span
+                              class="mono mt-1"
+                              style="font-size: 10px"
+                              [style.color]="
+                                meeting.status === 'planifiée'
+                                  ? 'var(--v2-citron)'
+                                  : 'var(--v2-gris-texte)'
+                              "
+                              >{{ month(meeting.date) }}</span
+                            >
+                          </span>
+                          <span class="min-w-0">
+                            <span
+                              class="block max-w-[300px] truncate font-bold"
+                              [title]="meeting.title"
+                              >{{ meeting.title }}</span
+                            >
+                            <span class="sub block truncate"
+                              >{{ t()(kindLabel[meeting.kind]) }} ·
+                              {{ fmtDateTime(meeting.date) }}</span
+                            >
+                          </span>
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          class="badge"
+                          [style.background]="status[meeting.status].bg"
+                          [style.color]="status[meeting.status].fg"
+                          >{{ t()(statusLabel[meeting.status]) }}</span
+                        >
+                      </td>
+                      <td class="max-w-48 truncate font-medium" [title]="meeting.place">
+                        {{ meeting.place }}
+                      </td>
+                      <td>
+                        @if (meeting.status === "tenue") {
+                          @let attendanceStat = attendance(meeting);
+                          <span class="block text-[13px] font-bold tabular-nums">{{
+                            t()(
+                              attendanceStat.present > 1
+                                ? "reunions.attendance.autre"
+                                : "reunions.attendance.un",
+                              { count: attendanceStat.present, total: attendanceStat.total }
+                            )
+                          }}</span>
+                          <span class="meter mt-1.5" aria-hidden="true"
+                            ><span [style.width.%]="attendanceStat.rate"></span
+                          ></span>
+                        } @else {
+                          <span class="zero">—</span>
+                        }
+                      </td>
+                      <td>
+                        @if (meeting.status === "tenue") {
+                          @let minutesState = minutes[meeting.minutes?.status ?? "none"];
+                          <span
+                            class="badge"
+                            [style.background]="minutesState.bg"
+                            [style.color]="minutesState.fg"
+                            >{{ t()(minutesState.label) }}</span
+                          >
+                        } @else {
+                          <span class="zero">—</span>
+                        }
+                      </td>
+                      <td>
+                        <span class="flex justify-end gap-2">
+                          @if (canManage() && meeting.status === "planifiée") {
+                            <!-- Pointage seulement une fois la date passée (règle du store). -->
+                            @if (isPast(meeting.date)) {
+                              <button
+                                type="button"
+                                class="act act-ok"
+                                [title]="t()('reunions.attendance.submit')"
+                                [attr.aria-label]="
+                                  t()('reunions.row.hold', { title: meeting.title })
+                                "
+                                (click)="$event.stopPropagation(); openHold(meeting.id)"
+                              >
+                                <ui-icon name="task_alt" [size]="18" />
+                              </button>
+                            }
+                            <button
+                              type="button"
+                              class="act act-danger"
+                              [title]="t()('reunions.cancel.submit')"
+                              [attr.aria-label]="
+                                t()('reunions.row.cancel', { title: meeting.title })
+                              "
+                              (click)="$event.stopPropagation(); openCancel(meeting.id)"
+                            >
+                              <ui-icon name="close" [size]="18" />
+                            </button>
+                          }
+                          <button
+                            type="button"
+                            class="act"
+                            [title]="t()('common.view')"
+                            [attr.aria-label]="t()('reunions.row.view', { title: meeting.title })"
+                            (click)="$event.stopPropagation(); detailId.set(meeting.id)"
+                          >
+                            <ui-icon name="visibility" [size]="18" />
+                          </button>
+                        </span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
             </div>
-          </div>
-        </div>
+            <ui-pagination class="px-5 pb-5" [pager]="pager" />
+          } @else {
+            <div class="flex flex-col items-center gap-3 p-10 text-center">
+              <span
+                class="grid size-14 place-items-center rounded-[16px]"
+                style="background: var(--v2-sauge); color: var(--v2-foret)"
+                ><ui-icon name="event" [size]="26"
+              /></span>
+              <p class="text-[16px] font-extrabold">{{ t()("reunions.empty.title") }}</p>
+              <p class="sub max-w-md">
+                {{
+                  mine().length
+                    ? t()("reunions.empty.filtered")
+                    : canManage()
+                      ? t()("reunions.empty.create")
+                      : t()("reunions.empty.readonly")
+                }}
+              </p>
+            </div>
+          }
+        </section>
       }
 
-      <!-- Annulation -->
+      <!-- ───── Détail ───── -->
+      <ui-detail-modal [view]="detail()" (closed)="detailId.set(null)" />
+
+      <!-- ───── Pointage des présences → réunion tenue ───── -->
+      @if (holdMeeting(); as meetingToHold) {
+        <ui-modal
+          [open]="true"
+          [title]="t()('reunions.attendance.title')"
+          [description]="meetingToHold.title + ' · ' + fmtDateTime(meetingToHold.date)"
+          icon="task_alt"
+          [width]="600"
+          [closeLabel]="t()('common.close')"
+          (closed)="closeHold()"
+        >
+          @if (holdMembers().length) {
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p class="text-[14px] font-extrabold tabular-nums" aria-live="polite">
+                {{
+                  t()("reunions.attendance.counter", {
+                    present: holdPresentIds().length,
+                    total: holdMembers().length,
+                  })
+                }}
+              </p>
+              <button
+                type="button"
+                class="btn btn-ghost"
+                style="height: 40px"
+                (click)="toggleHoldAll()"
+              >
+                {{
+                  holdAllSelected()
+                    ? t()("reunions.attendance.uncheckAll")
+                    : t()("reunions.attendance.checkAll")
+                }}
+              </button>
+            </div>
+            <ul class="people mb-4" [attr.aria-label]="t()('reunions.attendance.listAria')">
+              @for (member of holdMembers(); track member.id) {
+                <li>
+                  <label class="person">
+                    <input
+                      type="checkbox"
+                      [checked]="holdPresentIds().includes(member.id)"
+                      (change)="toggleHold(member.id, $event)"
+                    />
+                    <span class="avatar" style="height: 32px; width: 32px; font-size: 11px">{{
+                      initials(member.firstName + " " + member.lastName)
+                    }}</span>
+                    <span class="min-w-0 flex-1 truncate"
+                      >{{ member.firstName }} {{ member.lastName }}</span
+                    >
+                  </label>
+                </li>
+              }
+            </ul>
+            @if (!holdPresentIds().length) {
+              <p class="sub mb-4">{{ t()("reunions.attendance.none") }}</p>
+            }
+          } @else {
+            <p class="sub mb-4">{{ t()("reunions.attendance.noMembers") }}</p>
+          }
+          <button modal-footer type="button" class="btn btn-ghost" (click)="closeHold()">
+            {{ t()("producteurs.index.cancel") }}
+          </button>
+          <button
+            modal-footer
+            type="button"
+            class="btn btn-primary"
+            [disabled]="!holdPresentIds().length"
+            (click)="submitHold(meetingToHold.id)"
+          >
+            {{ t()("reunions.attendance.submit") }}
+            <span class="btn-chip"><ui-icon name="check" [size]="18" /></span>
+          </button>
+        </ui-modal>
+      }
+
+      <!-- ───── Annulation ───── -->
+      @if (cancelMeeting(); as meetingToCancel) {
+        <ui-modal
+          tone="danger"
+          [open]="true"
+          [title]="t()('reunions.cancel.title')"
+          [description]="t()('reunions.cancel.description')"
+          icon="close"
+          [width]="560"
+          [closeLabel]="t()('common.close')"
+          (closed)="closeCancel()"
+        >
+          <p
+            class="mb-4 rounded-[16px] px-4 py-3 text-[14px] font-bold"
+            style="background: var(--v2-creme)"
+          >
+            {{ meetingToCancel.title }} · {{ fmtDateTime(meetingToCancel.date) }}
+          </p>
+          <label class="lbl" for="cancel-reason">{{ t()("reunions.cancel.reason") }}</label>
+          <textarea
+            id="cancel-reason"
+            class="area mt-2"
+            rows="4"
+            [placeholder]="t()('reunions.cancel.reasonHint')"
+            [value]="cancelReason()"
+            (input)="cancelReason.set($any($event.target).value)"
+          ></textarea>
+          <p class="sub mb-4 mt-1.5">{{ t()("reunions.cancel.reasonHint") }}</p>
+          <button modal-footer type="button" class="btn btn-ghost" (click)="closeCancel()">
+            {{ t()("reunions.cancel.keep") }}
+          </button>
+          <button
+            modal-footer
+            type="button"
+            class="btn"
+            style="background: var(--v2-erreur-fg); color: var(--v2-blanc)"
+            [disabled]="cancelReason().trim().length < 3"
+            (click)="submitCancel()"
+          >
+            {{ t()("reunions.cancel.submit") }}
+          </button>
+        </ui-modal>
+      }
+
       <app-meeting-form-dialog
         [(open)]="meetingFormOpen"
         [defaultScoopId]="defaultScoopId()"
         [defaultDate]="meetingFormDefaultDate()"
         (notify)="onMeetingFormNotify($event)"
       />
-
-      @if (cancelMeetingId()) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            class="surface w-full max-w-md p-6 shadow-lg"
-            role="dialog"
-            aria-modal="true"
-            uiModalA11y
-            (dismiss)="closeCancel()"
-          >
-            <h2 class="text-lg font-semibold">{{ t()("reunions.cancel.title") }}</h2>
-            <p class="mt-1 text-sm text-muted-foreground">{{ t()("reunions.cancel.description") }}</p>
-            <form class="mt-4 space-y-3" (ngSubmit)="submitCancel()">
-              <label class="block text-sm font-medium">
-                {{ t()("reunions.cancel.reason") }}
-                <span class="block text-xs font-normal text-muted-foreground">{{
-                  t()("reunions.cancel.reasonHint")
-                }}</span>
-                <textarea
-                  name="cancelReason"
-                  rows="4"
-                  class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  [(ngModel)]="cancelReason"
-                  [placeholder]="t()('reunions.cancel.reasonHint')"
-                ></textarea>
-              </label>
-              @if (cancelReason().trim().length > 0 && cancelReason().trim().length < 3) {
-                <p class="text-xs text-destructive">{{ t()("reunions.cancel.errorReason") }}</p>
-              }
-              <div class="flex justify-end gap-2">
-                <ui-button type="button" variant="outline" (click)="closeCancel()">
-                  {{ t()("reunions.cancel.keep") }}
-                </ui-button>
-                <ui-button type="submit" variant="destructive" [disabled]="cancelReason().trim().length < 3">
-                  {{ t()("reunions.cancel.submit") }}
-                </ui-button>
-              </div>
-            </form>
-          </div>
-        </div>
-      }
     </app-shell>
   `,
 })
@@ -394,13 +582,14 @@ export default class ReunionsPage {
   protected readonly t = this.locale.t;
   protected readonly nf = nf;
   protected readonly fmtDateTime = fmtDateTime;
-  protected readonly icons = { search: Search, calendar: CalendarDays, calendarPlus: CalendarPlus };
+  protected readonly initials = initialsOf;
   protected readonly filters = FILTERS;
   protected readonly kindLabel = MEETING_KIND_LABEL;
   protected readonly statusLabel = MEETING_STATUS_LABEL;
-  protected readonly statusTone = MEETING_STATUS_TONE;
-  protected readonly minutesLabel = MINUTES_LABEL;
-  protected readonly minutesTone = MINUTES_TONE;
+  protected readonly status = STATUS;
+  protected readonly minutes = MINUTES;
+  private readonly snackbar = inject(SnackbarService);
+  protected readonly detailId = signal<string | null>(null);
 
   /** Aligné sur React : ?vue=calendrier pour la vue agenda. */
   private readonly vueFromUrl = toSignal(
@@ -429,12 +618,9 @@ export default class ReunionsPage {
 
   protected readonly cancelMeetingId = signal<string | null>(null);
   protected readonly cancelReason = signal("");
-  protected readonly feedback = signal<{ kind: "success" | "error"; text: string } | null>(null);
 
   protected readonly meetingFormOpen = signal(false);
   protected readonly meetingFormDefaultDate = signal<Date | undefined>(undefined);
-
-  private fbTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly mine = computed(() =>
     sortMeetings(
@@ -521,10 +707,6 @@ export default class ReunionsPage {
     });
   }
 
-  protected openMeetingFromCalendar(e: CalendarEvent): void {
-    void this.router.navigate(["/reunions", e.id]);
-  }
-
   protected openNewMeeting(): void {
     this.meetingFormDefaultDate.set(undefined);
     this.meetingFormOpen.set(true);
@@ -539,11 +721,172 @@ export default class ReunionsPage {
     this.flash(ev.kind, ev.text);
   }
 
-  protected attendanceLine(m: Meeting): string {
-    if (m.status !== "tenue") return "";
-    const stats = attendanceStats(m, this.memberCount().get(m.scoopId) ?? 0);
-    return this.t()("reunions.attendance.autre", { count: stats.present, total: stats.total });
+  protected attendance(m: Meeting) {
+    return attendanceStats(m, this.memberCount().get(m.scoopId) ?? 0);
   }
+
+  protected isPast(iso: string): boolean {
+    return iso <= new Date().toISOString();
+  }
+
+  protected day(iso: string): string {
+    return this.locale.formatDate(iso, { day: "2-digit" });
+  }
+
+  protected month(iso: string): string {
+    return this.locale.formatDate(iso, { month: "short" }).replace(".", "");
+  }
+
+  protected readonly cancelMeeting = computed(() => {
+    const id = this.cancelMeetingId();
+    return id ? (this.mine().find((m) => m.id === id) ?? null) : null;
+  });
+
+  protected readonly stats = computed<StatCard[]>(() => {
+    const t = this.t();
+    const all = this.mine();
+    const now = new Date().toISOString();
+    const upcoming = all
+      .filter((m) => m.status === "planifiée" && m.date >= now)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const held = all.filter((m) => m.status === "tenue");
+    const rates = held.map((m) => this.attendance(m).rate);
+    const avg = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : 0;
+    const todo = all.filter((m) => m.status === "tenue" && m.minutes?.status !== "validé").length;
+    return [
+      {
+        label: t("reunions.stat.total"),
+        value: nf.format(all.length),
+        sub: t("reunions.stat.totalSub", {
+          count: all.filter((m) => m.kind === "assemblée générale").length,
+        }),
+        icon: "event",
+        bg: "",
+        fg: "",
+      },
+      {
+        label: t("reunions.stat.upcoming"),
+        value: nf.format(upcoming.length),
+        sub: upcoming[0]
+          ? t("reunions.stat.upcomingSub", { date: fmtDate(upcoming[0].date) })
+          : t("reunions.stat.upcomingNone"),
+        icon: "event_upcoming",
+        ...TONE.info,
+      },
+      {
+        label: t("reunions.stat.held"),
+        value: nf.format(held.length),
+        sub: t("reunions.stat.heldSub", { pct: avg }),
+        icon: "task_alt",
+        ...TONE.succes,
+      },
+      {
+        label: t("reunions.stat.minutes"),
+        value: nf.format(todo),
+        sub: t("reunions.stat.minutesSub"),
+        icon: "description",
+        ...(todo ? TONE.attente : TONE.succes),
+      },
+    ];
+  });
+
+  // ── Détail en modale ──
+  protected readonly detail = computed<DetailView | null>(() => {
+    const id = this.detailId();
+    const m = id ? this.mine().find((x) => x.id === id) : null;
+    if (!m) return null;
+    const t = this.t();
+    const s = this.store.state();
+    const a = this.attendance(m);
+    const daysLeft = Math.ceil((new Date(m.date).getTime() - Date.now()) / DAY);
+    const present = s.members.filter((x) => m.presentIds.includes(x.id));
+    const mn = MINUTES[m.minutes?.status ?? "none"];
+    return {
+      title: m.title,
+      subtitle: `${this.locale.formatDate(m.date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} · ${m.place}`,
+      icon: "event",
+      badges: [
+        { label: t(MEETING_STATUS_LABEL[m.status]), ...STATUS[m.status] },
+        { label: t(MEETING_KIND_LABEL[m.kind]), ...TONE.culture },
+        ...(m.status === "tenue"
+          ? [{ label: `${t("reunions.col.minutes")} : ${t(mn.label)}`, bg: mn.bg, fg: mn.fg }]
+          : []),
+      ],
+      kpis: [
+        detailKpi(t("reunions.quick.agenda"), m.agenda.length, "fact_check", TONE.info),
+        ...(m.status === "tenue"
+          ? [
+              detailKpi(t("reunions.quick.present"), a.present, "group", TONE.succes),
+              detailKpi(
+                t("reunions.quick.rate"),
+                a.rate,
+                "trending_up",
+                TONE.culture,
+                `${a.rate} %`,
+              ),
+            ]
+          : m.status === "planifiée" && daysLeft >= 0
+            ? [detailKpi(t("reunions.quick.daysLeft"), daysLeft, "calendar_today", TONE.attente)]
+            : []),
+      ],
+      facts: [
+        detailFact(t("reunions.detail.when"), fmtDateTime(m.date), "calendar_today"),
+        detailFact(t("reunions.detail.where"), m.place, "location_on"),
+        detailFact(
+          t("reunions.detail.mode"),
+          t(m.mode === "en ligne" ? "reunions.form.mode.online" : m.mode === "mixte" ? "reunions.form.mode.mixed" : "reunions.form.mode.onsite"),
+          m.mode === "sur place" || !m.mode ? "location_on" : "public",
+        ),
+        ...(m.onlineUrl ? [detailFact(t("reunions.detail.link"), m.onlineUrl, "link", { wide: true })] : []),
+        detailFact(
+          t("reunions.detail.convoked"),
+          m.audience && (m.audience.orgIds.length || m.audience.staffIds.length || m.audience.others.length)
+            ? t("reunions.detail.convokedSummary", { orgs: m.audience.orgIds.length, staff: m.audience.staffIds.length, others: m.audience.others.length })
+            : t("reunions.detail.convokedNone"),
+          "group",
+          { wide: true },
+        ),
+        detailFact(
+          t("reunions.detail.scoop"),
+          s.scoops.find((c) => c.id === m.scoopId)?.name,
+          "apartment",
+        ),
+        detailFact(t("reunions.quick.createdBy"), m.createdBy, "badge"),
+        ...(m.cancelReason
+          ? [detailFact(t("reunions.cancel.reason"), m.cancelReason, "warning", { wide: true })]
+          : []),
+      ],
+      sections: [
+        {
+          title: t("reunions.detail.agenda"),
+          icon: "fact_check",
+          count: null,
+          empty: t("reunions.detail.agendaNone"),
+          items: m.agenda.map((x, i) => ({ label: x, index: i + 1 })),
+          more: 0,
+        },
+        ...(m.status === "tenue"
+          ? [
+              {
+                title: t("reunions.attendance.presentList"),
+                icon: "group" as const,
+                count: present.length,
+                empty: t("reunions.attendance.nobody"),
+                items: present
+                  .slice(0, 8)
+                  .map((x) => ({
+                    label: `${x.firstName} ${x.lastName}`,
+                    sub: x.village,
+                    initials: initialsOf(`${x.firstName} ${x.lastName}`),
+                  })),
+                more: Math.max(0, present.length - 8),
+              },
+            ]
+          : []),
+      ],
+      link: ["/dashboard/reunions", m.id],
+    };
+  });
 
   protected openHold(meetingId: string): void {
     this.holdMeetingId.set(meetingId);
@@ -617,16 +960,15 @@ export default class ReunionsPage {
   }
 
   private flash(kind: "success" | "error", text: string): void {
-    if (this.fbTimer) clearTimeout(this.fbTimer);
-    this.feedback.set({ kind, text });
-    this.fbTimer = setTimeout(() => {
-      this.feedback.set(null);
-      this.fbTimer = null;
-    }, 4000);
+    if (kind === "success") this.snackbar.success(text);
+    else this.snackbar.error(text);
   }
 
   protected errMsg(e: unknown): string {
     if (e instanceof AccessDeniedError) return this.locale.tNow(e.key);
     return e instanceof Error ? e.message : String(e);
   }
+
+  /** Pagination (shown) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly pager = createPager(() => this.shown());
 }

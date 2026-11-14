@@ -77,7 +77,8 @@ export function dueLines(
   return out;
 }
 
-const live = (p: ContributionPayment) => p.voided === null;
+/** Paiement qui compte : ni annulé, ni contre-écriture d'une annulation. */
+const live = (p: ContributionPayment) => p.voided === null && !p.reversalOf;
 
 export function memberDues(
   member: Pick<Member, "id" | "status" | "joinedAt">,

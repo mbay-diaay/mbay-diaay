@@ -13,6 +13,50 @@ export const normalizeCode = (code: string) => code.trim().toUpperCase();
 export const CODE_PATTERN = /^[A-Z]{3,5}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Mots ignorés pour former le code : forme juridique et petits mots. */
+const CODE_STOP_WORDS = new Set([
+  "SCOOP", "COOP", "COOPERATIVE", "SOCIETE", "GIE", "UNION",
+  "DE", "DES", "DU", "LA", "LE", "LES", "ET", "D", "L", "AU", "AUX", "EN", "POUR", "A", "SUR",
+]);
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/**
+ * Code court généré à partir du nom (3 à 5 lettres, unique) : le sigle entre parenthèses s'il y en a un
+ * (« And Sam Luniou Bokk (ASLB) » → ASLB), sinon les initiales des mots significatifs, complétées par les lettres
+ * du premier mot (« SCOOP des maraîchers de Mboro » → MAM). Déjà pris : une lettre est ajoutée ou remplacée.
+ * Renvoie "" si le nom ne contient aucun mot utilisable.
+ */
+export function generateScoopCode(name: string, takenCodes: readonly (string | undefined)[]): string {
+  const taken = new Set(takenCodes.filter((code): code is string => !!code).map(normalizeCode));
+  const plain = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  const acronym = /\(([A-Z]{3,5})\)/.exec(plain)?.[1];
+  const words = plain
+    .replace(/\([^)]*\)/g, " ")
+    .split(/[^A-Z]+/)
+    .filter((word) => word && !CODE_STOP_WORDS.has(word));
+  if (!acronym && !words.length) return "";
+  let base = acronym ?? words.map((word) => word[0]).join("").slice(0, 5);
+  if (base.length < 3) {
+    // Trop peu d'initiales : on complète avec les lettres suivantes du premier mot, puis de tous les mots.
+    const letters = words.join("");
+    const first = words[0] ?? "";
+    base = (first.slice(0, 1 + 3 - base.length) + base.slice(1)).slice(0, 5);
+    if (base.length < 3) base = (base + letters.slice(base.length)).slice(0, 3);
+    if (base.length < 3) base = base.padEnd(3, "X");
+  }
+  if (!taken.has(base)) return base;
+  for (const letter of ALPHABET) {
+    const candidate = base.length < 5 ? base + letter : base.slice(0, 4) + letter;
+    if (!taken.has(candidate)) return candidate;
+  }
+  for (const first of ALPHABET)
+    for (const second of ALPHABET) {
+      const candidate = base.slice(0, 3) + first + second;
+      if (!taken.has(candidate)) return candidate;
+    }
+  return "";
+}
+
 export type ScoopField =
   "name" | "commune" | "code" | "managerFirstName" | "managerLastName" | "managerEmail";
 

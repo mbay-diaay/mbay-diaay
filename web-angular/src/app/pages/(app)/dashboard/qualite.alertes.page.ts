@@ -1,200 +1,575 @@
 import { Component, computed, inject, signal } from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { LucideAngularModule, Search } from "lucide-angular";
+import { RouterLink } from "@angular/router";
 
-import { inScope } from "@/lib/store";
+import { AccessDeniedError, inScope } from "@/lib/store";
 import { nf } from "@/lib/format";
 import type { AlertStatus, DataAlert } from "@/lib/mock/data";
 import type { MessageKey } from "@/lib/i18n";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiDialogComponent } from "../shared/ui/dialog.component";
-import { UiEmptyComponent } from "../shared/ui/empty.component";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent, type UiPillTone } from "../shared/ui/pill.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
+import { createPager } from "@shared/pager";
+import {
+  IconComponent,
+  ModalComponent,
+  PaginationComponent,
+  SelectComponent,
+  SnackbarService,
+  StatCardsComponent,
+  TONE,
+  V2_PAGE_STYLES,
+  type SelectOption,
+  type StatCard,
+} from "@shared/ui";
 
-const STATUS_TONE: Record<AlertStatus, UiPillTone> = {
-  ouvert: "warning",
-  "en vérification": "info",
-  résolu: "success",
-  rejeté: "neutral",
+const STATUSES: readonly AlertStatus[] = ["ouvert", "en vérification", "résolu", "rejeté"];
+const STATUS: Record<AlertStatus, { label: MessageKey; tab: MessageKey; bg: string; fg: string }> =
+  {
+    ouvert: {
+      label: "qualite.alertes.statusValue.ouvert",
+      tab: "qualite.alertes.status.ouvert",
+      ...TONE.attente,
+    },
+    "en vérification": {
+      label: "qualite.alertes.statusValue.en vérification",
+      tab: "qualite.alertes.status.en vérification",
+      ...TONE.info,
+    },
+    résolu: {
+      label: "qualite.alertes.statusValue.résolu",
+      tab: "qualite.alertes.status.résolu",
+      ...TONE.succes,
+    },
+    rejeté: {
+      label: "qualite.alertes.statusValue.rejeté",
+      tab: "qualite.alertes.status.rejeté",
+      ...TONE.neutre,
+    },
+  };
+const SEVERITY: Record<DataAlert["severity"], { label: MessageKey; bg: string; fg: string }> = {
+  élevée: { label: "qualite.alertes.severity.élevée", ...TONE.erreur },
+  moyenne: { label: "qualite.alertes.severity.moyenne", ...TONE.attente },
+  faible: { label: "qualite.alertes.severity.faible", ...TONE.neutre },
 };
-const SEV_TONE = { faible: "neutral", moyenne: "ochre", élevée: "danger" } as const;
-const STATUS_LABEL: Record<AlertStatus, MessageKey> = {
-  ouvert: "qualite.alertes.statusValue.ouvert",
-  "en vérification": "qualite.alertes.statusValue.en vérification",
-  résolu: "qualite.alertes.statusValue.résolu",
-  rejeté: "qualite.alertes.statusValue.rejeté",
-};
+const RANK = { élevée: 0, moyenne: 1, faible: 2 } as const;
+const norm = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-/** Port de qualite.alertes.tsx — liste + résoudre / rejeter. */
+/**
+ * Alertes qualité (charte V2) : statistiques, filtres état / sévérité à compteurs, tableau
+ * sélectionnable, décision en lot (vérifier, résoudre, rejeter) avec commentaire, lien vers la fiche.
+ */
 @Component({
   selector: "app-qualite-alertes-page",
   imports: [
-    FormsModule,
-    LucideAngularModule,
     AppShellComponent,
-    UiDialogComponent,
-    UiEmptyComponent,
-    UiPageHeaderComponent,
-    UiPillComponent,
+    IconComponent,
+    ModalComponent,
+    PaginationComponent,
+    RouterLink,
+    SelectComponent,
+    StatCardsComponent,
+  ],
+  styles: [
+    V2_PAGE_STYLES,
+    `
+      .bulk {
+        position: sticky;
+        bottom: 16px;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        border-radius: 20px;
+        background: var(--v2-foret);
+        padding: 10px 10px 10px 18px;
+        color: var(--v2-blanc);
+        box-shadow: var(--v2-ombre-flottant);
+      }
+      .bulk .b {
+        display: inline-flex;
+        height: 40px;
+        align-items: center;
+        gap: 6px;
+        border-radius: 12px;
+        padding: 0 14px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .tbl input[type="checkbox"] {
+        height: 18px;
+        width: 18px;
+        accent-color: var(--v2-foret);
+        cursor: pointer;
+      }
+      .act-ok:hover {
+        border-color: var(--v2-vert-pousse);
+        background: var(--v2-sauge);
+        color: var(--v2-vert-pousse);
+      }
+    `,
   ],
   template: `
     <app-shell perm="alert.manage" [area]="t()('qualite.alertes.area')">
-      <ui-page-header
-        [title]="t()('qualite.alertes.area')"
-        [description]="t()('qualite.alertes.description')"
-      />
+      <header class="rise">
+        <p class="mono" style="color: var(--v2-gris-texte)">{{ t()("qualite.header.title") }}</p>
+        <h1
+          class="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[38px]"
+        >
+          {{ t()("qualite.alertes.area") }}
+        </h1>
+        <p class="mt-2 max-w-2xl text-[16px] font-medium" style="color: var(--v2-gris-texte)">
+          {{ t()("qualite.alertes.description") }}
+        </p>
+      </header>
 
-      <div class="surface mb-3 flex flex-wrap gap-2 p-3">
-        <div class="relative min-w-0 flex-1 basis-48">
-          <lucide-angular
-            [img]="icons.search"
-            class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
+      <ui-stat-cards class="rise mt-8" [stats]="stats()" />
+
+      <div class="toolbar card mt-6">
+        <label class="search">
+          <ui-icon name="search" [size]="20" />
           <input
-            class="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm shadow-sm pointer-coarse:h-touch focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            [attr.aria-label]="t()('qualite.alertes.searchAria')"
+            type="search"
             [placeholder]="t()('qualite.alertes.searchPlaceholder')"
-            [ngModel]="q()"
-            (ngModelChange)="q.set($event)"
+            [attr.aria-label]="t()('qualite.alertes.searchAria')"
+            [value]="q()"
+            (input)="q.set($any($event.target).value)"
           />
+        </label>
+        <ui-select
+          class="min-w-[200px]"
+          variant="compact"
+          leadingIcon="warning"
+          [label]="t()('qualite.alertes.filter.severity')"
+          [options]="severityOptions()"
+          [value]="severity()"
+          (valueChange)="severity.set($event)"
+        />
+        <div class="seg" role="radiogroup" [attr.aria-label]="t()('qualite.alertes.status.aria')">
+          @for (statusButton of statusButtons(); track statusButton.id) {
+            <button
+              type="button"
+              role="radio"
+              [class.on]="status() === statusButton.id"
+              [attr.aria-checked]="status() === statusButton.id"
+              (click)="status.set(statusButton.id); selected.set([])"
+            >
+              {{ statusButton.label
+              }}<span class="n" [class.zero]="!statusButton.count">{{
+                nf.format(statusButton.count)
+              }}</span>
+            </button>
+          }
         </div>
-        <select
-          class="h-10 rounded-md border border-input bg-background px-3 text-sm pointer-coarse:h-touch"
-          [attr.aria-label]="t()('qualite.alertes.status.aria')"
-          [ngModel]="status()"
-          (ngModelChange)="status.set($event)"
-        >
-          <option value="ouvert">{{ t()("qualite.alertes.statusValue.ouvert") }}</option>
-          <option value="en vérification">
-            {{ t()("qualite.alertes.statusValue.en vérification") }}
-          </option>
-          <option value="résolu">{{ t()("qualite.alertes.statusValue.résolu") }}</option>
-          <option value="rejeté">{{ t()("qualite.alertes.statusValue.rejeté") }}</option>
-          <option value="__all">{{ t()("qualite.common.all") }}</option>
-        </select>
       </div>
 
-      <div class="surface divide-y overflow-hidden">
-        @for (a of rows(); track a.id) {
-          <div class="flex flex-wrap items-start gap-3 px-4 py-3">
-            <div class="min-w-0 flex-1">
-              <div class="font-semibold">{{ a.type }}</div>
-              <div class="mt-0.5 text-xs text-muted-foreground">
-                {{ a.entity }} · {{ a.entityId }} · {{ a.enumerator }}
-              </div>
-            </div>
-            <ui-pill [tone]="sevTone[a.severity]">{{ a.severity }}</ui-pill>
-            <ui-pill [tone]="statusTone[a.status]">{{ t()(statusLabel[a.status]) }}</ui-pill>
-            @if (a.status === "ouvert" || a.status === "en vérification") {
-              <div class="flex gap-1">
-                <button
-                  type="button"
-                  class="h-8 rounded-md border px-2 text-xs font-medium hover:bg-muted pointer-coarse:h-touch"
-                  (click)="openDecision(a, 'résolu')"
-                >
-                  {{ t()("qualite.alertes.resolve") }}
-                </button>
-                <button
-                  type="button"
-                  class="h-8 rounded-md border px-2 text-xs font-medium hover:bg-muted pointer-coarse:h-touch"
-                  (click)="openDecision(a, 'rejeté')"
-                >
-                  {{ t()("qualite.alertes.reject") }}
-                </button>
-              </div>
-            }
+      <p class="sub mt-4" aria-live="polite">
+        {{ t()("qualite.v2.alertes.count", { count: nf.format(rows().length) }) }}
+      </p>
+
+      <section class="card mt-3 overflow-hidden">
+        @if (rows().length) {
+          <div class="overflow-x-auto">
+            <table class="tbl min-w-[960px]">
+              <thead>
+                <tr>
+                  <th class="w-10">
+                    @if (canDecide()) {
+                      <input
+                        type="checkbox"
+                        [checked]="allPageSelected()"
+                        [attr.aria-label]="t()('qualite.alertes.selectAll')"
+                        (change)="togglePage($any($event.target).checked)"
+                      />
+                    }
+                  </th>
+                  <th>{{ t()("qualite.alertes.col.type") }}</th>
+                  <th>{{ t()("qualite.alertes.col.entity") }}</th>
+                  <th>{{ t()("qualite.alertes.col.enumerator") }}</th>
+                  <th>{{ t()("qualite.alertes.col.severity") }}</th>
+                  <th>{{ t()("qualite.alertes.col.status") }}</th>
+                  <th class="text-right">{{ t()("organisations.col.actions") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (alert of pager.items(); track alert.id) {
+                  <tr [class.row-link]="canDecide()" (click)="canDecide() && toggle(alert.id)">
+                    <td (click)="$event.stopPropagation()">
+                      @if (canDecide()) {
+                        <input
+                          type="checkbox"
+                          [checked]="selected().includes(alert.id)"
+                          [attr.aria-label]="t()('qualite.alertes.selectOne', { type: alert.type })"
+                          (change)="toggle(alert.id)"
+                        />
+                      }
+                    </td>
+                    <td>
+                      <span class="block font-bold">{{ alert.type }}</span>
+                      <span class="sub block max-w-[320px] truncate" [title]="alert.detail">{{
+                        alert.detail
+                      }}</span>
+                    </td>
+                    <td>
+                      <span class="block font-semibold">{{ entityName(alert) }}</span>
+                      <span class="sub block">{{
+                        t()(
+                          alert.entity === "producteur"
+                            ? "qualite.alertes.entity.producteur"
+                            : "qualite.alertes.entity.parcelle"
+                        )
+                      }}</span>
+                    </td>
+                    <td class="font-medium">{{ alert.enumerator }}</td>
+                    <td>
+                      <span
+                        class="badge"
+                        [style.background]="sev[alert.severity].bg"
+                        [style.color]="sev[alert.severity].fg"
+                        >{{ t()(sev[alert.severity].label) }}</span
+                      >
+                    </td>
+                    <td>
+                      <span
+                        class="badge"
+                        [style.background]="stat[alert.status].bg"
+                        [style.color]="stat[alert.status].fg"
+                        >{{ t()(stat[alert.status].label) }}</span
+                      >
+                    </td>
+                    <td (click)="$event.stopPropagation()">
+                      <span class="flex justify-end gap-2">
+                        @if (
+                          canDecide() &&
+                          (alert.status === "ouvert" || alert.status === "en vérification")
+                        ) {
+                          <button
+                            type="button"
+                            class="act act-ok"
+                            [title]="t()('qualite.alertes.resolve')"
+                            [attr.aria-label]="t()('qualite.alertes.resolve')"
+                            (click)="openDecision([alert.id], 'résolu')"
+                          >
+                            <ui-icon name="check" [size]="18" />
+                          </button>
+                          <button
+                            type="button"
+                            class="act act-danger"
+                            [title]="t()('qualite.alertes.reject')"
+                            [attr.aria-label]="t()('qualite.alertes.reject')"
+                            (click)="openDecision([alert.id], 'rejeté')"
+                          >
+                            <ui-icon name="close" [size]="18" />
+                          </button>
+                        }
+                        @if (ownerOf(alert); as producerId) {
+                          <a
+                            class="act"
+                            [routerLink]="['/dashboard/producteurs', producerId]"
+                            [title]="t()('qualite.v2.alertes.open')"
+                            [attr.aria-label]="t()('qualite.v2.alertes.open')"
+                            ><ui-icon name="visibility" [size]="18"
+                          /></a>
+                        }
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
-        } @empty {
-          <ui-empty>{{ t()("qualite.alertes.empty") }}</ui-empty>
+          <ui-pagination class="px-5 pb-5" [pager]="pager" />
+        } @else {
+          <div class="flex flex-col items-center gap-3 p-10 text-center">
+            <span
+              class="grid size-14 place-items-center rounded-[16px]"
+              style="background: var(--v2-sauge); color: var(--v2-foret)"
+              ><ui-icon name="task_alt" [size]="26"
+            /></span>
+            <p class="text-[16px] font-extrabold">{{ t()("qualite.alertes.empty") }}</p>
+          </div>
         }
-      </div>
-      <p class="mt-2 text-xs text-muted-foreground">{{ nf.format(rows().length) }}</p>
+      </section>
 
-      <ui-dialog [(open)]="dialogOpen" [title]="dialogTitle()">
-        <label class="block text-sm font-medium">{{ t()("qualite.common.comment") }}</label>
-        <textarea
-          class="mt-1 min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          [ngModel]="comment()"
-          (ngModelChange)="comment.set($event)"
-        ></textarea>
-        <button
-          actions
-          type="button"
-          class="inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
-          (click)="dialogOpen.set(false)"
+      <!-- Actions groupées -->
+      @if (selected().length) {
+        <div
+          class="bulk mt-4"
+          role="region"
+          [attr.aria-label]="t()('qualite.alertes.selected', { n: selected().length })"
         >
-          {{ t()("common.cancel") }}
-        </button>
-        <button
-          actions
-          type="button"
-          class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-          (click)="confirmDecision()"
+          <span class="flex-1 text-[14px] font-extrabold">{{
+            t()("qualite.alertes.selected", { n: selected().length })
+          }}</span>
+          <button type="button" class="b" style="color: var(--v2-blanc)" (click)="selected.set([])">
+            {{ t()("qualite.alertes.deselect") }}
+          </button>
+          <button
+            type="button"
+            class="b"
+            style="background: var(--v2-info-bg); color: var(--v2-info-fg)"
+            (click)="openDecision(selected(), 'en vérification')"
+          >
+            <ui-icon name="visibility" [size]="16" />{{ t()("qualite.alertes.verifyShort") }}
+          </button>
+          <button
+            type="button"
+            class="b"
+            style="background: var(--v2-erreur-bg); color: var(--v2-erreur-fg)"
+            (click)="openDecision(selected(), 'rejeté')"
+          >
+            <ui-icon name="close" [size]="16" />{{ t()("qualite.alertes.reject") }}
+          </button>
+          <button
+            type="button"
+            class="b"
+            style="background: var(--v2-citron); color: var(--v2-foret)"
+            (click)="openDecision(selected(), 'résolu')"
+          >
+            <ui-icon name="check" [size]="16" />{{ t()("qualite.alertes.resolve") }}
+          </button>
+        </div>
+      }
+
+      <!-- Décision -->
+      @if (pending(); as decision) {
+        <ui-modal
+          [tone]="decision.status === 'rejeté' ? 'danger' : 'default'"
+          [open]="true"
+          [title]="
+            t()('qualite.alertes.dialog.title', {
+              n: decision.ids.length,
+              status: t()(stat[decision.status].label),
+            })
+          "
+          [description]="t()('qualite.alertes.dialog.description')"
+          icon="fact_check"
+          [width]="580"
+          [closeLabel]="t()('common.close')"
+          (closed)="pending.set(null)"
         >
-          {{ dialogTitle() }}
-        </button>
-      </ui-dialog>
+          <ul
+            class="mb-4 max-h-48 overflow-y-auto rounded-[16px] border"
+            style="border-color: var(--v2-bord-carte)"
+          >
+            @for (alert of pendingAlerts(); track alert.id) {
+              <li
+                class="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-[14px] first:border-t-0"
+                style="border-color: var(--v2-separateur)"
+              >
+                <span class="min-w-0 truncate font-bold"
+                  >{{ alert.type }} · {{ entityName(alert) }}</span
+                >
+                <span
+                  class="badge"
+                  [style.background]="sev[alert.severity].bg"
+                  [style.color]="sev[alert.severity].fg"
+                  >{{ t()(sev[alert.severity].label) }}</span
+                >
+              </li>
+            }
+          </ul>
+          <label class="lbl" for="alert-comment">{{ t()("qualite.common.comment") }}</label>
+          <textarea
+            id="alert-comment"
+            class="area mb-5 mt-2"
+            [placeholder]="t()('qualite.alertes.dialog.commentPlaceholder')"
+            [value]="comment()"
+            (input)="comment.set($any($event.target).value)"
+          ></textarea>
+          <button modal-footer type="button" class="btn btn-ghost" (click)="pending.set(null)">
+            {{ t()("common.cancel") }}
+          </button>
+          <button
+            modal-footer
+            type="button"
+            class="btn"
+            [class.btn-danger]="decision.status === 'rejeté'"
+            [class.btn-primary]="decision.status !== 'rejeté'"
+            (click)="confirmDecision()"
+          >
+            {{ t()("qualite.alertes.dialog.submit") }}
+            @if (decision.status !== "rejeté") {
+              <span class="btn-chip"><ui-icon name="check" [size]="18" /></span>
+            }
+          </button>
+        </ui-modal>
+      }
     </app-shell>
   `,
 })
 export default class QualiteAlertesPage {
   protected readonly store = inject(StoreService);
   protected readonly locale = inject(LocaleService);
+  private readonly snackbar = inject(SnackbarService);
   protected readonly t = this.locale.t;
   protected readonly nf = nf;
-  protected readonly icons = { search: Search };
-  protected readonly statusTone = STATUS_TONE;
-  protected readonly sevTone = SEV_TONE;
-  protected readonly statusLabel = STATUS_LABEL;
+  protected readonly stat = STATUS;
+  protected readonly sev = SEVERITY;
   protected readonly q = signal("");
   protected readonly status = signal<AlertStatus | "__all">("ouvert");
-  protected readonly dialogOpen = signal(false);
+  protected readonly severity = signal("");
+  protected readonly selected = signal<string[]>([]);
   protected readonly comment = signal("");
-  private readonly pending = signal<{ id: string; status: AlertStatus } | null>(null);
+  protected readonly pending = signal<{ ids: string[]; status: AlertStatus } | null>(null);
 
-  protected readonly dialogTitle = computed(() => {
-    const p = this.pending();
-    if (!p) return "";
-    return p.status === "résolu"
-      ? this.t()("qualite.alertes.resolve")
-      : this.t()("qualite.alertes.reject");
+  protected readonly canDecide = computed(() => this.store.can("alert.manage"));
+
+  /** Alertes du périmètre (producteurs et parcelles de la session). */
+  private readonly mine = computed(() => {
+    const s = this.store.state();
+    const prod = new Set(inScope(s.producers, s.session).map((p) => p.id));
+    const plots = new Set(s.plots.filter((p) => prod.has(p.producerId)).map((p) => p.id));
+    return s.alerts.filter((a) => prod.has(a.entityId) || plots.has(a.entityId));
   });
+
+  private readonly names = computed(() => {
+    const s = this.store.state();
+    return {
+      producer: new Map(s.producers.map((p) => [p.id, `${p.firstName} ${p.lastName}`])),
+      plot: new Map(s.plots.map((p) => [p.id, { code: p.code, owner: p.producerId }])),
+    };
+  });
+
+  /** Recherche et sévérité, avant le filtre d'état (pour les compteurs). */
+  private readonly base = computed(() => {
+    const needle = norm(this.q().trim());
+    const sev = this.severity();
+    return this.mine().filter(
+      (a) =>
+        (!sev || a.severity === sev) &&
+        (!needle ||
+          norm(`${a.type} ${a.detail} ${a.enumerator} ${this.entityName(a)}`).includes(needle)),
+    );
+  });
+
+  protected readonly statusButtons = computed(() => {
+    const t = this.t();
+    const base = this.base();
+    return [
+      ...STATUSES.map((st) => ({
+        id: st as AlertStatus | "__all",
+        label: t(STATUS[st].tab),
+        count: base.filter((a) => a.status === st).length,
+      })),
+      { id: "__all" as const, label: t("qualite.common.all"), count: base.length },
+    ];
+  });
+
+  protected readonly severityOptions = computed<SelectOption[]>(() => [
+    { value: "", label: this.t()("qualite.v2.alertes.severityAll") },
+    ...(["élevée", "moyenne", "faible"] as const).map((s) => ({
+      value: s,
+      label: this.t()(SEVERITY[s].label),
+    })),
+  ]);
 
   protected readonly rows = computed(() => {
-    const s = this.store.state();
-    const session = s.session;
-    const mine = new Set(inScope(s.producers, session).map((p) => p.id));
-    const minePlots = new Set(s.plots.filter((p) => mine.has(p.producerId)).map((p) => p.id));
-    const needle = this.q().trim().toLowerCase();
     const st = this.status();
-    return s.alerts
-      .filter(
-        (a: DataAlert) =>
-          (mine.has(a.entityId) || minePlots.has(a.entityId)) &&
-          (st === "__all" || a.status === st) &&
-          (!needle ||
-            `${a.type} ${a.entityId} ${a.enumerator}`.toLowerCase().includes(needle)),
-      )
-      .sort((a, b) => {
-        const rank = { élevée: 0, moyenne: 1, faible: 2 } as const;
-        return rank[a.severity] - rank[b.severity] || a.id.localeCompare(b.id);
-      });
+    return this.base()
+      .filter((a) => st === "__all" || a.status === st)
+      .sort((a, b) => RANK[a.severity] - RANK[b.severity] || a.id.localeCompare(b.id));
   });
 
-  protected openDecision(a: DataAlert, status: AlertStatus): void {
-    this.pending.set({ id: a.id, status });
+  /** Pagination : mêmes règles que l'API (`GET /v1/quality/alerts?page=&limit=`). */
+  protected readonly pager = createPager(() => this.rows());
+
+  protected readonly stats = computed<StatCard[]>(() => {
+    const t = this.t();
+    const all = this.mine();
+    const n = (st: AlertStatus) => all.filter((a) => a.status === st).length;
+    const open = all.filter((a) => a.status === "ouvert");
+    const types = new Map<string, number>();
+    for (const a of open) types.set(a.type, (types.get(a.type) ?? 0) + 1);
+    const top = [...types].sort((a, b) => b[1] - a[1])[0];
+    return [
+      {
+        label: t("qualite.v2.alertes.stat.open"),
+        value: nf.format(open.length),
+        sub: t("qualite.v2.alertes.stat.openSub", {
+          count: open.filter((a) => a.severity === "élevée").length,
+        }),
+        icon: "warning",
+        bg: "",
+        fg: "",
+      },
+      {
+        label: t("qualite.v2.alertes.stat.verify"),
+        value: nf.format(n("en vérification")),
+        sub: t("qualite.v2.alertes.stat.verifySub"),
+        icon: "visibility",
+        ...TONE.info,
+      },
+      {
+        label: t("qualite.v2.alertes.stat.resolved"),
+        value: nf.format(n("résolu")),
+        sub: t("qualite.v2.alertes.stat.resolvedSub", { count: n("rejeté") }),
+        icon: "task_alt",
+        ...TONE.succes,
+      },
+      {
+        label: t("qualite.v2.alertes.stat.top"),
+        value: top ? nf.format(top[1]) : "—",
+        sub: top?.[0] ?? "—",
+        icon: "analytics",
+        ...TONE.attente,
+      },
+    ];
+  });
+
+  protected entityName(a: DataAlert): string {
+    const n = this.names();
+    if (a.entity === "producteur") return n.producer.get(a.entityId) ?? a.entityId;
+    const pl = n.plot.get(a.entityId);
+    return pl ? `${pl.code} · ${n.producer.get(pl.owner) ?? ""}` : a.entityId;
+  }
+
+  /** Producteur à ouvrir : la personne, ou le propriétaire de la parcelle. */
+  protected ownerOf(a: DataAlert): string | null {
+    if (a.entity === "producteur") return a.entityId;
+    return this.names().plot.get(a.entityId)?.owner ?? null;
+  }
+
+  protected readonly allPageSelected = computed(() => {
+    const ids = this.pager.items().map((a) => a.id);
+    return ids.length > 0 && ids.every((id) => this.selected().includes(id));
+  });
+
+  protected toggle(id: string): void {
+    this.selected.update((list) =>
+      list.includes(id) ? list.filter((x) => x !== id) : [...list, id],
+    );
+  }
+
+  protected togglePage(on: boolean): void {
+    const ids = this.pager.items().map((a) => a.id);
+    this.selected.update((list) =>
+      on ? [...new Set([...list, ...ids])] : list.filter((x) => !ids.includes(x)),
+    );
+  }
+
+  protected readonly pendingAlerts = computed(() => {
+    const p = this.pending();
+    return p ? this.mine().filter((a) => p.ids.includes(a.id)) : [];
+  });
+
+  protected openDecision(ids: string[], status: AlertStatus): void {
     this.comment.set("");
-    this.dialogOpen.set(true);
+    this.pending.set({ ids: [...ids], status });
   }
 
   protected confirmDecision(): void {
     const p = this.pending();
     if (!p) return;
-    this.store.actions.updateAlerts([p.id], p.status, this.comment().trim());
-    this.dialogOpen.set(false);
+    try {
+      this.store.actions.updateAlerts(p.ids, p.status, this.comment().trim());
+    } catch (e) {
+      this.snackbar.error(e instanceof AccessDeniedError ? this.locale.tNow(e.key) : String(e));
+      return;
+    }
     this.pending.set(null);
+    this.selected.update((list) => list.filter((id) => !p.ids.includes(id)));
+    this.snackbar.success(this.t()("qualite.alertes.dialog.updated", { n: p.ids.length }));
   }
 }

@@ -35,12 +35,32 @@ import {
   type Seuils,
 } from "./mock/data";
 import {
+  BUILT_IN_ROLES,
+  cloneDefaultMatrix,
+  DEFAULT_ROLE_PERMISSIONS,
+  delegablePermissions,
   fetchMyPermissions,
-  ROLE_LABEL,
+  isBuiltInRole,
+  isKnownRole,
+  LOCKED_ROLE,
+  roleAllowsManyScoops,
+  roleIsScoped,
+  roleName,
+  sanitizeRolePermissions,
+  SUPER_ADMIN_ONLY_ROLES,
+  type CustomRole,
+  type CustomRoleId,
   type Permission,
   type RoleId,
+  type RolePermissionsMatrix,
   type Scope,
 } from "./permissions";
+import {
+  DEFAULT_REMINDER_KEY,
+  reminderIssues,
+  reminderSettingsOf,
+  type ReminderSettings,
+} from "./reminders";
 import type { ImportPlan } from "./io/validate";
 import {
   canDownloadDocument,
@@ -78,8 +98,14 @@ import {
   type DossierEvent,
   type ExploitationPlan,
   type LibraryDocumentKind,
+  type DocumentLink,
+  type PaymentLink,
+  type DecisionStatus,
   type Meeting,
+  type MeetingDecision,
   type MeetingKind,
+  type MeetingAudience,
+  type MeetingMode,
   type Member,
   type MembershipStatus,
   type PaymentMethod,
@@ -89,7 +115,7 @@ import {
   type RefusalReason,
 } from "./mock/cooperative";
 import { PLAN_NEXT } from "./plans";
-import { accountBlocker, assignableRoles } from "./team";
+import { accountBlocker, assignableRoles, COOPERATIVE_ROLES, SUBROLE_COPY_SOURCES } from "./team";
 import { isPaymentDate, isValidMonthDay, nextReceipt, paymentIssues } from "./contributions";
 import { makeReceipt } from "./receipts";
 import {
@@ -147,6 +173,7 @@ import {
   blockingDossiers,
   nextScoopId,
   normalizeCode,
+  generateScoopCode,
   scoopIssues,
   type ScoopInput,
 } from "./scoops";
@@ -194,6 +221,17 @@ export interface AppUser {
   scoopId?: string | undefined;
   /** SCOOP d'un technicien : il peut en couvrir plusieurs. Vide pour les autres rôles. */
   scoopIds?: string[] | undefined;
+  /** GIE suivis par un technicien. Vide : il suit toute la coopérative (association, pas une restriction de droits). */
+  orgIds?: string[] | undefined;
+  /**
+   * Code temporaire à usage unique d'un technicien (8 chiffres), remis en main propre. Tant qu'il existe, le
+   * technicien n'a pas encore choisi son mot de passe sur l'application mobile. Démonstration seulement : l'API
+   * ne garde que son empreinte.
+   */
+  activation?: { code: string; issuedAt: string; expiresAt: string; failedAttempts: number } | undefined;
+  /** Sexe et âge d'un technicien (obligatoires à sa création). */
+  sex?: "F" | "H" | undefined;
+  age?: number | undefined;
   /** Membre de la coopérative auquel le compte est lié (le statut de membre et le rôle sont deux choses). */
   memberId?: string | undefined;
   active: boolean;
@@ -267,7 +305,16 @@ export interface State {
   reports: GeneratedReport[];
   contributionRules: ContributionRule[];
   payments: ContributionPayment[];
+  paymentLinks: PaymentLink[];
   meetings: Meeting[];
+  /** Droits de chaque rôle, modifiables par le super administrateur (matrice par défaut au départ). */
+  rolePermissions: RolePermissionsMatrix;
+  /** Rôles créés par le super administrateur (leurs droits sont dans `rolePermissions`). */
+  customRoles: CustomRole[];
+  /** Documents supprimés logiquement : conservés avec leur date de suppression, hors des listes. */
+  deletedDocuments: DocumentMeta[];
+  /** Réglages des rappels par coopérative (`*` = valeurs par défaut de l'administration). */
+  reminderSettings: Record<string, ReminderSettings>;
 }
 
 /** Relie un compte à son membre (même adresse e-mail), quand la personne est aussi membre de la coopérative. */
@@ -279,6 +326,39 @@ const withMember = (u: AppUser): AppUser => {
 const TOKEN_MS = 30 * 60 * 1000;
 /** Durée de validité du lien d'invitation d'un gestionnaire (hypothèse, à valider). */
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Liens de paiement : gardés dans le navigateur pour que la page `/payer/…` s'ouvre dans un autre onglet (démonstration).
+ * Avec l'API, ils vivront sur le serveur et le membre les ouvrira depuis n'importe quel téléphone.
+ */
+const PAYMENT_LINKS_KEY = "mbd.paymentLinks";
+function loadPaymentLinks(): PaymentLink[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(PAYMENT_LINKS_KEY) ?? "[]");
+    return Array.isArray(parsed) ? (parsed as PaymentLink[]) : [];
+  } catch {
+    return [];
+  }
+}
+function persistPaymentLinks(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PAYMENT_LINKS_KEY, JSON.stringify(state.paymentLinks));
+  } catch {
+    /* stockage indisponible : le lien reste valable dans cet onglet */
+  }
+}
+/** Un code temporaire de technicien vaut 72 heures. */
+const TECHNICIAN_CODE_TTL_MS = 72 * 60 * 60 * 1000;
+
+/** Code temporaire : 8 chiffres tirés au hasard (cryptographiquement), jamais un mot ni une lettre. */
+function generateTemporaryCode(): string {
+  const digits = new Uint32Array(8);
+  globalThis.crypto.getRandomValues(digits);
+  return Array.from(digits, (value) => String(value % 10)).join("");
+}
+const digitsOf = (value: string) => value.replace(/\D/g, "");
 let state: State = {
   session: null,
   producers: PRODUCERS,
@@ -316,6 +396,32 @@ let state: State = {
   users: (
     [
       {
+        id: "u0",
+        name: "Super administrateur",
+        email: "octus.informatique@gmail.com",
+        phone: "",
+        role: "superadmin",
+        active: true,
+      },
+      {
+        id: "u20",
+        name: "Cheikh Ndiaye",
+        email: "cheikh.ndiaye@scoop-kms.example",
+        phone: "77 530 41 18",
+        role: "bureau",
+        scoopId: "s1",
+        active: true,
+      },
+      {
+        id: "u21",
+        name: "Awa Sy",
+        email: "awa.sy@scoop-kms.example",
+        phone: "78 644 09 27",
+        role: "surveillance",
+        scoopId: "s1",
+        active: true,
+      },
+      {
         id: "u1",
         name: "Aïssatou Ndiaye",
         email: "aissatou.ndiaye@cradesc.example",
@@ -347,6 +453,7 @@ let state: State = {
         email: "ousmane.gueye@uscn.example",
         phone: "77 650 81 09",
         role: "faitiere",
+        scoopIds: ["s1", "s2", "s3", "s4"],
         active: true,
       },
       {
@@ -356,6 +463,8 @@ let state: State = {
         phone: "70 118 77 30",
         role: "technicien",
         scoopIds: ["s3"],
+        sex: "H",
+        age: 41,
         active: false,
       },
       {
@@ -365,6 +474,8 @@ let state: State = {
         phone: "76 330 41 18",
         role: "technicien",
         scoopIds: ["s1", "s2"],
+        sex: "F",
+        age: 34,
         active: true,
       },
       {
@@ -480,7 +591,12 @@ let state: State = {
   reports: [],
   contributionRules: CONTRIBUTION_RULES,
   payments: CONTRIBUTION_PAYMENTS,
+  paymentLinks: loadPaymentLinks(),
   meetings: MEETINGS,
+  rolePermissions: cloneDefaultMatrix(),
+  customRoles: [],
+  deletedDocuments: [],
+  reminderSettings: {},
 };
 
 const listeners = new Set<() => void>();
@@ -555,13 +671,83 @@ function writeSessionRaw(value: string | null) {
 
 /** Seul ce qui identifie la session est conservé : droits et périmètre sont recalculés à la restauration. */
 type StoredSession = Pick<Session, "name" | "email" | "role" | "expiresAt">;
-const isRole = (v: unknown): v is RoleId => typeof v === "string" && v in ROLE_LABEL;
+const isRole = (v: unknown): v is RoleId => isKnownRole(v, state.customRoles);
+const labelOfRole = (role: RoleId) => roleName(role, state.customRoles);
+/** Super administrateurs encore actifs : il en reste toujours au moins un. */
+const activeSuperAdmins = () => state.users.filter((u) => u.role === LOCKED_ROLE && u.active).length;
+/** Un nom de rôle est pris s'il est déjà celui d'un rôle intégré, global ou de la même coopérative. */
+const roleNameTaken = (name: string, scoopId?: string | null) =>
+  [
+    ...BUILT_IN_ROLES.map((role) => roleName(role, [])),
+    ...state.customRoles
+      .filter((role) => !role.scoopId || role.scoopId === scoopId)
+      .map((role) => role.name),
+  ].some((existing) => existing.toLowerCase() === name.toLowerCase());
+
+/**
+ * Droit de gérer un rôle (créer, renommer, régler ses droits, supprimer) :
+ * - rôles intégrés et rôles globaux : super administrateur (`role.configure`) ;
+ * - sous-rôle d'une coopérative : `subrole.manage` dans le périmètre de cette coopérative, avec un plafond :
+ *   un sous-rôle reçoit au plus les droits de son créateur, moins les droits d'administration du réseau.
+ * `ceiling` vaut `null` quand il n'y a pas de plafond (super administrateur).
+ */
+function roleManageCheck(
+  role: CustomRole | null,
+  newScoopId?: string | null,
+): { ok: true; ceiling: Permission[] | null } | { ok: false; error: string } {
+  const who = actor();
+  if (!who) return fail("errors.roles.unknown");
+  if (who.session.permissions.includes("role.configure")) return { ok: true, ceiling: null };
+  const scoopId = role ? role.scoopId : newScoopId;
+  // Sans coopérative propriétaire : rôle intégré ou global, réservé au super administrateur.
+  if (!scoopId) return fail("errors.roles.superAdminOnly");
+  if (!who.session.permissions.includes("subrole.manage")) return fail("errors.roles.notAllowed");
+  if (!inScope([{ scoopId }], who.session).length) return fail("errors.roles.notYours");
+  return { ok: true, ceiling: delegablePermissions(who.session.permissions) };
+}
+
+/** Identifiant stable d'un rôle créé : `custom-` + nom simplifié (+ numéro si déjà pris). */
+function newCustomRoleId(name: string): CustomRoleId {
+  const slug =
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "role";
+  let id: CustomRoleId = `custom-${slug}`;
+  for (let n = 2; state.customRoles.some((role) => role.id === id) || id in state.rolePermissions; n++)
+    id = `custom-${slug}-${n}`;
+  return id;
+}
 /** Le périmètre vient du compte (`scoopIds` d'un technicien, sinon sa `scoopId`) ; à défaut, de la démonstration. */
-const buildSession = ({ name, email, role, expiresAt }: StoredSession): Session => {
+const buildSession = (
+  { name, email, role, expiresAt }: StoredSession,
+  serverPermissions?: readonly Permission[],
+): Session => {
   const user = state.users.find((u) => u.email === email);
   const ids = user?.scoopIds ?? (user?.scoopId ? [user.scoopId] : undefined);
-  return { name, email, role, expiresAt, ...fetchMyPermissions(role, ids) };
+  const computed = fetchMyPermissions(role, ids, state.rolePermissions, state.customRoles);
+  // Mode API : les droits renvoyés par le serveur (GET /me) font foi.
+  return {
+    name,
+    email,
+    role,
+    expiresAt,
+    ...computed,
+    ...(serverPermissions && { permissions: [...serverPermissions] }),
+  };
 };
+
+/** Recalcule les droits de la session en cours après un changement de matrice ou de rôle. */
+function refreshSession() {
+  const session = state.session;
+  if (!session) return;
+  const user = state.users.find((u) => u.email.toLowerCase() === session.email.toLowerCase());
+  const role = user && isRole(user.role) ? user.role : session.role;
+  set({ session: buildSession({ ...session, role }) });
+}
 
 // ============ Aides des actions du circuit de validation ============
 
@@ -577,6 +763,45 @@ function access(
 ): { ok: false; error: string } | null {
   const result = checkAccess(state.session, permission);
   return result.ok ? null : fail(result.key);
+}
+/** Contrôles communs à la création et à la modification d'un technicien : téléphone, sexe et âge obligatoires. */
+function technicianProfileError(input: { phone: string; sex?: string; age?: number }): string | null {
+  if (input.phone.replace(/\D/g, "").length < 9) return "errors.technician.phone";
+  if (input.sex !== "F" && input.sex !== "H") return "errors.technician.sex";
+  if (!Number.isInteger(input.age) || (input.age as number) < 15 || (input.age as number) > 100)
+    return "errors.technician.age";
+  return null;
+}
+/** Réunion en ligne ou mixte : un lien https est obligatoire. Rien à vérifier sur place. */
+function meetingOnlineError(mode: MeetingMode, url: string | null | undefined): MessageKey | null {
+  if (mode === "sur place") return null;
+  try {
+    const parsed = new URL((url ?? "").trim());
+    return parsed.protocol === "https:" ? null : "errors.meeting.link";
+  } catch {
+    return "errors.meeting.link";
+  }
+}
+
+/** Convoqués : seuls les GIE de la coopérative et le personnel de son périmètre sont gardés ; invités libres nettoyés. */
+function cleanMeetingAudience(audience: MeetingAudience | undefined, scoopId: string): MeetingAudience {
+  const orgIds = [...new Set(audience?.orgIds ?? [])].filter((id) =>
+    state.orgs.some((org) => org.id === id && org.scoopId === scoopId),
+  );
+  const staffIds = [...new Set(audience?.staffIds ?? [])].filter((id) =>
+    state.users.some((user) => user.id === id && (user.scoopId === scoopId || user.scoopIds?.includes(scoopId))),
+  );
+  const others = [...new Set((audience?.others ?? []).map((name) => name.trim()).filter(Boolean))].slice(0, 50);
+  return { orgIds, staffIds, others };
+}
+/** Rattachement d'un document : la cible doit appartenir à la coopérative (GIE, technicien, personnel). */
+function documentLinkValid(link: DocumentLink, scoopId: string): boolean {
+  if (link.type === "org") return state.orgs.some((org) => org.id === link.id && org.scoopId === scoopId);
+  const user = state.users.find((candidate) => candidate.id === link.id);
+  if (!user || !(user.scoopId === scoopId || user.scoopIds?.includes(scoopId))) return false;
+  return link.type === "technicien"
+    ? user.role === "technicien"
+    : user.role !== "technicien" && !["admin", "superadmin", "faitiere"].includes(user.role);
 }
 /** Refus d'une action qui ne renvoie pas de résultat (identifiant, nombre, sauvegarde) : l'appel échoue franchement. */
 export class AccessDeniedError extends Error {
@@ -763,10 +988,10 @@ export const actions = {
       writeSessionRaw(null);
     }
   },
-  login(name: string, email: string, role: RoleId) {
+  login(name: string, email: string, role: RoleId, serverPermissions?: readonly Permission[]) {
     const stored: StoredSession = { name, email, role, expiresAt: Date.now() + TOKEN_MS };
     writeSessionRaw(JSON.stringify(stored));
-    set({ session: buildSession(stored) });
+    set({ session: buildSession(stored, serverPermissions) });
     audit("Connexion", "Session", `Profil ${role}`);
   },
   logout() {
@@ -789,7 +1014,7 @@ export const actions = {
     set({ youthMaxAge: n });
   },
   revealCni(p: Producer, reason = "") {
-    requirePermission("cni.read");
+    requirePermission("identity.read_full");
     const motif = reason.trim();
     if (motif.length < 3) throw new Error("Motif de révélation CNI trop court (3 caractères min.).");
     audit("Révélation CNI", `Producteur ${p.code}`, motif);
@@ -913,6 +1138,8 @@ export const actions = {
   },
   addUser(u: Omit<AppUser, "id" | "active"> & { id?: string }) {
     requirePermission("user.manage");
+    // Seul le super administrateur crée un administrateur CRADESC ou un autre super administrateur.
+    if (SUPER_ADMIN_ONLY_ROLES.includes(u.role as never)) requirePermission("role.configure");
     const id = u.id ?? nextId("u", state.users);
     const { id: _ignore, ...rest } = u as typeof u & { id?: string };
     set((s) => ({ users: [...s.users, { ...rest, id, active: true }] }));
@@ -926,31 +1153,583 @@ export const actions = {
       email: string;
       role: RoleId;
       scoopId: string | null;
+      /** Coopératives liées : plusieurs pour un technicien ou une faîtière. */
+      scoopIds?: string[];
       phone: string | null;
       active: boolean;
     }>,
   ) {
     requirePermission("user.manage");
     set({
-      users: items.map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        phone: u.phone ?? "",
-        role: u.role,
-        scoopId: u.scoopId ?? undefined,
-        active: u.active,
-      })),
+      users: items.map((apiUser) => {
+        const manyScoops = roleAllowsManyScoops(apiUser.role);
+        const scoopIds = apiUser.scoopIds?.length ? apiUser.scoopIds : apiUser.scoopId ? [apiUser.scoopId] : [];
+        return {
+          id: apiUser.id,
+          name: apiUser.name,
+          email: apiUser.email,
+          phone: apiUser.phone ?? "",
+          role: apiUser.role,
+          // Technicien et faîtière : liste des coopératives ; les autres rôles : une seule.
+          scoopId: manyScoops ? undefined : (apiUser.scoopId ?? undefined),
+          ...(manyScoops && { scoopIds }),
+          active: apiUser.active,
+        };
+      }),
     });
   },
-  toggleUser(id: string) {
-    requirePermission("user.manage");
-    set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, active: !u.active } : u)) }));
-    const u = state.users.find((x) => x.id === id);
-    audit(u?.active ? "Réactivation" : "Désactivation", "Utilisateur", u?.name ?? "");
-    // Désactiver son propre compte ferme la session en cours.
-    if (u && !u.active && state.session?.email.toLowerCase() === u.email.toLowerCase())
-      actions.logout();
+  /**
+   * Désactive ou réactive un compte. On ne se désactive pas soi-même ; seul le super administrateur touche à un
+   * compte super administrateur. Un compte désactivé ne se connecte plus, ses données restent.
+   */
+  toggleUser(id: string): ActionResult<{ active: boolean }> {
+    const denied = access("user.manage");
+    if (denied) return denied;
+    const who = actor();
+    const target = state.users.find((x) => x.id === id);
+    if (!who || !target) return fail("errors.roles.userNotFound");
+    if (target.email.toLowerCase() === who.email.toLowerCase()) return fail("errors.users.self");
+    if (SUPER_ADMIN_ONLY_ROLES.includes(target.role as never) && !who.session.permissions.includes("role.configure"))
+      return fail("errors.roles.superAdminOnly");
+    if (target.active && target.role === LOCKED_ROLE && activeSuperAdmins() <= 1)
+      return fail("errors.users.lastSuperAdmin");
+    const active = !target.active;
+    set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, active } : u)) }));
+    audit(active ? "Réactivation" : "Désactivation", `Utilisateur ${target.name}`, target.email);
+    return { ok: true, active };
+  },
+  /**
+   * Supprime définitivement un compte (décision de l'utilisateur : les comptes, contrairement aux données
+   * métier, se suppriment physiquement). Confirmation par l'adresse e-mail retapée ; appareils et liaisons du
+   * compte partent avec lui ; le journal garde la trace (qui, quand, quel compte).
+   */
+  deleteUser(id: string, confirmEmail: string): ActionResult {
+    const denied = access("user.manage");
+    if (denied) return denied;
+    const who = actor();
+    const target = state.users.find((x) => x.id === id);
+    if (!who || !target) return fail("errors.roles.userNotFound");
+    if (target.email.toLowerCase() === who.email.toLowerCase()) return fail("errors.users.self");
+    if (SUPER_ADMIN_ONLY_ROLES.includes(target.role as never) && !who.session.permissions.includes("role.configure"))
+      return fail("errors.roles.superAdminOnly");
+    if (target.role === LOCKED_ROLE && state.users.filter((u) => u.role === LOCKED_ROLE).length <= 1)
+      return fail("errors.users.lastSuperAdmin");
+    if (confirmEmail.trim().toLowerCase() !== target.email.toLowerCase())
+      return fail("errors.users.confirmEmail");
+    set((s) => ({
+      users: s.users.filter((u) => u.id !== id),
+      devices: s.devices.filter((device) => device.userId !== id),
+      links: s.links.filter((link) => link.userId !== id),
+      linkCandidates: s.linkCandidates.filter((candidate) => candidate.userId !== id),
+    }));
+    audit(
+      "Compte supprimé définitivement",
+      `Utilisateur ${target.name}`,
+      `${target.email} · ${labelOfRole(target.role)}`,
+      target.scoopId ?? target.scoopIds?.[0],
+    );
+    return { ok: true };
+  },
+  /**
+   * Invite un technicien : compte inactif jusqu'à l'activation (lien d'invitation), qui couvre une ou
+   * plusieurs coopératives du périmètre de la personne connectée.
+   */
+  createTechnician(input: {
+    name: string;
+    email?: string;
+    phone: string;
+    sex: "F" | "H";
+    age: number;
+    scoopIds: string[];
+    orgIds?: string[];
+  }): ActionResult<{ userId: string; code: string; expiresAt: string }> {
+    const denied = access(["user.manage", "technician.invite"]);
+    if (denied) return denied;
+    const who = actor();
+    if (!who) return fail("errors.technician.notFound");
+    const name = input.name.trim().replace(/\s+/g, " ");
+    const email = (input.email ?? "").trim();
+    if (name.split(" ").length < 2) return fail("errors.technician.name");
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("errors.technician.email");
+    const profileError = technicianProfileError(input);
+    if (profileError) return fail(profileError as never);
+    if (
+      email &&
+      [...state.users.map((u) => u.email), ...state.members.map((m) => m.email)].some(
+        (e) => e && e.toLowerCase() === email.toLowerCase(),
+      )
+    )
+      return fail("errors.technician.emailTaken");
+    // Le téléphone est l'identifiant de connexion mobile : un seul compte par numéro.
+    if (state.users.some((u) => digitsOf(u.phone) === digitsOf(input.phone)))
+      return fail("errors.technician.phoneTaken");
+    const scoopIds = [...new Set(input.scoopIds)];
+    if (!scoopIds.length) return fail("errors.technician.scoops");
+    if (
+      inScope(scoopIds.map((scoopId) => ({ scoopId })), who.session).length !== scoopIds.length ||
+      scoopIds.some((id) => isArchived(id))
+    )
+      return fail("errors.technician.scope");
+    const issuedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + TECHNICIAN_CODE_TTL_MS).toISOString();
+    const code = generateTemporaryCode();
+    const user: AppUser = {
+      id: nextId("u", state.users),
+      name,
+      email,
+      phone: input.phone.trim(),
+      sex: input.sex,
+      age: input.age,
+      role: "technicien",
+      scoopIds,
+      ...(input.orgIds?.length
+        ? { orgIds: [...new Set(input.orgIds)].filter((id) => state.orgs.some((o) => o.id === id && scoopIds.includes(o.scoopId))) }
+        : {}),
+      active: false,
+      activation: { code, issuedAt, expiresAt, failedAttempts: 0 },
+    };
+    set((s) => ({ users: [...s.users, user] }));
+    audit(
+      "Technicien ajouté",
+      `Utilisateur ${name}`,
+      scoopIds.map((id) => scoopName(id)).join(", "),
+      scoopIds[0],
+    );
+    audit("Code temporaire généré", `Utilisateur ${name}`, "Remis en main propre", scoopIds[0]);
+    return { ok: true, userId: user.id, code, expiresAt };
+  },
+  /**
+   * Génère un nouveau code temporaire (code perdu ou expiré) : l'ancien code cesse de marcher et le mot de passe déjà
+   * choisi est annulé (le technicien se réactive avec ce code). Le code n'est montré qu'à cet instant.
+   */
+  regenerateTechnicianCode(userId: string): ActionResult<{ code: string; expiresAt: string }> {
+    const denied = access(["user.manage", "technician.invite"]);
+    if (denied) return denied;
+    const who = actor();
+    const user = state.users.find((u) => u.id === userId);
+    if (!who || !user || user.role !== "technicien") return fail("errors.technician.notFound");
+    const scoopIds = user.scoopIds ?? (user.scoopId ? [user.scoopId] : []);
+    if (!inScope(scoopIds.map((scoopId) => ({ scoopId })), who.session).length)
+      return fail("errors.technician.scope");
+    const code = generateTemporaryCode();
+    const issuedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + TECHNICIAN_CODE_TTL_MS).toISOString();
+    set((s) => ({
+      users: s.users.map((u) =>
+        // Le mot de passe déjà choisi ne vaut plus : le technicien se réactive avec ce code et en choisit un nouveau.
+        u.id === userId ? { ...u, active: false, activation: { code, issuedAt, expiresAt, failedAttempts: 0 } } : u,
+      ),
+    }));
+    audit("Nouveau code temporaire", `Utilisateur ${user.name}`, "Remis en main propre", scoopIds[0]);
+    return { ok: true, code, expiresAt };
+  },
+  /**
+   * Envoie le code par e-mail, seulement si le technicien le souhaite et a une adresse. Jamais par défaut ; le code
+   * lui-même n'entre pas dans le journal.
+   */
+  sendTechnicianCodeByEmail(userId: string, code: string): ActionResult<{ email: string }> {
+    const denied = access(["user.manage", "technician.invite"]);
+    if (denied) return denied;
+    const who = actor();
+    const user = state.users.find((u) => u.id === userId);
+    if (!who || !user || user.role !== "technicien") return fail("errors.technician.notFound");
+    const scoopIds = user.scoopIds ?? (user.scoopId ? [user.scoopId] : []);
+    if (!inScope(scoopIds.map((scoopId) => ({ scoopId })), who.session).length)
+      return fail("errors.technician.scope");
+    if (!user.email) return fail("errors.technician.noEmail");
+    if (user.activation?.code !== code) return fail("errors.technician.codeStale");
+    audit("Code temporaire envoyé par e-mail", `Utilisateur ${user.name}`, user.email, scoopIds[0]);
+    return { ok: true, email: user.email };
+  },
+  /**
+   * Coopératives couvertes par un technicien (ajout ou retrait). Un technicien couvre toujours au moins une
+   * coopérative ; les coopératives hors du périmètre de la personne connectée restent inchangées.
+   */
+  setTechnicianScoops(userId: string, scoopIds: string[]): ActionResult {
+    const denied = access(["user.manage", "technician.invite"]);
+    if (denied) return denied;
+    const who = actor();
+    const user = state.users.find((u) => u.id === userId);
+    if (!who || !user || user.role !== "technicien") return fail("errors.technician.notFound");
+    const wanted = [...new Set(scoopIds)];
+    if (
+      inScope(wanted.map((scoopId) => ({ scoopId })), who.session).length !== wanted.length ||
+      wanted.some((id) => isArchived(id))
+    )
+      return fail("errors.technician.scope");
+    const current = user.scoopIds ?? (user.scoopId ? [user.scoopId] : []);
+    const outside = current.filter((id) => !inScope([{ scoopId: id }], who.session).length);
+    const next = [...new Set([...outside, ...wanted])];
+    if (!next.length) return fail("errors.technician.scoops");
+    set((s) => ({
+      users: s.users.map((u) => (u.id === userId ? { ...u, scoopIds: next, scoopId: undefined } : u)),
+    }));
+    const added = next.filter((id) => !current.includes(id)).map((id) => scoopName(id));
+    const removed = current.filter((id) => !next.includes(id)).map((id) => scoopName(id));
+    audit(
+      "Coopératives du technicien",
+      `Utilisateur ${user.name}`,
+      [added.length ? `+ ${added.join(", ")}` : "", removed.length ? `- ${removed.join(", ")}` : ""]
+        .filter(Boolean)
+        .join(" ; "),
+      next[0],
+    );
+    return { ok: true };
+  },
+  /**
+   * Modifie un technicien de son périmètre : nom, téléphone et GIE suivis (aucun GIE = toute la coopérative).
+   * Les GIE doivent appartenir à une coopérative du technicien ; ceux d'autres coopératives restent inchangés.
+   */
+  updateTechnician(
+    userId: string,
+    input: { name: string; phone: string; sex: "F" | "H"; age: number; orgIds: string[] },
+  ): ActionResult {
+    const denied = access(["user.manage", "technician.invite"]);
+    if (denied) return denied;
+    const who = actor();
+    const user = state.users.find((u) => u.id === userId);
+    if (!who || !user || user.role !== "technicien") return fail("errors.technician.notFound");
+    const scoopIds = user.scoopIds ?? (user.scoopId ? [user.scoopId] : []);
+    if (!inScope(scoopIds.map((scoopId) => ({ scoopId })), who.session).length)
+      return fail("errors.technician.scope");
+    const name = input.name.trim().replace(/\s+/g, " ");
+    if (name.split(" ").length < 2) return fail("errors.technician.name");
+    const profileError = technicianProfileError(input);
+    if (profileError) return fail(profileError as never);
+    const visible = (id: string) => inScope([{ scoopId: id }], who.session).length > 0;
+    const keptOutside = (user.orgIds ?? []).filter((id) => {
+      const org = state.orgs.find((o) => o.id === id);
+      return !org || !visible(org.scoopId);
+    });
+    const chosen = [...new Set(input.orgIds)].filter((id) => {
+      const org = state.orgs.find((o) => o.id === id);
+      return !!org && scoopIds.includes(org.scoopId) && visible(org.scoopId);
+    });
+    const orgIds = [...keptOutside, ...chosen];
+    set((s) => ({
+      users: s.users.map((u) =>
+        u.id === userId ? { ...u, name, phone: input.phone.trim(), sex: input.sex, age: input.age, orgIds } : u,
+      ),
+    }));
+    audit("Technicien modifié", `Utilisateur ${name}`, user.email, scoopIds[0]);
+    return { ok: true };
+  },
+  /**
+   * Retire un technicien d'une coopérative. S'il en suit d'autres, il y reste (compte intact) ; si c'était la
+   * seule, son compte est supprimé (il n'aurait plus aucun périmètre). Ses GIE de cette coopérative sont retirés.
+   */
+  removeTechnicianFromScoop(userId: string, scoopId: string): ActionResult<{ deleted: boolean }> {
+    const denied = access(["user.manage", "technician.invite"]);
+    if (denied) return denied;
+    const who = actor();
+    const user = state.users.find((u) => u.id === userId);
+    if (!who || !user || user.role !== "technicien") return fail("errors.technician.notFound");
+    if (!inScope([{ scoopId }], who.session).length) return fail("errors.technician.scope");
+    const current = user.scoopIds ?? (user.scoopId ? [user.scoopId] : []);
+    if (!current.includes(scoopId)) return fail("errors.technician.notFound");
+    const next = current.filter((id) => id !== scoopId);
+    if (!next.length) {
+      set((s) => ({
+        users: s.users.filter((u) => u.id !== userId),
+        devices: s.devices.filter((device) => device.userId !== userId),
+        links: s.links.filter((link) => link.userId !== userId),
+        linkCandidates: s.linkCandidates.filter((candidate) => candidate.userId !== userId),
+      }));
+      audit("Technicien supprimé", `Utilisateur ${user.name}`, scoopName(scoopId), scoopId);
+      return { ok: true, deleted: true };
+    }
+    const orgIds = (user.orgIds ?? []).filter(
+      (id) => state.orgs.find((o) => o.id === id)?.scoopId !== scoopId,
+    );
+    set((s) => ({
+      users: s.users.map((u) => (u.id === userId ? { ...u, scoopIds: next, scoopId: undefined, orgIds } : u)),
+    }));
+    audit("Technicien retiré d'une coopérative", `Utilisateur ${user.name}`, scoopName(scoopId), scoopId);
+    return { ok: true, deleted: false };
+  },
+  /**
+   * Lie à ses coopératives un technicien déjà inscrit ailleurs (il travaille pour plusieurs coopératives) : le
+   * gestionnaire saisit son adresse e-mail et ajoute SA coopérative, sans jamais voir ni toucher les autres.
+   */
+  linkTechnicianByEmail(email: string, scoopIds: string[]): ActionResult<{ userId: string }> {
+    const denied = access(["user.manage", "technician.invite"]);
+    if (denied) return denied;
+    const who = actor();
+    if (!who) return fail("errors.technician.notFound");
+    const technician = state.users.find(
+      (user) => user.role === "technicien" && user.email.toLowerCase() === email.trim().toLowerCase(),
+    );
+    if (!technician) return fail("errors.technician.emailUnknown");
+    const wanted = [...new Set(scoopIds)];
+    if (!wanted.length) return fail("errors.technician.scoops");
+    if (
+      inScope(wanted.map((scoopId) => ({ scoopId })), who.session).length !== wanted.length ||
+      wanted.some((id) => isArchived(id))
+    )
+      return fail("errors.technician.scope");
+    const current = technician.scoopIds ?? (technician.scoopId ? [technician.scoopId] : []);
+    const next = [...new Set([...current, ...wanted])];
+    set((current) => ({
+      users: current.users.map((user) =>
+        user.id === technician.id ? { ...user, scoopIds: next, scoopId: undefined } : user,
+      ),
+    }));
+    audit(
+      "Technicien lié à une coopérative",
+      `Utilisateur ${technician.name}`,
+      wanted.map((id) => scoopName(id)).join(", "),
+      wanted[0],
+    );
+    return { ok: true, userId: technician.id };
+  },
+  // ============ Rôles et droits (super administrateur) ============
+
+  /** Remplace les droits d'un rôle. Le super administrateur garde toujours tout ; `role.configure` ne se distribue pas. */
+  setRolePermissions(role: RoleId, permissions: readonly string[]): ActionResult {
+    if (role === LOCKED_ROLE) return fail("errors.roles.locked");
+    if (!isRole(role)) return fail("errors.roles.unknown");
+    const managed = roleManageCheck(state.customRoles.find((item) => item.id === role) ?? null);
+    if (!managed.ok) return managed;
+    const before = state.rolePermissions[role] ?? [];
+    const next = sanitizeRolePermissions(role, permissions).filter(
+      (permission) => !managed.ceiling || managed.ceiling.includes(permission),
+    );
+    const added = next.filter((permission) => !before.includes(permission));
+    const removed = before.filter((permission) => !next.includes(permission));
+    if (!added.length && !removed.length) return { ok: true };
+    set((s) => ({ rolePermissions: { ...s.rolePermissions, [role]: next } }));
+    audit(
+      "Droits du rôle modifiés",
+      `Rôle ${labelOfRole(role)}`,
+      [added.length ? `+ ${added.join(", ")}` : "", removed.length ? `- ${removed.join(", ")}` : ""]
+        .filter(Boolean)
+        .join(" ; "),
+      state.customRoles.find((item) => item.id === role)?.scoopId,
+    );
+    refreshSession();
+    return { ok: true };
+  },
+  /** Remet un rôle intégré (ou tous) sur la matrice par défaut ; un rôle créé n'a pas de défaut. */
+  resetRolePermissions(role?: RoleId): ActionResult {
+    const denied = access("role.configure");
+    if (denied) return denied;
+    if (role && !isBuiltInRole(role)) return fail("errors.roles.noDefault");
+    const roles = role && isBuiltInRole(role) ? [role] : BUILT_IN_ROLES;
+    set((s) => ({
+      rolePermissions: {
+        ...s.rolePermissions,
+        ...Object.fromEntries(roles.map((r) => [r, [...DEFAULT_ROLE_PERMISSIONS[r]]])),
+      },
+    }));
+    audit("Droits par défaut rétablis", role ? `Rôle ${labelOfRole(role)}` : "Tous les rôles", "");
+    refreshSession();
+    return { ok: true };
+  },
+  /**
+   * Crée un rôle : nom unique, portée (coopérative ou consolidée), droits copiés d'un rôle existant ou vides.
+   */
+  createRole(input: {
+    name: string;
+    description?: string;
+    scoped: boolean;
+    copyFrom?: RoleId | null;
+    /** Sous-rôle d'une coopérative (créé par son gestionnaire) ; absent : rôle global du super administrateur. */
+    scoopId?: string | null;
+  }): ActionResult<{ id: CustomRoleId }> {
+    const managed = roleManageCheck(null, input.scoopId);
+    if (!managed.ok) return managed;
+    const who = actor();
+    if (!who) return fail("errors.roles.unknown");
+    const scoopId = input.scoopId ?? undefined;
+    if (scoopId && (!state.scoops.some((scoop) => scoop.id === scoopId) || isArchived(scoopId)))
+      return fail("errors.roles.scoopUnknown");
+    const name = input.name.trim().replace(/\s+/g, " ");
+    if (name.length < 3 || name.length > 60) return fail("errors.roles.name");
+    if (roleNameTaken(name, scoopId)) return fail("errors.roles.nameTaken");
+    if (input.copyFrom && !isRole(input.copyFrom)) return fail("errors.roles.unknown");
+    // Un sous-rôle ne copie que les rôles de la coopérative et ses propres sous-rôles, jamais un rôle du réseau.
+    if (
+      scoopId &&
+      input.copyFrom &&
+      !SUBROLE_COPY_SOURCES.includes(input.copyFrom) &&
+      state.customRoles.find((item) => item.id === input.copyFrom)?.scoopId !== scoopId
+    )
+      return fail("errors.roles.copySource");
+    const id = newCustomRoleId(name);
+    const role: CustomRole = {
+      id,
+      name,
+      description: (input.description ?? "").trim(),
+      // Un sous-rôle est toujours limité à sa coopérative.
+      scoped: scoopId ? true : input.scoped,
+      ...(scoopId && { scoopId }),
+      createdAt: new Date().toISOString(),
+      createdBy: who.name,
+    };
+    const permissions = (input.copyFrom
+      ? sanitizeRolePermissions(id, state.rolePermissions[input.copyFrom] ?? [])
+      : []
+    ).filter((permission) => !managed.ceiling || managed.ceiling.includes(permission));
+    set((s) => ({
+      customRoles: [...s.customRoles, role],
+      rolePermissions: { ...s.rolePermissions, [id]: permissions },
+    }));
+    audit(
+      scoopId ? "Sous-rôle créé" : "Rôle créé",
+      `Rôle ${name}`,
+      `${role.scoped ? "limité à une coopérative" : "vue consolidée"}${input.copyFrom ? ` · droits copiés de ${labelOfRole(input.copyFrom)}` : ""} · ${permissions.length} droit(s)`,
+      scoopId,
+    );
+    return { ok: true, id };
+  },
+  /** Renomme un rôle créé ou change sa description ; la portée ne change que s'il n'a aucun compte. */
+  updateRole(
+    id: RoleId,
+    patch: { name?: string; description?: string; scoped?: boolean },
+  ): ActionResult {
+    const role = state.customRoles.find((item) => item.id === id);
+    if (!role) return fail(isBuiltInRole(id) ? "errors.roles.builtIn" : "errors.roles.unknown");
+    const managed = roleManageCheck(role);
+    if (!managed.ok) return managed;
+    const name = patch.name === undefined ? role.name : patch.name.trim().replace(/\s+/g, " ");
+    if (name.length < 3 || name.length > 60) return fail("errors.roles.name");
+    if (name.toLowerCase() !== role.name.toLowerCase() && roleNameTaken(name, role.scoopId))
+      return fail("errors.roles.nameTaken");
+    // La portée d'un sous-rôle ne change pas : il appartient à sa coopérative.
+    const scoped = role.scoopId ? true : (patch.scoped ?? role.scoped);
+    if (scoped !== role.scoped && state.users.some((user) => user.role === id))
+      return fail("errors.roles.scopeInUse");
+    const next: CustomRole = {
+      ...role,
+      name,
+      description: patch.description === undefined ? role.description : patch.description.trim(),
+      scoped,
+    };
+    set((s) => ({ customRoles: s.customRoles.map((item) => (item.id === id ? next : item)) }));
+    audit(
+      "Rôle modifié",
+      `Rôle ${role.name}`,
+      [
+        name !== role.name ? `nom : ${role.name} → ${name}` : "",
+        scoped !== role.scoped ? `portée : ${scoped ? "coopérative" : "consolidée"}` : "",
+        next.description !== role.description ? "description modifiée" : "",
+      ]
+        .filter(Boolean)
+        .join(" ; "),
+    );
+    refreshSession();
+    return { ok: true };
+  },
+  /**
+   * Supprime un rôle créé. Ses comptes passent d'abord sur un autre rôle de même portée (`reassignTo`) :
+   * aucun compte ne reste sans rôle. Les rôles intégrés ne se suppriment pas (règles métier dans le code).
+   */
+  deleteRole(id: RoleId, reassignTo?: RoleId | null): ActionResult<{ moved: number }> {
+    const role = state.customRoles.find((item) => item.id === id);
+    if (!role) return fail(isBuiltInRole(id) ? "errors.roles.builtIn" : "errors.roles.unknown");
+    const managed = roleManageCheck(role);
+    if (!managed.ok) return managed;
+    const holders = state.users.filter((user) => user.role === id);
+    if (holders.length) {
+      if (!reassignTo || reassignTo === id || !isRole(reassignTo)) return fail("errors.roles.reassignRequired");
+      if (SUPER_ADMIN_ONLY_ROLES.includes(reassignTo as never)) return fail("errors.roles.reassignSuper");
+      if (roleIsScoped(reassignTo, state.customRoles) !== role.scoped) return fail("errors.roles.reassignScope");
+      // Un sous-rôle de coopérative ne se remplace que par un rôle de coopérative ou un sous-rôle de la même.
+      if (role.scoopId) {
+        const sameCoop = state.customRoles.find((item) => item.id === reassignTo)?.scoopId === role.scoopId;
+        if (!COOPERATIVE_ROLES.includes(reassignTo) && !sameCoop) return fail("errors.roles.reassignScope");
+      }
+    }
+    const { [id]: _removed, ...matrix } = state.rolePermissions;
+    set((s) => ({
+      customRoles: s.customRoles.filter((item) => item.id !== id),
+      rolePermissions: matrix,
+      users: s.users.map((user) =>
+        user.role === id && reassignTo
+          ? {
+              ...user,
+              role: reassignTo,
+              // Une seule coopérative sauf pour le technicien et la faîtière : on garde la première.
+              ...(!roleAllowsManyScoops(reassignTo) && {
+                scoopId: user.scoopId ?? user.scoopIds?.[0],
+                scoopIds: undefined,
+              }),
+            }
+          : user,
+      ),
+    }));
+    audit(
+      "Rôle supprimé",
+      `Rôle ${role.name}`,
+      holders.length && reassignTo
+        ? `${holders.length} compte(s) déplacé(s) vers ${labelOfRole(reassignTo)}`
+        : "aucun compte",
+      role.scoopId,
+    );
+    refreshSession();
+    return { ok: true, moved: holders.length };
+  },
+  /** Mode API : la matrice et les rôles créés viennent du serveur (GET /admin/roles). */
+  replaceRolePermissionsFromApi(
+    matrix: Partial<Record<string, readonly string[]>>,
+    customRoles?: readonly CustomRole[],
+  ) {
+    const roles = customRoles ?? state.customRoles;
+    const next = cloneDefaultMatrix();
+    for (const role of [...BUILT_IN_ROLES, ...roles.map((item) => item.id)]) {
+      const fromServer = matrix[role];
+      if (fromServer) next[role] = sanitizeRolePermissions(role, fromServer);
+      else if (!isBuiltInRole(role)) next[role] = [];
+    }
+    set({ rolePermissions: next, customRoles: [...roles] });
+  },
+  /**
+   * Change le rôle d'un compte. Le super administrateur attribue n'importe quel rôle ; un administrateur ne
+   * touche ni au super administrateur ni ne le crée. Un rôle de coopérative exige au moins une SCOOP.
+   */
+  setUserRole(userId: string, role: RoleId, scoopIds: readonly string[] = []): ActionResult {
+    const denied = access("user.manage");
+    if (denied) return denied;
+    const who = actor();
+    const user = state.users.find((u) => u.id === userId);
+    if (!who || !user) return fail("errors.roles.userNotFound");
+    if (!isRole(role)) return fail("errors.roles.unknown");
+    // Administrateur CRADESC et super administrateur : seul le super administrateur les crée, les modifie, les retire.
+    const superAdminTouched =
+      SUPER_ADMIN_ONLY_ROLES.includes(role as never) || SUPER_ADMIN_ONLY_ROLES.includes(user.role as never);
+    if (superAdminTouched && !who.session.permissions.includes("role.configure"))
+      return fail("errors.roles.superAdminOnly");
+    if (user.email.toLowerCase() === who.email.toLowerCase() && user.role === LOCKED_ROLE && role !== LOCKED_ROLE)
+      return fail("errors.roles.selfDemote");
+    const scoped = roleIsScoped(role, state.customRoles);
+    const wanted = [...new Set(scoopIds)].filter((id) => state.scoops.some((x) => x.id === id));
+    if (scoped && !wanted.length) return fail("errors.roles.scoopRequired");
+    const many = roleAllowsManyScoops(role);
+    if (!many && wanted.length > 1) return fail("errors.roles.oneScoop");
+    // Un sous-rôle de coopérative ne se donne qu'à un compte de cette coopérative.
+    const owner = state.customRoles.find((item) => item.id === role)?.scoopId;
+    if (owner && (wanted.length !== 1 || wanted[0] !== owner)) return fail("errors.roles.scoopMismatch");
+    const before = user.role;
+    set((s) => ({
+      users: s.users.map((u) =>
+        u.id === userId
+          ? {
+              ...u,
+              role,
+              scoopId: scoped && !many ? wanted[0] : undefined,
+              scoopIds: many ? wanted : undefined,
+            }
+          : u,
+      ),
+    }));
+    audit(
+      "Rôle modifié",
+      `Utilisateur ${user.name}`,
+      `${labelOfRole(before)} → ${labelOfRole(role)}${wanted.length ? ` (${wanted.map((id) => scoopName(id)).join(", ")})` : ""}`,
+      wanted[0],
+    );
+    if (state.session?.email.toLowerCase() === user.email.toLowerCase()) refreshSession();
+    return { ok: true };
   },
   addImport(b: ImportBatch) {
     requirePermission("import.manage");
@@ -1190,7 +1969,16 @@ export const actions = {
       operations: snap.data.operations ?? FIELD_OPERATIONS,
       contributionRules: snap.data.contributionRules ?? [],
       payments: snap.data.payments ?? [],
-      meetings: snap.data.meetings ?? [],
+      paymentLinks: loadPaymentLinks(),
+      meetings: (snap.data.meetings ?? []).map((meeting) => ({
+        ...meeting,
+        decisions: meeting.decisions ?? [],
+      })),
+      deletedDocuments: snap.data.deletedDocuments ?? [],
+      reminderSettings: snap.data.reminderSettings ?? {},
+      // La matrice des rôles est un réglage de sécurité, pas une donnée : une restauration ne la change pas.
+      rolePermissions: state.rolePermissions,
+      customRoles: state.customRoles,
       session: state.session,
     });
     audit("Restauration", "Données", `Sauvegarde du ${snap.exportedAt}`);
@@ -1305,7 +2093,7 @@ export const actions = {
     if (!who || !member) return fail("errors.store.membreIntrouvable");
     if (!inScope([member], who.session).length) return fail("errors.store.ceMembreEstHorsDe");
     if (isArchived(member.scoopId)) return fail("errors.scoop.archived");
-    if (!assignableRoles(who.role).includes(role)) return fail("errors.store.votreRoleNePermetPas");
+    if (!assignableRoles(who.role, state.customRoles, member.scoopId).includes(role)) return fail("errors.store.votreRoleNePermetPas");
     if (member.email.trim().toLowerCase() === who.email.toLowerCase())
       return fail("errors.store.vousNePouvezPasModifier");
     const blocked = accountBlocker(member);
@@ -1317,7 +2105,7 @@ export const actions = {
     // que la personne connectée peut attribuer : on ne rétrograde pas un compte de rang supérieur.
     if (existing && existing.memberId !== memberId)
       return fail("errors.store.cetteAdresseEMailEst");
-    if (existing && !assignableRoles(who.role).includes(existing.role))
+    if (existing && !assignableRoles(who.role, state.customRoles, member.scoopId).includes(existing.role))
       return fail("errors.store.votreRoleNePermetPas");
     const id = existing?.id ?? nextId("u", state.users);
     const user: AppUser = {
@@ -1341,6 +2129,114 @@ export const actions = {
     );
     return { ok: true, userId: id };
   },
+  /**
+   * Personnel de la coopérative : la personne connectée crée un membre du personnel (secrétaire, bureau, ventes…) dans
+   * SA coopérative et lui attribue un rôle. Compte inactif jusqu'à l'activation par lien d'invitation (l'adresse
+   * e-mail sert à se connecter). Les techniciens se créent depuis leur propre écran.
+   */
+  createStaff(input: {
+    name: string;
+    email: string;
+    phone: string;
+    sex: "F" | "H";
+    age: number;
+    role: RoleId;
+    scoopId: string;
+  }): ActionResult<{ userId: string }> {
+    const denied = access("role.assign");
+    if (denied) return denied;
+    const who = actor();
+    if (!who) return fail("errors.staff.notFound");
+    if (!inScope([{ scoopId: input.scoopId }], who.session).length) return fail("errors.staff.scope");
+    if (isArchived(input.scoopId)) return fail("errors.scoop.archived");
+    const name = input.name.trim().replace(/\s+/g, " ");
+    const email = input.email.trim();
+    if (name.split(" ").length < 2) return fail("errors.technician.name");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("errors.technician.email");
+    const profileError = technicianProfileError(input);
+    if (profileError) return fail(profileError as never);
+    if (
+      input.role === "technicien" ||
+      !assignableRoles(who.role, state.customRoles, input.scoopId).includes(input.role)
+    )
+      return fail("errors.store.votreRoleNePermetPas");
+    if (
+      [...state.users.map((u) => u.email), ...state.members.map((m) => m.email)].some(
+        (e) => e && e.toLowerCase() === email.toLowerCase(),
+      )
+    )
+      return fail("errors.technician.emailTaken");
+    const at = new Date().toISOString();
+    const user: AppUser = {
+      id: nextId("u", state.users),
+      name,
+      email,
+      phone: input.phone.trim(),
+      sex: input.sex,
+      age: input.age,
+      role: input.role,
+      scoopId: input.scoopId,
+      active: false,
+      invited: { sentAt: at, expiresAt: new Date(Date.now() + INVITATION_TTL_MS).toISOString() },
+    };
+    set((s) => ({ users: [...s.users, user] }));
+    audit("Personnel ajouté", `Utilisateur ${name}`, labelOfRole(input.role), input.scoopId);
+    audit("Invitation envoyée", `Utilisateur ${name}`, email, input.scoopId);
+    return { ok: true, userId: user.id };
+  },
+  /** Personnel d'une coopérative de son périmètre : ni soi-même, ni un technicien, ni un rôle du réseau. */
+  updateStaff(
+    userId: string,
+    patch: { role?: RoleId; active?: boolean; name?: string; phone?: string; sex?: "F" | "H"; age?: number },
+  ): ActionResult {
+    const denied = access("role.assign");
+    if (denied) return denied;
+    const who = actor();
+    const user = state.users.find((u) => u.id === userId);
+    if (!who || !user || !user.scoopId) return fail("errors.staff.notFound");
+    if (!inScope([{ scoopId: user.scoopId }], who.session).length) return fail("errors.staff.scope");
+    if (user.email.toLowerCase() === who.email.toLowerCase()) return fail("errors.users.self");
+    const manageable = assignableRoles(who.role, state.customRoles, user.scoopId);
+    if (user.role === "technicien" || !manageable.includes(user.role))
+      return fail("errors.store.votreRoleNePermetPas");
+    if (patch.role && (patch.role === "technicien" || !manageable.includes(patch.role)))
+      return fail("errors.store.votreRoleNePermetPas");
+    const identity: Partial<AppUser> = {};
+    if (patch.name !== undefined) {
+      const name = patch.name.trim().replace(/\s+/g, " ");
+      if (name.split(" ").length < 2) return fail("errors.technician.name");
+      identity.name = name;
+    }
+    if (patch.phone !== undefined || patch.sex !== undefined || patch.age !== undefined) {
+      const profileError = technicianProfileError({
+        phone: patch.phone ?? user.phone,
+        sex: patch.sex ?? user.sex,
+        age: patch.age ?? user.age,
+      });
+      if (profileError) return fail(profileError as never);
+      if (patch.phone !== undefined) identity.phone = patch.phone.trim();
+      if (patch.sex !== undefined) identity.sex = patch.sex;
+      if (patch.age !== undefined) identity.age = patch.age;
+    }
+    set((s) => ({
+      users: s.users.map((u) =>
+        u.id === userId
+          ? {
+              ...u,
+              ...identity,
+              ...(patch.role ? { role: patch.role } : {}),
+              ...(patch.active !== undefined ? { active: patch.active } : {}),
+            }
+          : u,
+      ),
+    }));
+    if (Object.keys(identity).length) audit("Personnel modifié", `Utilisateur ${user.name}`, user.email, user.scoopId);
+    if (patch.role && patch.role !== user.role)
+      audit("Rôle modifié", `Utilisateur ${user.name}`, `${labelOfRole(user.role)} → ${labelOfRole(patch.role)}`, user.scoopId);
+    if (patch.active !== undefined && patch.active !== user.active)
+      audit(patch.active ? "Réactivation" : "Désactivation", `Utilisateur ${user.name}`, user.email, user.scoopId);
+    return { ok: true };
+  },
   /** Retire l'accès à l'application sans toucher au statut de membre ni à la fiche producteur. */
   revokeAccess(memberId: string): ActionResult {
     const denied = access("role.assign");
@@ -1349,12 +2245,12 @@ export const actions = {
     const member = state.members.find((m) => m.id === memberId);
     if (!who || !member) return fail("errors.store.membreIntrouvable");
     if (!inScope([member], who.session).length) return fail("errors.store.ceMembreEstHorsDe");
-    if (assignableRoles(who.role).length === 0) return fail("errors.store.votreRoleNePermetPas2");
+    if (assignableRoles(who.role, state.customRoles).length === 0) return fail("errors.store.votreRoleNePermetPas2");
     if (member.email.trim().toLowerCase() === who.email.toLowerCase())
       return fail("errors.store.vousNePouvezPasModifier");
     const user = state.users.find((u) => u.memberId === memberId && u.active);
     if (!user) return fail("errors.store.ceMembreNAPas");
-    if (!assignableRoles(who.role).includes(user.role))
+    if (!assignableRoles(who.role, state.customRoles).includes(user.role))
       return fail("errors.store.votreRoleNePermetPas3");
     set((s) => ({ users: s.users.map((u) => (u.id === user.id ? { ...u, active: false } : u)) }));
     audit("Accès retiré", `Membre ${user.name}`, user.role, member.scoopId);
@@ -1427,7 +2323,7 @@ export const actions = {
     const { dossier, who } = found;
     if (input.sizeKb > MAX_DOCUMENT_KB)
       return fail("errors.store.documentTooBig", { mb: MAX_DOCUMENT_KB / 1024 });
-    const id = nextId("doc", state.documents);
+    const id = nextId("doc", [...state.documents, ...state.deletedDocuments]);
     const doc: DocumentMeta = {
       id,
       ownerType: "dossier",
@@ -1464,8 +2360,11 @@ export const actions = {
     if (!doc || doc.ownerType !== "dossier") return fail("errors.store.pieceIntrouvable");
     const found = ownEditable(doc.ownerId);
     if (!found.ok) return found;
+    // Suppression logique : la pièce quitte le dossier mais reste conservée avec sa date de suppression.
+    const deleted = { ...doc, deletedAt: new Date().toISOString(), deletedBy: found.who.name };
     set((s) => ({
       documents: s.documents.filter((d) => d.id !== docId),
+      deletedDocuments: [...s.deletedDocuments, deleted],
       dossiers: s.dossiers.map((d) =>
         d.id === doc.ownerId ? { ...d, documentIds: d.documentIds.filter((x) => x !== docId) } : d,
       ),
@@ -1667,7 +2566,11 @@ export const actions = {
   /** Rappel (jamais une approbation automatique) pour les dossiers sans réponse depuis 14 jours. */
   sendDossierReminders(nowIso: string = new Date().toISOString()): number {
     requirePermission("dossier.review");
-    const due = dueReminders(state.dossiers, nowIso);
+    // Délai et activation propres à chaque coopérative (réglages des rappels).
+    const due = state.dossiers.filter((dossier) => {
+      const settings = reminderSettingsOf(state.reminderSettings, dossier.scoopId);
+      return settings.enabled && dueReminders([dossier], nowIso, settings.dossierPendingDays).length;
+    });
     if (!due.length) return 0;
     const ids = new Set(due.map((d) => d.id));
     set((s) => ({
@@ -1683,7 +2586,7 @@ export const actions = {
                   by: "Système",
                   byEmail: "",
                   action: "rappel" as const,
-                  comment: "Sans réponse depuis 14 jours",
+                  comment: `Sans réponse depuis ${reminderSettingsOf(s.reminderSettings, d.scoopId).dossierPendingDays} jours`,
                 },
               ],
             }
@@ -1691,7 +2594,12 @@ export const actions = {
       ),
     }));
     due.forEach((d) =>
-      audit("Rappel de dossier", `Dossier ${d.id}`, "sans réponse depuis 14 jours", d.scoopId),
+      audit(
+        "Rappel de dossier",
+        `Dossier ${d.id}`,
+        `sans réponse depuis ${reminderSettingsOf(state.reminderSettings, d.scoopId).dossierPendingDays} jours`,
+        d.scoopId,
+      ),
     );
     return due.length;
   },
@@ -2564,6 +3472,11 @@ export const actions = {
   ): ActionResult<{ scoopId: string; userId: string; memberId: string }> {
     const who = actor();
     if (!who?.session.permissions.includes("scoop.manage")) return fail("errors.scoop.notAllowed");
+    // Code court généré à partir du nom quand il n'est pas fourni (jamais saisi à la main dans l'écran).
+    input = {
+      ...input,
+      code: input.code.trim() || generateScoopCode(input.name, state.scoops.map((scoop) => scoop.code)),
+    };
     const issues = scoopIssues(
       input,
       state.scoops,
@@ -2765,6 +3678,8 @@ export const actions = {
     method: PaymentMethod;
     note?: string;
     paidAt?: string;
+    /** Numéro de transaction (mobile money, virement). */
+    reference?: string;
   }): ActionResult<{ id: string; receipt: string }> {
     const denied = access("contribution.manage");
     if (denied) return denied;
@@ -2773,6 +3688,8 @@ export const actions = {
     const member = state.members.find((m) => m.id === input.memberId);
     if (!member || !inScope([member], who.session).length)
       return fail("errors.contribution.member");
+    // Seul un membre de la coopérative cotise : candidat, suspendu ou sorti ne peut pas payer.
+    if (member.status !== "membre") return fail("errors.contribution.notMember");
     if (isArchived(member.scoopId)) return fail("errors.scoop.archived");
     const rule = state.contributionRules.find((r) => r.scoopId === member.scoopId);
     if (!rule) return fail("errors.contribution.noRule");
@@ -2798,6 +3715,8 @@ export const actions = {
       recordedBy: who.name,
       note: input.note?.trim() ?? "",
       voided: null,
+      reference: input.reference?.trim() || null,
+      source: "manuel",
     };
     set((s) => ({ payments: [...s.payments, payment] }));
     audit(
@@ -2808,6 +3727,172 @@ export const actions = {
     );
     return { ok: true, id: payment.id, receipt: payment.receipt };
   },
+  // ---- Liens de paiement de cotisation ----
+
+  /**
+   * Génère un lien de paiement pour une période de cotisation d'un membre : il l'ouvre sur son téléphone et paie en
+   * ligne. Valable 7 jours ; un nouveau lien pour la même période annule l'ancien. Seul un membre cotise.
+   */
+  createPaymentLink(input: {
+    memberId: string;
+    period: string;
+    amount: number;
+  }): ActionResult<{ id: string; token: string; expiresAt: string }> {
+    const denied = access("contribution.manage");
+    if (denied) return denied;
+    const who = actor();
+    const member = state.members.find((m) => m.id === input.memberId);
+    if (!who || !member || !inScope([member], who.session).length) return fail("errors.contribution.member");
+    if (member.status !== "membre") return fail("errors.contribution.notMember");
+    if (isArchived(member.scoopId)) return fail("errors.scoop.archived");
+    const rule = state.contributionRules.find((r) => r.scoopId === member.scoopId);
+    if (!rule) return fail("errors.contribution.noRule");
+    const issues = paymentIssues(
+      { amount: input.amount, period: input.period, memberId: input.memberId },
+      rule,
+      state.members.filter((m) => m.scoopId === member.scoopId).map((m) => m.id),
+    );
+    if (issues.length) return fail(issues[0]!.key);
+    // Jeton court (12 caractères tirés au hasard) : le lien reste lisible dans un SMS ou un message WhatsApp.
+    const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+    const bytes = new Uint8Array(12);
+    globalThis.crypto.getRandomValues(bytes);
+    const token = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+    const now = new Date();
+    const link: PaymentLink = {
+      id: nextId("lnk", state.paymentLinks),
+      token,
+      scoopId: member.scoopId,
+      memberId: member.id,
+      amount: input.amount,
+      period: input.period,
+      createdAt: now.toISOString(),
+      createdBy: who.name,
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      status: "en attente",
+      paymentId: null,
+      provider: null,
+      providerReference: null,
+    };
+    set((s) => ({
+      paymentLinks: [
+        ...s.paymentLinks.map((l) =>
+          l.memberId === link.memberId && l.period === link.period && l.status === "en attente"
+            ? { ...l, status: "annulé" as const }
+            : l,
+        ),
+        link,
+      ],
+    }));
+    persistPaymentLinks();
+    audit(
+      "Lien de paiement créé",
+      `Membre ${member.firstName} ${member.lastName}`,
+      `${link.amount} FCFA, période ${link.period}`,
+      member.scoopId,
+    );
+    return { ok: true, id: link.id, token, expiresAt: link.expiresAt };
+  },
+  cancelPaymentLink(id: string): ActionResult {
+    const denied = access("contribution.manage");
+    if (denied) return denied;
+    const who = actor();
+    const link = state.paymentLinks.find((l) => l.id === id);
+    if (!who || !link || !inScope([link], who.session).length) return fail("errors.contribution.linkNotFound");
+    if (link.status !== "en attente") return fail("errors.contribution.linkClosed");
+    set((s) => ({
+      paymentLinks: s.paymentLinks.map((l) => (l.id === id ? { ...l, status: "annulé" as const } : l)),
+    }));
+    persistPaymentLinks();
+    audit("Lien de paiement annulé", `Lien ${link.id}`, `période ${link.period}`, link.scoopId);
+    return { ok: true };
+  },
+  /**
+   * Un lien payé : appelé par l'agrégateur de paiement quand il confirme la transaction (côté serveur, après contrôle
+   * de sa signature), ou par la démonstration. Enregistre la cotisation avec son reçu, une seule fois.
+   */
+  settlePaymentLink(
+    token: string,
+    input: { method: PaymentMethod; reference: string; provider?: string },
+  ): ActionResult<{ paymentId: string; receipt: string }> {
+    const link = state.paymentLinks.find((l) => l.token === token);
+    if (!link) return fail("errors.contribution.linkNotFound");
+    if (link.status === "payé") return fail("errors.contribution.linkPaid");
+    if (link.status === "annulé") return fail("errors.contribution.linkClosed");
+    if (Date.parse(link.expiresAt) < Date.now()) return fail("errors.contribution.linkExpired");
+    const member = state.members.find((m) => m.id === link.memberId);
+    if (!member || member.status !== "membre") return fail("errors.contribution.notMember");
+    const at = new Date().toISOString();
+    const payment: ContributionPayment = {
+      id: nextId("pay", state.payments),
+      scoopId: link.scoopId,
+      memberId: link.memberId,
+      amount: link.amount,
+      paidAt: at,
+      period: link.period,
+      method: input.method,
+      receipt: nextReceipt(state.payments, new Date(at).getUTCFullYear()),
+      recordedBy: "Paiement en ligne",
+      note: "",
+      voided: null,
+      reference: input.reference.trim() || null,
+      source: "lien",
+    };
+    set((s) => ({
+      payments: [...s.payments, payment],
+      paymentLinks: s.paymentLinks.map((l) =>
+        l.id === link.id
+          ? { ...l, status: "payé" as const, paymentId: payment.id, provider: input.provider ?? null, providerReference: payment.reference ?? null }
+          : l,
+      ),
+    }));
+    persistPaymentLinks();
+    audit(
+      "Cotisation payée en ligne",
+      `Membre ${member.firstName} ${member.lastName}`,
+      `${payment.amount} FCFA, période ${payment.period}, reçu ${payment.receipt}`,
+      link.scoopId,
+    );
+    return { ok: true, paymentId: payment.id, receipt: payment.receipt };
+  },
+  /**
+   * Un producteur de la coopérative devient membre cotisant. Seul un membre cotise : c'est la porte d'entrée des
+   * cotisations (le producteur reste individuel ou dans son GIE).
+   */
+  enrollProducerAsMember(producerId: string): ActionResult<{ memberId: string }> {
+    const denied = access("member.manage");
+    if (denied) return denied;
+    const who = actor();
+    const producer = state.producers.find((p) => p.id === producerId && !p.mergedInto);
+    if (!who || !producer || !inScope([producer], who.session).length) return fail("errors.contribution.producer");
+    if (isArchived(producer.scoopId)) return fail("errors.scoop.archived");
+    if (state.members.some((m) => m.producerId === producer.id && m.status !== "sorti"))
+      return fail("errors.contribution.alreadyMember");
+    const at = new Date().toISOString();
+    const member: Member = {
+      id: nextId("m", state.members),
+      scoopId: producer.scoopId,
+      orgId: producer.orgId || null,
+      firstName: producer.firstName,
+      lastName: producer.lastName,
+      sex: producer.sex,
+      phone: producer.phone,
+      email: "",
+      age: producer.age,
+      handicap: producer.handicap,
+      village: producer.village,
+      status: "membre",
+      joinedAt: at,
+      producerId: producer.id,
+      history: [{ at, by: who.name, action: "inscrit comme membre cotisant" }],
+    };
+    set((s) => ({
+      members: [...s.members, member],
+      producers: s.producers.map((p) => (p.id === producer.id ? { ...p, status: "membre" as const } : p)),
+    }));
+    audit("Membre inscrit", `Producteur ${producer.firstName} ${producer.lastName}`, producer.code, producer.scoopId);
+    return { ok: true, memberId: member.id };
+  },
   /** Un paiement n'est jamais effacé : il est annulé avec un motif et reste dans l'historique. */
   voidPayment(id: string, reason: string): ActionResult {
     const denied = access("contribution.manage");
@@ -2817,9 +3902,24 @@ export const actions = {
     if (!who || !pay || !inScope([pay], who.session).length)
       return fail("errors.contribution.notFound");
     if (pay.voided) return fail("errors.contribution.alreadyVoided");
+    if (pay.reversalOf) return fail("errors.contribution.reversalLocked");
     if (reason.trim().length < 3) return fail("errors.contribution.reason");
     const voided = { at: new Date().toISOString(), by: who.name, reason: reason.trim() };
-    set((s) => ({ payments: s.payments.map((p) => (p.id === id ? { ...p, voided } : p)) }));
+    // Écriture non modifiable : l'annulation passe par une contre-écriture (montant négatif) liée au reçu d'origine.
+    const reversal: ContributionPayment = {
+      ...pay,
+      id: nextId("pay", state.payments),
+      amount: -pay.amount,
+      paidAt: voided.at,
+      receipt: `${pay.receipt}-ANN`,
+      recordedBy: who.name,
+      note: reason.trim(),
+      voided: null,
+      reversalOf: pay.id,
+    };
+    set((s) => ({
+      payments: [...s.payments.map((p) => (p.id === id ? { ...p, voided } : p)), reversal],
+    }));
     audit("Cotisation annulée", `Reçu ${pay.receipt}`, reason.trim(), pay.scoopId);
     return { ok: true };
   },
@@ -2833,6 +3933,9 @@ export const actions = {
     date: string;
     place: string;
     agenda: string[];
+    mode?: MeetingMode;
+    onlineUrl?: string;
+    audience?: MeetingAudience;
   }): ActionResult<{ id: string }> {
     const denied = access("meeting.manage");
     if (denied) return denied;
@@ -2840,8 +3943,16 @@ export const actions = {
     const who = actor();
     if (!who || !inScope([{ scoopId: input.scoopId }], who.session).length)
       return fail("errors.meeting.scope");
-    if (!input.title.trim() || !input.place.trim() || Number.isNaN(Date.parse(input.date)))
+    const mode = input.mode ?? "sur place";
+    if (
+      !input.title.trim() ||
+      (mode !== "en ligne" && !input.place.trim()) ||
+      Number.isNaN(Date.parse(input.date))
+    )
       return fail("errors.meeting.fields");
+    const onlineError = meetingOnlineError(mode, input.onlineUrl);
+    if (onlineError) return fail(onlineError);
+    const audience = cleanMeetingAudience(input.audience, input.scoopId);
     const at = new Date().toISOString();
     const meeting: Meeting = {
       id: nextId("meet", state.meetings),
@@ -2849,12 +3960,16 @@ export const actions = {
       kind: input.kind,
       title: input.title.trim(),
       date: new Date(input.date).toISOString(),
-      place: input.place.trim(),
+      place: input.place.trim() || (mode === "en ligne" ? "En ligne" : ""),
+      mode,
+      onlineUrl: mode === "sur place" ? null : (input.onlineUrl ?? "").trim(),
+      audience,
       agenda: input.agenda.map((a) => a.trim()).filter(Boolean),
       status: "planifiée",
       presentIds: [],
       minutes: null,
       cancelReason: null,
+      decisions: [],
       createdBy: who.name,
       createdAt: at,
       history: [{ at, by: who.name, action: "créée" }],
@@ -2865,7 +3980,7 @@ export const actions = {
   },
   updateMeeting(
     id: string,
-    patch: Partial<Pick<Meeting, "kind" | "title" | "date" | "place" | "agenda">>,
+    patch: Partial<Pick<Meeting, "kind" | "title" | "date" | "place" | "agenda" | "mode" | "onlineUrl" | "audience">>,
   ): ActionResult {
     const denied = access("meeting.manage");
     if (denied) return denied;
@@ -2873,12 +3988,18 @@ export const actions = {
     if (!found.ok) return found;
     const { meeting, who } = found;
     if (!isMeetingEditable(meeting)) return fail("errors.meeting.locked");
+    const nextMode = patch.mode ?? meeting.mode ?? "sur place";
     if (
       (patch.title !== undefined && !patch.title.trim()) ||
-      (patch.place !== undefined && !patch.place.trim()) ||
+      (patch.place !== undefined && nextMode !== "en ligne" && !patch.place.trim()) ||
       (patch.date !== undefined && Number.isNaN(Date.parse(patch.date)))
     )
       return fail("errors.meeting.fields");
+    const onlineError = meetingOnlineError(
+      nextMode,
+      patch.onlineUrl !== undefined ? patch.onlineUrl : meeting.onlineUrl,
+    );
+    if (onlineError) return fail(onlineError);
     const at = new Date().toISOString();
     const clean = {
       ...patch,
@@ -2886,6 +4007,14 @@ export const actions = {
       ...(patch.place !== undefined && { place: patch.place.trim() }),
       ...(patch.agenda !== undefined && {
         agenda: patch.agenda.map((a) => a.trim()).filter(Boolean),
+      }),
+      ...(patch.mode !== undefined && {
+        mode: patch.mode,
+        onlineUrl: patch.mode === "sur place" ? null : (patch.onlineUrl ?? meeting.onlineUrl ?? "").trim(),
+        ...(patch.mode === "en ligne" && !(patch.place ?? meeting.place).trim() && { place: "En ligne" }),
+      }),
+      ...(patch.audience !== undefined && {
+        audience: cleanMeetingAudience(patch.audience, meeting.scoopId),
       }),
     };
     set((s) => ({
@@ -2958,7 +4087,7 @@ export const actions = {
     return { ok: true };
   },
   saveMinutes(id: string, text: string): ActionResult {
-    const denied = access("meeting.manage");
+    const denied = access("minutes.manage");
     if (denied) return denied;
     const found = meetingOf(id);
     if (!found.ok) return found;
@@ -2975,6 +4104,9 @@ export const actions = {
                 text: text.trim(),
                 status: "brouillon" as const,
                 updatedAt: at,
+                // Le premier rédacteur reste l'auteur : il ne pourra pas valider ce procès-verbal.
+                authorName: m.minutes?.authorName ?? who.name,
+                authorEmail: m.minutes?.authorEmail ?? who.email,
                 validatedBy: null,
                 validatedAt: null,
                 documentId: m.minutes?.documentId ?? null,
@@ -2987,14 +4119,17 @@ export const actions = {
     audit("Procès-verbal enregistré", meeting.title, "brouillon", meeting.scoopId);
     return { ok: true };
   },
+  /** Validation par un membre du bureau autre que le rédacteur (séparation des tâches). */
   validateMinutes(id: string): ActionResult {
-    const denied = access("meeting.manage");
+    const denied = access("minutes.manage");
     if (denied) return denied;
     const found = meetingOf(id);
     if (!found.ok) return found;
     const { meeting, who } = found;
     if (!meeting.minutes) return fail("errors.meeting.noMinutes");
     if (!canEditMinutes(meeting)) return fail("errors.meeting.minutesLocked");
+    if (meeting.minutes.authorEmail?.toLowerCase() === who.email.toLowerCase())
+      return fail("errors.meeting.selfValidation");
     const at = new Date().toISOString();
     set((s) => ({
       meetings: s.meetings.map((m) =>
@@ -3020,7 +4155,7 @@ export const actions = {
     id: string,
     input: { name: string; sizeKb: number; mime: string },
   ): ActionResult<{ id: string }> {
-    const denied = access("meeting.manage");
+    const denied = access("minutes.manage");
     if (denied) return denied;
     const found = meetingOf(id);
     if (!found.ok) return found;
@@ -3038,6 +4173,144 @@ export const actions = {
     return res;
   },
 
+  // ============ Décisions de réunion (matrice M1) ============
+
+  /** Note une décision prise pendant une réunion tenue : texte, responsable, échéance facultative. */
+  addMeetingDecision(
+    meetingId: string,
+    input: { text: string; ownerName: string; dueDate?: string | null },
+  ): ActionResult<{ id: string }> {
+    const denied = access("decision.manage");
+    if (denied) return denied;
+    const found = meetingOf(meetingId);
+    if (!found.ok) return found;
+    const { meeting, who } = found;
+    if (meeting.status !== "tenue") return fail("errors.decision.meetingNotHeld");
+    const text = input.text.trim();
+    const ownerName = input.ownerName.trim();
+    if (text.length < 5) return fail("errors.decision.text");
+    if (ownerName.length < 3) return fail("errors.decision.owner");
+    const dueDate = input.dueDate?.trim() || null;
+    if (dueDate && Number.isNaN(Date.parse(dueDate))) return fail("errors.decision.dueDate");
+    const at = new Date().toISOString();
+    const allDecisions = state.meetings.flatMap((m) => m.decisions);
+    const decision: MeetingDecision = {
+      id: nextId("dec", allDecisions),
+      text,
+      ownerName,
+      dueDate,
+      status: "ouverte",
+      createdAt: at,
+      createdBy: who.name,
+      closedAt: null,
+      closedBy: null,
+      closingNote: null,
+    };
+    set((s) => ({
+      meetings: s.meetings.map((m) =>
+        m.id === meetingId
+          ? {
+              ...m,
+              decisions: [...m.decisions, decision],
+              history: [...m.history, { at, by: who.name, action: "décision ajoutée" }],
+            }
+          : m,
+      ),
+    }));
+    audit("Décision ajoutée", meeting.title, text, meeting.scoopId);
+    return { ok: true, id: decision.id };
+  },
+  /** Suivi d'une décision : ouverte → en cours → clôturée (note obligatoire à la clôture, puis figée). */
+  setDecisionStatus(
+    meetingId: string,
+    decisionId: string,
+    status: DecisionStatus,
+    closingNote = "",
+  ): ActionResult {
+    const denied = access("decision.manage");
+    if (denied) return denied;
+    const found = meetingOf(meetingId);
+    if (!found.ok) return found;
+    const { meeting, who } = found;
+    const decision = meeting.decisions.find((d) => d.id === decisionId);
+    if (!decision) return fail("errors.decision.notFound");
+    if (decision.status === "clôturée") return fail("errors.decision.closed");
+    if (status === "clôturée" && closingNote.trim().length < 5) return fail("errors.decision.closingNote");
+    const at = new Date().toISOString();
+    set((s) => ({
+      meetings: s.meetings.map((m) =>
+        m.id === meetingId
+          ? {
+              ...m,
+              decisions: m.decisions.map((d) =>
+                d.id === decisionId
+                  ? {
+                      ...d,
+                      status,
+                      ...(status === "clôturée" && {
+                        closedAt: at,
+                        closedBy: who.name,
+                        closingNote: closingNote.trim(),
+                      }),
+                    }
+                  : d,
+              ),
+              history: [...m.history, { at, by: who.name, action: `décision ${status}` }],
+            }
+          : m,
+      ),
+    }));
+    audit(
+      status === "clôturée" ? "Décision clôturée" : "Décision mise à jour",
+      meeting.title,
+      `${decision.text} : ${status}${status === "clôturée" ? ` (${closingNote.trim()})` : ""}`,
+      meeting.scoopId,
+    );
+    return { ok: true };
+  },
+
+  // ============ Notifications et rappels (matrice M1) ============
+
+  /**
+   * Réglages des rappels d'une coopérative (`scoopId`) ou par défaut (`null`, administration consolidée).
+   * Une personne limitée à ses SCOOP ne règle que les siennes.
+   */
+  setReminderSettings(scoopId: string | null, settings: ReminderSettings): ActionResult {
+    const denied = access("notification.configure");
+    if (denied) return denied;
+    const who = actor();
+    if (!who) return fail("errors.reminders.scope");
+    if (scoopId === null ? who.session.scope.kind !== "consolidé" : !inScope([{ scoopId }], who.session).length)
+      return fail("errors.reminders.scope");
+    const clean: ReminderSettings = {
+      ...settings,
+      channels: [...new Set(settings.channels)],
+    };
+    if (reminderIssues(clean).length) return fail("errors.reminders.invalid");
+    const key = scoopId ?? DEFAULT_REMINDER_KEY;
+    set((s) => ({ reminderSettings: { ...s.reminderSettings, [key]: clean } }));
+    audit(
+      "Rappels configurés",
+      scoopId ? `SCOOP ${scoopName(scoopId)}` : "Réglages par défaut",
+      `${clean.enabled ? "actifs" : "désactivés"} · dossiers ${clean.dossierPendingDays} j · réunions ${clean.meetingNoticeDays} j · cotisations ${clean.contributionDueDays} j · décisions ${clean.decisionDueDays} j · ${clean.channels.join(", ")}`,
+      scoopId ?? undefined,
+    );
+    return { ok: true };
+  },
+  /** Revient aux réglages par défaut pour une coopérative. */
+  clearReminderSettings(scoopId: string): ActionResult {
+    const denied = access("notification.configure");
+    if (denied) return denied;
+    const who = actor();
+    if (!who || !inScope([{ scoopId }], who.session).length) return fail("errors.reminders.scope");
+    set((s) => {
+      const { [scoopId]: _removed, ...rest } = s.reminderSettings;
+      return { reminderSettings: rest };
+    });
+    audit("Rappels par défaut rétablis", `SCOOP ${scoopName(scoopId)}`, "", scoopId);
+    return { ok: true };
+  },
+
   // ============ Bibliothèque de la coopérative (plan 4.6, M1-5) ============
 
   addLibraryDocument(
@@ -3048,12 +4321,17 @@ export const actions = {
       sizeKb: number;
       mime: string;
       sensitive?: boolean;
+      /** GIE ou organisation, technicien ou membre du personnel de la coopérative ; absent : toute la coopérative. */
+      link?: DocumentLink | null;
       /** Si true et qu'un doc du même nom existe : le marque remplacé et incrémente la version. */
       replaceExisting?: boolean;
     },
   ): ActionResult<{ id: string }> {
-    const denied = access("library.manage");
+    const denied = access(["library.upload", "library.manage"]);
     if (denied) return denied;
+    // Ajouter suffit à `library.upload` ; remplacer par une nouvelle version demande `library.manage`.
+    if (input.replaceExisting && !state.session?.permissions.includes("library.manage"))
+      return fail("errors.library.versionNotAllowed");
     if (isArchived(scoopId)) return fail("errors.scoop.archived");
     const who = actor();
     if (!who || !inScope([{ scoopId }], who.session).length) return fail("errors.library.scope");
@@ -3061,6 +4339,7 @@ export const actions = {
     if (input.sizeKb > MAX_DOCUMENT_KB)
       return fail("errors.store.documentTooBig", { mb: MAX_DOCUMENT_KB / 1024 });
     const name = input.name.trim();
+    if (input.link && !documentLinkValid(input.link, scoopId)) return fail("errors.library.link");
     const previous = state.documents.find(
       (d) =>
         d.ownerType === "scoop" &&
@@ -3071,7 +4350,7 @@ export const actions = {
     const version = previous && input.replaceExisting ? (previous.version ?? 1) + 1 : 1;
     const at = new Date().toISOString();
     const doc: DocumentMeta = {
-      id: nextId("doc", state.documents),
+      id: nextId("doc", [...state.documents, ...state.deletedDocuments]),
       ownerType: "scoop",
       ownerId: scoopId,
       scoopId,
@@ -3086,6 +4365,7 @@ export const actions = {
       effectiveAt: at,
       lifecycle: "en vigueur",
       replacedById: null,
+      ...(input.link ? { link: input.link } : {}),
     };
     set((s) => ({
       documents: [
@@ -3100,7 +4380,7 @@ export const actions = {
     audit(
       "Document ajouté",
       `SCOOP ${scoopName(scoopId)}`,
-      `${doc.kind}${doc.sensitive ? ", sensible" : ""} : ${doc.name} (v${version})`,
+      `${doc.kind}${doc.sensitive ? ", sensible" : ""}${input.link ? `, lié à ${input.link.type}` : ""} : ${doc.name} (v${version})`,
       scoopId,
     );
     return { ok: true, id: doc.id };
@@ -3112,8 +4392,11 @@ export const actions = {
     const doc = state.documents.find((d) => d.id === id);
     if (!who || !doc || doc.ownerType !== "scoop") return fail("errors.library.notFound");
     if (!inScope([doc], who.session).length) return fail("errors.library.scope");
+    // Suppression logique : le document sort de la bibliothèque mais reste conservé avec sa date de suppression.
+    const deleted = { ...doc, deletedAt: new Date().toISOString(), deletedBy: who.name };
     set((s) => ({
       documents: s.documents.filter((d) => d.id !== id),
+      deletedDocuments: [...s.deletedDocuments, deleted],
       meetings: s.meetings.map((m) =>
         m.minutes?.documentId === id ? { ...m, minutes: { ...m.minutes, documentId: null } } : m,
       ),

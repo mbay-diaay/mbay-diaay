@@ -67,6 +67,13 @@ export type DocumentOwner = "dossier" | "producteur" | "membre" | "plan" | "scoo
 /** Seule la CNI est sensible par défaut : sa lecture demande un droit dédié et laisse une trace. */
 export const defaultSensitive = (kind: DocumentKind) => kind === "cni";
 
+/** À quoi un document de la bibliothèque est rattaché : un GIE ou une organisation, un technicien, un membre du personnel. */
+export type DocumentLinkType = "org" | "technicien" | "personnel";
+export interface DocumentLink {
+  type: DocumentLinkType;
+  id: string;
+}
+
 /** Métadonnées d'une pièce. Le contenu est stocké côté serveur ; la démonstration ne garde que la description. */
 export interface DocumentMeta {
   id: string;
@@ -86,8 +93,13 @@ export interface DocumentMeta {
   effectiveAt?: string;
   /** Document remplacé par une version plus récente. */
   replacedById?: string | null;
+  /** Rattachement facultatif (bibliothèque) : sans lui, le document concerne toute la coopérative. */
+  link?: DocumentLink | null;
   /** Statut d'usage pour la bibliothèque. */
   lifecycle?: "en vigueur" | "remplacé";
+  /** Suppression logique : le document sort des listes mais reste conservé avec sa date de suppression. */
+  deletedAt?: string | null;
+  deletedBy?: string | null;
 }
 
 // ============ Dossiers producteurs ============
@@ -582,6 +594,30 @@ export type PaymentMethod = "espèces" | "mobile money" | "virement";
 export const PAYMENT_METHODS: readonly PaymentMethod[] = ["espèces", "mobile money", "virement"];
 
 /** Un paiement n'est jamais effacé : on l'annule avec un motif, il reste dans l'historique. */
+export type PaymentLinkStatus = "en attente" | "payé" | "expiré" | "annulé";
+
+/**
+ * Lien de paiement d'une cotisation : le membre l'ouvre sur son téléphone et paie en ligne. Le jeton est le seul
+ * secret du lien ; il expire. Le paiement réel passe par un agrégateur (à relier) qui confirme au serveur.
+ */
+export interface PaymentLink {
+  id: string;
+  token: string;
+  scoopId: string;
+  memberId: string;
+  amount: number;
+  period: string;
+  createdAt: string;
+  createdBy: string;
+  expiresAt: string;
+  status: PaymentLinkStatus;
+  /** Paiement enregistré quand le lien est payé. */
+  paymentId: string | null;
+  /** Agrégateur et référence de sa transaction ; vides tant qu'aucun agrégateur n'est relié. */
+  provider: string | null;
+  providerReference: string | null;
+}
+
 export interface ContributionPayment {
   id: string;
   scoopId: string;
@@ -596,6 +632,12 @@ export interface ContributionPayment {
   recordedBy: string;
   note: string;
   voided: { at: string; by: string; reason: string } | null;
+  /** Numéro de transaction (mobile money, virement) : preuve du paiement, facultative pour les espèces. */
+  reference?: string | null;
+  /** « manuel » : saisi par un responsable ; « lien » : payé par le membre via un lien de paiement. */
+  source?: "manuel" | "lien";
+  /** Contre-écriture : identifiant du paiement annulé (montant négatif). Un paiement ne se modifie jamais. */
+  reversalOf?: string | null;
 }
 
 export const CONTRIBUTION_RULES: ContributionRule[] = [
@@ -666,10 +708,24 @@ export interface Minutes {
   text: string;
   status: "brouillon" | "validé";
   updatedAt: string;
+  /** Rédacteur : il ne peut pas valider son propre procès-verbal (séparation des tâches). */
+  authorName?: string | null;
+  authorEmail?: string | null;
   validatedBy: string | null;
   validatedAt: string | null;
   /** Version signée ou scannée, dans la bibliothèque de la coopérative. */
   documentId: string | null;
+}
+
+/** Déroulé d'une réunion : sur place, en ligne (lien), ou les deux. */
+export type MeetingMode = "sur place" | "en ligne" | "mixte";
+export const MEETING_MODES: readonly MeetingMode[] = ["sur place", "en ligne", "mixte"];
+
+/** Qui est convoqué : des GIE entiers, des membres du personnel, et d'autres invités saisis librement. */
+export interface MeetingAudience {
+  orgIds: string[];
+  staffIds: string[];
+  others: string[];
 }
 
 export interface Meeting {
@@ -680,15 +736,41 @@ export interface Meeting {
   /** Date et heure ISO. */
   date: string;
   place: string;
+  /** Sur place par défaut (réunions créées avant ce champ). */
+  mode?: MeetingMode;
+  /** Lien de la réunion en ligne (Meet ou autre), pour les modes « en ligne » et « mixte ». */
+  onlineUrl?: string | null;
+  audience?: MeetingAudience;
   agenda: string[];
   status: MeetingStatus;
   /** Membres présents ; renseigné quand la réunion est tenue. */
   presentIds: string[];
   minutes: Minutes | null;
   cancelReason: string | null;
+  /** Décisions prises pendant la réunion, suivies jusqu'à leur clôture. */
+  decisions: MeetingDecision[];
   createdBy: string;
   createdAt: string;
   history: { at: string; by: string; action: string }[];
+}
+
+export type DecisionStatus = "ouverte" | "en cours" | "clôturée";
+
+/** Décision de réunion : un responsable, une échéance, un suivi jusqu'à la clôture. */
+export interface MeetingDecision {
+  id: string;
+  text: string;
+  /** Personne chargée de la mise en œuvre. */
+  ownerName: string;
+  /** Échéance ISO (AAAA-MM-JJ), facultative. */
+  dueDate: string | null;
+  status: DecisionStatus;
+  createdAt: string;
+  createdBy: string;
+  closedAt: string | null;
+  closedBy: string | null;
+  /** Ce qui a été fait, noté à la clôture. */
+  closingNote: string | null;
 }
 
 export const MEETINGS: Meeting[] = (() => {
@@ -702,6 +784,7 @@ export const MEETINGS: Meeting[] = (() => {
     presentIds: [],
     minutes: null,
     cancelReason: null,
+    decisions: [],
     createdBy: "Rokhaya Diallo",
     createdAt: day("2026-02-20"),
     history: [{ at: day("2026-02-20"), by: "Rokhaya Diallo", action: "créée" }],
@@ -721,10 +804,38 @@ export const MEETINGS: Meeting[] = (() => {
         text: "L'assemblée a approuvé le bilan de la campagne et fixé la cotisation 2026 à 5 000 FCFA par membre.",
         status: "validé",
         updatedAt: day("2026-03-20"),
+        authorName: "Aminata Bâ",
+        authorEmail: "aminata.ba@scoop-kms.example",
         validatedBy: "Moussa Diouf",
         validatedAt: day("2026-03-20"),
         documentId: "doc5",
       },
+      decisions: [
+        {
+          id: "dec1",
+          text: "Cotisation 2026 fixée à 5 000 FCFA par membre, à régler avant le 31 mars.",
+          ownerName: "Moussa Diouf",
+          dueDate: "2026-03-31",
+          status: "clôturée",
+          createdAt: day("2026-03-14"),
+          createdBy: "Aminata Bâ",
+          closedAt: day("2026-04-02"),
+          closedBy: "Moussa Diouf",
+          closingNote: "Règle de cotisation enregistrée dans l'application.",
+        },
+        {
+          id: "dec2",
+          text: "Préparer un achat groupé d'intrants pour la prochaine campagne.",
+          ownerName: "Babacar Fall",
+          dueDate: "2026-10-31",
+          status: "en cours",
+          createdAt: day("2026-03-14"),
+          createdBy: "Aminata Bâ",
+          closedAt: null,
+          closedBy: null,
+          closingNote: null,
+        },
+      ],
     }),
     meeting({
       id: "meet2",
@@ -739,10 +850,26 @@ export const MEETINGS: Meeting[] = (() => {
         text: "Le bureau a retenu trois candidatures et préparé le calendrier des semis.",
         status: "brouillon",
         updatedAt: day("2026-09-21"),
+        authorName: "Aminata Bâ",
+        authorEmail: "aminata.ba@scoop-kms.example",
         validatedBy: null,
         validatedAt: null,
         documentId: null,
       },
+      decisions: [
+        {
+          id: "dec3",
+          text: "Convoquer les trois candidats retenus pour la signature de leur adhésion.",
+          ownerName: "Aminata Bâ",
+          dueDate: "2026-10-15",
+          status: "ouverte",
+          createdAt: day("2026-09-20"),
+          createdBy: "Aminata Bâ",
+          closedAt: null,
+          closedBy: null,
+          closingNote: null,
+        },
+      ],
     }),
     meeting({
       id: "meet3",

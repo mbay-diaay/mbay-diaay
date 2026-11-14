@@ -9,7 +9,8 @@ export type Permission =
   | "producer.read"
   | "producer.edit"
   | "producer.export_nominatif"
-  | "cni.read"
+  | "identity.read_full"
+  | "contact.read"
   | "org.read"
   | "org.manage"
   | "quality.review"
@@ -62,9 +63,18 @@ export type Permission =
   | "credit.manage"
   | "expense.read"
   | "expense.write"
-  | "exploitation.read";
+  | "exploitation.read"
+  | "role.configure"
+  | "technician.invite"
+  | "minutes.manage"
+  | "decision.manage"
+  | "notification.configure"
+  | "library.upload"
+  | "subrole.manage";
 
-export type RoleId =
+/** Rôles fournis avec l'application (leurs règles métier sont dans le code). */
+export type BuiltInRoleId =
+  | "superadmin"
   | "admin"
   | "gestionnaire"
   | "faitiere"
@@ -72,7 +82,33 @@ export type RoleId =
   | "representant"
   | "secretaire"
   | "ventes"
-  | "rapports";
+  | "rapports"
+  | "bureau"
+  | "surveillance";
+
+/** Rôle créé par le super administrateur : identifiant `custom-…`, nom et portée choisis par lui. */
+export type CustomRoleId = `custom-${string}`;
+
+export type RoleId = BuiltInRoleId | CustomRoleId;
+
+/** Rôle créé par le super administrateur (les droits sont dans la matrice, comme pour les autres rôles). */
+export interface CustomRole {
+  id: CustomRoleId;
+  name: string;
+  description: string;
+  /**
+   * Coopérative propriétaire : un sous-rôle créé par un gestionnaire n'existe que dans sa coopérative.
+   * Absent : rôle global, créé par le super administrateur.
+   */
+  scoopId?: string | undefined;
+  /** Vrai : limité à une coopérative ; faux : vue consolidée. */
+  scoped: boolean;
+  createdAt: string;
+  createdBy: string;
+}
+
+export const isCustomRoleId = (value: unknown): value is CustomRoleId =>
+  typeof value === "string" && /^custom-[a-z0-9-]{1,60}$/.test(value);
 
 export interface Scope {
   kind: "consolidé" | "scoop";
@@ -83,7 +119,8 @@ export interface Scope {
 }
 
 /** Libellés français (référence) lus dans le dictionnaire : une seule source pour les rôles et les droits. */
-export const ROLE_LABEL: Record<RoleId, string> = {
+export const ROLE_LABEL: Record<BuiltInRoleId, string> = {
+  superadmin: fr["role.superadmin"],
   admin: fr["role.admin"],
   gestionnaire: fr["role.gestionnaire"],
   faitiere: fr["role.faitiere"],
@@ -92,7 +129,65 @@ export const ROLE_LABEL: Record<RoleId, string> = {
   secretaire: fr["role.secretaire"],
   ventes: fr["role.ventes"],
   rapports: fr["role.rapports"],
+  bureau: fr["role.bureau"],
+  surveillance: fr["role.surveillance"],
 };
+
+/** Rôles intégrés, dans l'ordre d'affichage. */
+export const BUILT_IN_ROLES = Object.keys(ROLE_LABEL) as BuiltInRoleId[];
+
+export const isBuiltInRole = (value: unknown): value is BuiltInRoleId =>
+  typeof value === "string" && value in ROLE_LABEL;
+
+/** Rôle connu : intégré, ou créé par le super administrateur et encore présent. */
+export const isKnownRole = (value: unknown, customRoles: readonly CustomRole[]): value is RoleId =>
+  isBuiltInRole(value) || customRoles.some((role) => role.id === value);
+
+/** Nom d'un rôle en français (référence) : libellé intégré ou nom choisi à la création. */
+export const roleName = (role: RoleId, customRoles: readonly CustomRole[]): string =>
+  isBuiltInRole(role) ? ROLE_LABEL[role] : (customRoles.find((item) => item.id === role)?.name ?? role);
+
+/** Rôle limité à sa coopérative ? Un rôle créé inconnu est traité comme limité (jamais de vue consolidée par défaut). */
+export const roleIsScoped = (role: RoleId, customRoles: readonly CustomRole[]): boolean =>
+  isBuiltInRole(role) ? ROLE_IS_SCOPED[role] : (customRoles.find((item) => item.id === role)?.scoped ?? true);
+
+/** Rôles qui peuvent être liés à plusieurs coopératives : le technicien et la faîtière. */
+export const MULTI_SCOPE_ROLES: readonly BuiltInRoleId[] = ["technicien", "faitiere"];
+export const roleAllowsManyScoops = (role: RoleId): boolean =>
+  (MULTI_SCOPE_ROLES as readonly string[]).includes(role);
+
+/** Rôles qu'un administrateur CRADESC ne crée ni n'attribue : seul le super administrateur le fait. */
+export const SUPER_ADMIN_ONLY_ROLES: readonly BuiltInRoleId[] = ["superadmin", "admin"];
+
+/**
+ * Droits qu'un gestionnaire ne peut pas confier à un sous-rôle : administration de la plateforme, du réseau et
+ * des comptes. Un sous-rôle reçoit au plus ce que son créateur a, moins cette liste.
+ */
+export const NON_DELEGABLE_PERMISSIONS: readonly Permission[] = [
+  "role.configure",
+  "role.assign",
+  "subrole.manage",
+  "user.manage",
+  "scoop.manage",
+  "data.backup",
+  "import.manage",
+  "config.manage",
+  "device.manage",
+  "account.manage",
+  "audit.read",
+  "quality.merge",
+  "producer.export_nominatif",
+  "identity.read_full",
+  "contact.read",
+  "map.export",
+];
+
+/** Droits que `creatorPermissions` peut confier à un sous-rôle de sa coopérative. */
+export const delegablePermissions = (creatorPermissions: readonly Permission[]): Permission[] =>
+  ALL_PERMISSIONS.filter(
+    (permission) =>
+      creatorPermissions.includes(permission) && !NON_DELEGABLE_PERMISSIONS.includes(permission),
+  );
 
 export const PERMISSION_LABEL: Record<Permission, string> = Object.fromEntries(
   (Object.keys(fr) as (keyof typeof fr)[])
@@ -100,9 +195,48 @@ export const PERMISSION_LABEL: Record<Permission, string> = Object.fromEntries(
     .map((k) => [k.slice("perm.".length), fr[k]]),
 ) as Record<Permission, string>;
 
-// Paramétrage de rôles (modifiable côté serveur — ici, la base de travail du PRD §1).
-export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
-  admin: Object.keys(PERMISSION_LABEL) as Permission[],
+/** Rôle dont les droits ne se modifient jamais : il garde tout, pour qu'on ne puisse pas s'enfermer dehors. */
+export const LOCKED_ROLE: BuiltInRoleId = "superadmin";
+
+/** Droit de modifier la matrice des rôles : réservé au super administrateur, jamais distribué. */
+export const RESERVED_PERMISSIONS: readonly Permission[] = ["role.configure"];
+
+const ALL_PERMISSIONS = Object.keys(PERMISSION_LABEL) as Permission[];
+
+/** Ce qu'un rôle de coopérative en lecture seule voit de sa SCOOP. */
+const SCOOP_READ_ONLY: Permission[] = [
+  "dashboard.read",
+  "org.read",
+  "producer.read",
+  "member.read",
+  "contribution.read",
+  "meeting.read",
+  "library.read",
+  "document.read",
+  "report.read",
+  "report.download",
+  "audit.read.scoop",
+];
+
+/**
+ * Matrice par défaut (Module 1, matrice des droits proposée au CRADESC, DEC 05). Le super administrateur la
+ * modifie depuis « Utilisateurs & rôles » ; le serveur applique la même matrice à chaque requête.
+ */
+export const DEFAULT_ROLE_PERMISSIONS: Record<BuiltInRoleId, Permission[]> = {
+  superadmin: ALL_PERMISSIONS,
+  // Administrateur CRADESC : tout, sauf la configuration des rôles et l'écriture dans la vie des SCOOP
+  // (réunions, procès-verbaux, décisions : lecture seule) et la saisie de dossiers (il les approuve).
+  admin: ALL_PERMISSIONS.filter(
+    (permission) =>
+      ![
+        "role.configure",
+        "meeting.manage",
+        "minutes.manage",
+        "decision.manage",
+        "dossier.create",
+        "dossier.submit",
+      ].includes(permission),
+  ),
   gestionnaire: [
     "sales.read",
     "sales.manage",
@@ -110,13 +244,16 @@ export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
     "contribution.manage",
     "meeting.read",
     "meeting.manage",
+    "minutes.manage",
+    "decision.manage",
+    "notification.configure",
     "library.read",
+    "library.upload",
     "library.manage",
     "dashboard.read",
     "org.read",
     "producer.read",
     "producer.edit",
-    "cni.read",
     "org.manage",
     "quality.review",
     "correction.manage",
@@ -126,6 +263,11 @@ export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
     "report.read",
     "report.download",
     "member.read",
+    "member.manage",
+    "contact.read",
+    "role.assign",
+    "technician.invite",
+    "subrole.manage",
     "dossier.review",
     "document.read",
     "document.download",
@@ -146,10 +288,13 @@ export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
     "expense.write",
     "exploitation.read",
   ],
+  // Faîtière : lecture consolidée de toutes les coopératives, aucun droit d'écriture.
   faitiere: [
     "sales.read",
     "contribution.read",
     "meeting.read",
+    "library.read",
+    "document.read",
     "dashboard.read",
     "org.read",
     "producer.read",
@@ -167,38 +312,46 @@ export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
     "expense.read",
     "exploitation.read",
   ],
+  // Technicien : il recense les producteurs et les GIE de ses coopératives (application mobile), rien de plus.
   technicien: [
     "dashboard.read",
+    "org.read",
     "producer.read",
-    "quality.review",
-    "alert.manage",
-    "map.read",
-    "plot.validate",
     "dossier.create",
     "dossier.submit",
     "document.read",
-    "plan.read",
-    "plan.write",
-    "campaign.read",
-    "calendar.read",
-    "calendar.write",
-    "operation.read",
-    "operation.write",
-    "expense.read",
-    "expense.write",
   ],
+  // Élu du bureau (président, secrétaire général, trésorier) : la vie de la SCOOP, sans la qualité des données.
+  bureau: [
+    ...SCOOP_READ_ONLY,
+    "member.manage",
+    "contribution.manage",
+    "meeting.manage",
+    "minutes.manage",
+    "decision.manage",
+    "notification.configure",
+    "library.upload",
+    "library.manage",
+    "dossier.review",
+    "document.download",
+    "report.generate",
+  ],
+  // Conseil de surveillance : contrôle en lecture seule de sa SCOOP.
+  surveillance: [...SCOOP_READ_ONLY],
   representant: [
     "sales.read",
     "contribution.read",
     "contribution.manage",
     "meeting.read",
     "meeting.manage",
+    "minutes.manage",
+    "decision.manage",
     "library.read",
+    "library.upload",
     "library.manage",
     "dashboard.read",
     "org.read",
     "producer.read",
-    // Pas de cni.read : la révélation CNI reste admin CRADESC + gestionnaire SCOOP (audit A-02).
     "map.read",
     "report.generate",
     "report.read",
@@ -223,7 +376,9 @@ export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
     "contribution.read",
     "meeting.read",
     "meeting.manage",
+    "minutes.manage",
     "library.read",
+    "library.upload",
     "library.manage",
     "dashboard.read",
     "org.read",
@@ -254,11 +409,139 @@ export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
   ],
 };
 
+/** Matrice des rôles en vigueur (rôles intégrés et rôles créés), modifiable par le super administrateur. */
+export type RolePermissionsMatrix = Record<string, Permission[]>;
+
+/** Copie modifiable de la matrice par défaut (point de départ du store). */
+export const cloneDefaultMatrix = (): RolePermissionsMatrix =>
+  Object.fromEntries(
+    BUILT_IN_ROLES.map((role) => [
+      role,
+      [...DEFAULT_ROLE_PERMISSIONS[role]],
+    ]),
+  ) as RolePermissionsMatrix;
+
+/**
+ * Nettoie une liste de droits avant de l'appliquer à un rôle : droits connus uniquement, sans doublon, dans
+ * l'ordre du catalogue ; les droits réservés ne se distribuent pas ; le rôle verrouillé garde tout.
+ */
+export function sanitizeRolePermissions(role: RoleId, wanted: readonly string[]): Permission[] {
+  if (role === LOCKED_ROLE) return [...ALL_PERMISSIONS];
+  const wantedSet = new Set(wanted);
+  return ALL_PERMISSIONS.filter(
+    (permission) => wantedSet.has(permission) && !RESERVED_PERMISSIONS.includes(permission),
+  );
+}
+
+/** Familles de droits, dans l'ordre d'affichage de l'éditeur de rôles. */
+export const PERMISSION_GROUPS: readonly { key: string; permissions: readonly Permission[] }[] = [
+  {
+    key: "pilotage",
+    permissions: [
+      "dashboard.read",
+      "report.generate",
+      "report.read",
+      "report.download",
+      "audit.read",
+      "audit.read.scoop",
+    ],
+  },
+  {
+    key: "personnes",
+    permissions: [
+      "producer.read",
+      "producer.edit",
+      "producer.export_nominatif",
+      "identity.read_full",
+      "contact.read",
+      "member.read",
+      "member.manage",
+      "dossier.create",
+      "dossier.submit",
+      "dossier.review",
+      "document.read",
+      "document.download",
+      "org.read",
+      "org.manage",
+      "scoop.manage",
+    ],
+  },
+  {
+    key: "vie",
+    permissions: [
+      "contribution.read",
+      "contribution.manage",
+      "meeting.read",
+      "meeting.manage",
+      "minutes.manage",
+      "decision.manage",
+      "library.read",
+      "library.upload",
+      "library.manage",
+      "notification.configure",
+    ],
+  },
+  {
+    key: "qualite",
+    permissions: [
+      "quality.review",
+      "quality.merge",
+      "alert.manage",
+      "correction.manage",
+      "import.manage",
+    ],
+  },
+  {
+    key: "administration",
+    permissions: [
+      "user.manage",
+      "technician.invite",
+      "subrole.manage",
+      "role.assign",
+      "role.configure",
+      "account.manage",
+      "device.manage",
+      "config.manage",
+      "data.backup",
+    ],
+  },
+  {
+    key: "autresModules",
+    permissions: [
+      "map.read",
+      "map.export",
+      "plot.validate",
+      "plan.read",
+      "plan.write",
+      "campaign.read",
+      "campaign.manage",
+      "calendar.read",
+      "calendar.write",
+      "calendar.validate",
+      "operation.read",
+      "operation.write",
+      "sales.read",
+      "sales.manage",
+      "stock.read",
+      "stock.manage",
+      "credit.read",
+      "credit.manage",
+      "expense.read",
+      "expense.write",
+      "exploitation.read",
+    ],
+  },
+];
+
 /** Rôles rattachés à une ou plusieurs SCOOP : leur périmètre est limité, les autres voient la vue consolidée. */
-export const ROLE_IS_SCOPED: Record<RoleId, boolean> = {
+export const ROLE_IS_SCOPED: Record<BuiltInRoleId, boolean> = {
+  superadmin: false,
+  bureau: true,
+  surveillance: true,
   admin: false,
   gestionnaire: true,
-  faitiere: false,
+  // Faîtière : liée à une, deux coopératives ou plus (lecture seule) ; sans lien, elle ne voit rien.
+  faitiere: true,
   technicien: true,
   representant: true,
   secretaire: true,
@@ -267,9 +550,12 @@ export const ROLE_IS_SCOPED: Record<RoleId, boolean> = {
 };
 
 /** SCOOP de démonstration quand le compte n'en précise pas : un technicien couvre deux SCOOP. */
-const DEMO_SCOOPS: Record<RoleId, string[]> = {
+const DEMO_SCOOPS: Record<BuiltInRoleId, string[]> = {
+  superadmin: [],
+  bureau: ["s1"],
+  surveillance: ["s1"],
   admin: [],
-  faitiere: [],
+  faitiere: ["s1", "s2", "s3", "s4"],
   gestionnaire: ["s1"],
   representant: ["s1"],
   secretaire: ["s1"],
@@ -280,14 +566,16 @@ const DEMO_SCOOPS: Record<RoleId, string[]> = {
 
 export function fetchMyPermissions(
   role: RoleId,
-  scoopIds: string[] = DEMO_SCOOPS[role],
+  scoopIds: string[] = isBuiltInRole(role) ? DEMO_SCOOPS[role] : [],
+  matrix: RolePermissionsMatrix = DEFAULT_ROLE_PERMISSIONS,
+  customRoles: readonly CustomRole[] = [],
 ): { permissions: Permission[]; scope: Scope } {
-  if (!ROLE_IS_SCOPED[role])
-    return { permissions: ROLE_PERMISSIONS[role], scope: { kind: "consolidé" } };
+  const permissions = [...(matrix[role] ?? [])];
+  if (!roleIsScoped(role, customRoles)) return { permissions, scope: { kind: "consolidé" } };
   // Un rôle limité sans SCOOP ne voit rien : il ne retombe jamais en vue consolidée.
   const first = scoopIds[0];
   return {
-    permissions: ROLE_PERMISSIONS[role],
+    permissions,
     scope: { kind: "scoop", ...(first !== undefined && { scoopId: first }), scoopIds },
   };
 }

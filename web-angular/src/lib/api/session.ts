@@ -1,4 +1,4 @@
-import type { RoleId } from "../permissions";
+import type { Permission, RoleId } from "../permissions";
 import { actions, getState } from "../store";
 import { apiFetch } from "./client";
 import { isApiMode } from "./config";
@@ -10,6 +10,8 @@ type MeResponse = {
   name: string;
   role: RoleId;
   scoopId: string | null;
+  /** Droits appliqués par le serveur (matrice modifiable par le super administrateur). */
+  permissions?: Permission[];
 };
 
 /**
@@ -28,7 +30,7 @@ export async function hydrateSessionFromApi(): Promise<boolean> {
   }
   try {
     const me = await apiFetch<MeResponse>("/me");
-    actions.login(me.name, me.email, me.role);
+    actions.login(me.name, me.email, me.role, me.permissions);
     return true;
   } catch {
     clearTokens();

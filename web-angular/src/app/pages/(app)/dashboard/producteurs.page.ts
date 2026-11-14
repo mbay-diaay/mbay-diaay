@@ -1,34 +1,37 @@
 import { Component, computed, effect, inject, signal } from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { ActivatedRoute, type ParamMap, Router, RouterLink } from "@angular/router";
+import { ActivatedRoute, type ParamMap, Router } from "@angular/router";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { map } from "rxjs";
-import {
-  LucideAngularModule,
-  Download,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  SlidersHorizontal,
-} from "lucide-angular";
 
 import { actions, can, inScope } from "@/lib/store";
 import { CROPS, VILLAGES, type Quality } from "@/lib/mock/data";
-import { AGE_BANDS, ageBand, downloadCsv, fmtAge, maskPhone, nf } from "@/lib/format";
+import { AGE_BANDS, ageAtMost, ageBand, downloadCsv, fmtDate, maskPhone, nf } from "@/lib/format";
 import type { MessageKey } from "@/lib/i18n";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { ToastService } from "../shared/toast.service";
-import { UiButtonComponent } from "../shared/ui/button.component";
-import { UiEmptyComponent } from "../shared/ui/empty.component";
-import { UiModalA11yDirective } from "../shared/ui/modal-a11y.directive";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiQualityPillComponent } from "../shared/ui/pill.component";
-import { UiSheetComponent } from "../shared/ui/sheet.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
+import { createPager } from "@shared/pager";
+import {
+  detailFact,
+  detailKpi,
+  DetailModalComponent,
+  IconComponent,
+  initialsOf,
+  ModalComponent,
+  PaginationComponent,
+  SelectComponent,
+  SnackbarService,
+  StatCardsComponent,
+  TONE,
+  V2_PAGE_STYLES,
+  type DetailView,
+  type IconName,
+  type SelectOption,
+  type StatCard,
+} from "@shared/ui";
+import { GlobalFiltersComponent } from "@shared/global-filters.component";
 
 const ALL = "__all";
-const PAGE = 25;
 
 type FilterKey = "village" | "sexe" | "age" | "qualite" | "culture";
 
@@ -57,324 +60,345 @@ function parseProducteursQuery(m: ParamMap): ProducteursUrlState {
   };
 }
 
-const QUALITY_KEY: Record<Quality, MessageKey> = {
-  validé: "producteurs.quality.validé",
-  "à vérifier": "producteurs.quality.à vérifier",
-  doublon: "producteurs.quality.doublon",
-  invalide: "producteurs.quality.invalide",
+const QUALITIES: readonly Quality[] = ["validé", "à vérifier", "doublon", "invalide"];
+
+const QUALITY: Record<Quality, { label: MessageKey; bg: string; fg: string }> = {
+  validé: { label: "producteurs.quality.validé", ...TONE.succes },
+  "à vérifier": { label: "producteurs.quality.à vérifier", ...TONE.attente },
+  doublon: { label: "producteurs.quality.doublon", ...TONE.info },
+  invalide: { label: "producteurs.quality.invalide", ...TONE.erreur },
 };
 
-const STATUS_KEY = {
-  recensé: "producteurs.status.recensé",
-  membre: "producteurs.status.membre",
-} as const satisfies Record<string, MessageKey>;
+const STATUS = {
+  recensé: { label: "producteurs.status.recensé", ...TONE.neutre },
+  membre: { label: "producteurs.status.membre", ...TONE.culture },
+} as const satisfies Record<string, { label: MessageKey; bg: string; fg: string }>;
 
 /**
- * Port de src/routes/producteurs.index.tsx.
- * Simplifications vs React : confirmation d’export via overlay HTML natif (pas d’AlertDialog).
- * Filtres : feuille animée (Sheet) sur mobile, panneau tablette / desktop.
+ * Annuaire des producteurs (charte V2) : statistiques, recherche + filtre qualité à compteurs,
+ * filtres village / sexe / âge / culture, tableau paginé, détail en modale (lien vers la fiche).
  * Critères `q`, `village`, `sexe`, `age`, `qualite`, `culture` + `scoop` / `campagne`
- * (en-tête) sont lus/écrits dans l’URL (`replaceUrl`), comme React.
+ * (en-tête) sont lus/écrits dans l'URL (`replaceUrl`).
  */
 @Component({
   selector: "app-producteurs-page",
   imports: [
-    FormsModule,
-    RouterLink,
-    LucideAngularModule,
+    GlobalFiltersComponent,
     AppShellComponent,
-    UiButtonComponent,
-    UiEmptyComponent,
-    UiModalA11yDirective,
-    UiPageHeaderComponent,
-    UiQualityPillComponent,
-    UiSheetComponent,
+    IconComponent,
+    ModalComponent,
+    DetailModalComponent,
+    PaginationComponent,
+    SelectComponent,
+    StatCardsComponent,
+  ],
+  styles: [
+    V2_PAGE_STYLES,
+    `
+      .filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 8px;
+      }
+      .reset {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--v2-foret);
+        cursor: pointer;
+      }
+      .reset:hover {
+        text-decoration: underline;
+      }
+      .code {
+        font-family: var(--v2-font-mono);
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--v2-gris-texte);
+      }
+    `,
   ],
   template: `
     <app-shell perm="producer.read" [area]="t()('producteurs.area')">
-      <ui-page-header
-        [eyebrow]="t()('producteurs.index.eyebrow')"
-        [title]="t()('producteurs.index.title')"
-        [description]="t()('producteurs.index.description', { total: nf.format(rows().length) })"
-      >
-        <ui-button actions variant="outline" (click)="exportOpen.set(true)">
-          <lucide-angular [img]="icons.download" class="size-4" />
-          {{ t()("producteurs.index.exportCsv") }}
-        </ui-button>
-      </ui-page-header>
-
-      <div class="surface mb-4 flex flex-wrap items-center gap-2 p-3 sm:gap-3 sm:p-4">
-        <div class="relative min-w-0 flex-1 basis-48">
-          <lucide-angular
-            [img]="icons.search"
-            class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <input
-            class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 pl-9 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            [placeholder]="t()('producteurs.index.searchPlaceholder')"
-            [attr.aria-label]="t()('producteurs.index.searchLabel')"
-            [ngModel]="q()"
-            (ngModelChange)="onSearch($event)"
-          />
-        </div>
-        <ui-button
-          variant="outline"
-          class="shrink-0 md:hidden"
-          type="button"
-          (click)="filtersOpen.set(true)"
-          [attr.aria-expanded]="filtersOpen()"
-        >
-          <lucide-angular [img]="icons.sliders" class="size-4" />
-          {{ t()("producteurs.index.filters") }}
-          @if (activeCount() > 0) {
-            <span class="rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground tabular">
-              {{ activeCount() }}
-            </span>
-          }
-        </ui-button>
-        <ui-button
-          variant="outline"
-          class="hidden shrink-0 md:inline-flex"
-          type="button"
-          (click)="filtersExpanded.set(!filtersExpanded())"
-          [attr.aria-expanded]="filtersExpanded()"
-        >
-          <lucide-angular [img]="icons.sliders" class="size-4" />
-          {{ t()("producteurs.index.filters") }}
-          @if (activeCount() > 0) {
-            <span class="rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground tabular">
-              {{ activeCount() }}
-            </span>
-          }
-        </ui-button>
-      </div>
-
-      <ui-sheet [(open)]="filtersOpen" [title]="t()('producteurs.index.filters')" side="right">
-        <div class="grid gap-3">
-          @for (f of filterDefs(); track f.key) {
-            <label class="grid gap-1 text-sm">
-              <span class="text-xs font-medium text-muted-foreground">{{ f.label }}</span>
-              <select
-                class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                [ngModel]="filters()[f.key]"
-                (ngModelChange)="setFilter(f.key, $event)"
-              >
-                <option [ngValue]="ALL">
-                  {{ f.label }} : {{ t()("producteurs.index.filtersAll") }}
-                </option>
-                @for (opt of f.options; track opt[0]) {
-                  <option [ngValue]="opt[0]">{{ opt[1] }}</option>
-                }
-              </select>
-            </label>
-          }
-        </div>
-        <div
-          sheetFooter
-          class="mt-0 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end"
-        >
-          @if (activeCount() > 0) {
-            <ui-button variant="outline" class="w-full sm:w-auto" (click)="resetFilters()">
-              {{ t()("producteurs.index.reset") }}
-            </ui-button>
-          }
-          <ui-button class="w-full sm:w-auto" (click)="filtersOpen.set(false)">
-            {{ t()("producteurs.index.seeRows", { total: nf.format(rows().length) }) }}
-          </ui-button>
-        </div>
-      </ui-sheet>
-
-      @if (filtersExpanded()) {
-        <div class="surface mb-4 hidden grid gap-3 p-4 sm:grid-cols-2 md:grid lg:grid-cols-3">
-          @for (f of filterDefs(); track f.key) {
-            <label class="grid gap-1 text-sm">
-              <span class="text-xs font-medium text-muted-foreground">{{ f.label }}</span>
-              <select
-                class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                [ngModel]="filters()[f.key]"
-                (ngModelChange)="setFilter(f.key, $event)"
-              >
-                <option [ngValue]="ALL">
-                  {{ f.label }} : {{ t()("producteurs.index.filtersAll") }}
-                </option>
-                @for (opt of f.options; track opt[0]) {
-                  <option [ngValue]="opt[0]">{{ opt[1] }}</option>
-                }
-              </select>
-            </label>
-          }
-          @if (activeCount() > 0) {
-            <div class="flex items-end">
-              <ui-button variant="outline" (click)="resetFilters()">
-                {{ t()("producteurs.index.reset") }}
-              </ui-button>
-            </div>
-          }
-        </div>
-      }
-
-      <div class="surface overflow-hidden">
-        <ul class="divide-y md:hidden">
-          @for (p of view(); track p.id) {
-            <li>
-              <a
-                [routerLink]="['/producteurs', p.id]"
-                class="flex items-start gap-3 px-4 py-3 active:bg-muted"
-              >
-                <div class="min-w-0 flex-1">
-                  <div class="truncate font-semibold">{{ p.firstName }} {{ p.lastName }}</div>
-                  <div class="mt-0.5 text-xs text-muted-foreground">
-                    <span class="tabular">{{ p.code }}</span>
-                    ·
-                    {{
-                      t()(p.sex === "F" ? "producteurs.sex.F" : "producteurs.sex.H")
-                    }}, {{ fmtAge(p.age) }}
-                  </div>
-                  <div class="truncate text-xs text-muted-foreground">{{ p.village }}</div>
-                </div>
-                <div class="flex shrink-0 flex-col items-end gap-1">
-                  <ui-quality-pill [q]="p.quality" />
-                  <span class="text-xs capitalize text-muted-foreground">
-                    {{ t()(statusKey[p.status]) }}
-                  </span>
-                </div>
-              </a>
-            </li>
-          }
-        </ul>
-
-        <div class="hidden overflow-x-auto md:block">
-          <table class="w-full text-sm">
-            <thead class="border-b bg-muted text-left text-xs text-muted-foreground">
-              <tr>
-                <th class="px-4 py-3 font-semibold">{{ t()("producteurs.index.colProducer") }}</th>
-                <th class="px-4 py-3 font-semibold">{{ t()("producteurs.index.colSexAge") }}</th>
-                <th class="px-4 py-3 font-semibold">{{ t()("producteurs.col.village") }}</th>
-                <th class="hidden px-4 py-3 font-semibold lg:table-cell">
-                  {{ t()("producteurs.col.organisation") }}
-                </th>
-                <th class="hidden px-4 py-3 font-semibold lg:table-cell">
-                  {{ t()("producteurs.col.phone") }}
-                </th>
-                <th class="px-4 py-3 font-semibold">{{ t()("producteurs.col.status") }}</th>
-                <th class="px-4 py-3 font-semibold">{{ t()("producteurs.col.quality") }}</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              @for (p of view(); track p.id) {
-                <tr class="hover:bg-muted/60">
-                  <td class="px-4 py-3">
-                    <a
-                      [routerLink]="['/producteurs', p.id]"
-                      class="font-semibold hover:text-primary hover:underline"
-                    >
-                      {{ p.firstName }} {{ p.lastName }}
-                    </a>
-                    <div class="text-xs text-muted-foreground">{{ p.code }}</div>
-                  </td>
-                  <td class="whitespace-nowrap px-4 py-3 tabular">
-                    {{ p.sex }} · {{ fmtAge(p.age) }}
-                  </td>
-                  <td class="px-4 py-3">{{ p.village }}</td>
-                  <td class="hidden max-w-56 truncate px-4 py-3 lg:table-cell">
-                    {{ orgName(p.orgId) }}
-                  </td>
-                  <td
-                    class="hidden whitespace-nowrap px-4 py-3 tabular text-muted-foreground lg:table-cell"
-                  >
-                    {{ maskPhone(p.phone) }}
-                  </td>
-                  <td class="px-4 py-3 capitalize">{{ t()(statusKey[p.status]) }}</td>
-                  <td class="px-4 py-3"><ui-quality-pill [q]="p.quality" /></td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        @if (!view().length) {
-          <ui-empty>{{ t()("producteurs.index.empty") }}</ui-empty>
-        }
-
-        <div
-          class="flex items-center justify-between gap-2 border-t px-4 py-3 text-sm text-muted-foreground"
-        >
-          <span class="tabular">
-            {{ t()("producteurs.index.page", { page: page() + 1, pages: pages() }) }}
-          </span>
-          <div class="flex gap-2">
-            <ui-button
-              variant="outline"
-              size="sm"
-              [disabled]="page() === 0"
-              (click)="page.set(page() - 1)"
-            >
-              <lucide-angular [img]="icons.chevronLeft" class="size-4" />
-              <span class="sr-only sm:not-sr-only">{{ t()("producteurs.index.prev") }}</span>
-            </ui-button>
-            <ui-button
-              variant="outline"
-              size="sm"
-              [disabled]="page() >= pages() - 1"
-              (click)="page.set(page() + 1)"
-            >
-              <span class="sr-only sm:not-sr-only">{{ t()("producteurs.index.next") }}</span>
-              <lucide-angular [img]="icons.chevronRight" class="size-4" />
-            </ui-button>
-          </div>
-        </div>
-      </div>
-
-      @if (exportOpen()) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            class="surface w-full max-w-md p-6 shadow-lg"
-            role="dialog"
-            aria-modal="true"
-            uiModalA11y
-            (dismiss)="exportOpen.set(false)"
+      <!-- ───── En-tête ───── -->
+      <header class="rise flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div class="min-w-0">
+          <p class="mono" style="color: var(--v2-gris-texte)">
+            {{ t()("producteurs.index.eyebrow") }}
+          </p>
+          <h1
+            class="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[38px]"
           >
-            <h2 class="text-lg font-semibold">
-              {{
-                nominatif()
-                  ? t()("producteurs.index.exportNominatif")
-                  : t()("producteurs.index.exportAnonymise")
-              }}
-            </h2>
-            <p class="mt-2 text-sm text-muted-foreground">{{ exportDesc() }}</p>
-            <div class="mt-6 flex justify-end gap-2">
-              <ui-button variant="outline" (click)="exportOpen.set(false)">
-                {{ t()("producteurs.index.cancel") }}
-              </ui-button>
-              <ui-button (click)="doExport()">{{ t()("producteurs.index.export") }}</ui-button>
-            </div>
+            {{ t()("producteurs.index.title") }}
+          </h1>
+          <p class="mt-2 max-w-2xl text-[16px] font-medium" style="color: var(--v2-gris-texte)">
+            {{ t()("producteurs.index.lead") }}
+          </p>
+        </div>
+        <button type="button" class="btn btn-primary" (click)="exportOpen.set(true)">
+          {{ t()("producteurs.index.exportCsv") }}
+          <span class="btn-chip"><ui-icon name="download" [size]="20" /></span>
+        </button>
+      </header>
+
+      <!-- ───── Statistiques ───── -->
+      <ui-stat-cards class="rise mt-8" [stats]="stats()" />
+
+      <!-- ───── Recherche · qualité · filtres ───── -->
+      <div class="card mt-6 p-2">
+        <div class="toolbar p-0">
+          <label class="search">
+            <ui-icon name="search" [size]="20" />
+            <input
+              type="search"
+              [placeholder]="t()('producteurs.index.searchPlaceholder')"
+              [attr.aria-label]="t()('producteurs.index.searchLabel')"
+              [value]="q()"
+              (input)="onSearch($any($event.target).value)"
+            />
+          </label>
+          <div class="seg" role="radiogroup" [attr.aria-label]="t()('producteurs.col.quality')">
+            @for (qualityButton of qualityButtons(); track qualityButton.id) {
+              <button
+                type="button"
+                role="radio"
+                [class.on]="filters().qualite === qualityButton.id"
+                [attr.aria-checked]="filters().qualite === qualityButton.id"
+                (click)="setFilter('qualite', qualityButton.id)"
+              >
+                {{ qualityButton.label
+                }}<span class="n" [class.zero]="!qualityButton.count">{{
+                  nf.format(qualityButton.count)
+                }}</span>
+              </button>
+            }
           </div>
         </div>
-      }
+        <div class="filters mt-2">
+          <!-- Périmètre : coopérative et campagne (paramètres ?scoop= et ?campagne=) -->
+          <app-global-filters [campaign]="true" />
+          @for (filter of filterDefs(); track filter.key) {
+            <ui-select
+              variant="compact"
+              [label]="filter.label"
+              [leadingIcon]="filter.icon"
+              [options]="filter.options"
+              [value]="filters()[filter.key]"
+              (valueChange)="setFilter(filter.key, $event)"
+            />
+          }
+        </div>
+      </div>
+
+      <div class="mt-4 flex min-h-6 flex-wrap items-center justify-between gap-3">
+        <p class="sub" aria-live="polite">
+          {{
+            t()(
+              rows().length > 1 ? "producteurs.index.count.autre" : "producteurs.index.count.un",
+              { count: nf.format(rows().length) }
+            )
+          }}
+        </p>
+        @if (activeCount() > 0) {
+          <button type="button" class="reset" (click)="resetFilters()">
+            <ui-icon name="close" [size]="16" />{{ t()("producteurs.index.reset") }} ({{
+              activeCount()
+            }})
+          </button>
+        }
+      </div>
+
+      <!-- ───── Liste ───── -->
+      <section class="card mt-3 overflow-hidden">
+        @if (rows().length) {
+          <!-- Téléphone : cartes -->
+          <ul class="md:hidden">
+            @for (producer of pager.items(); track producer.id; let first = $first) {
+              <li [style.border-top]="first ? 'none' : '1px solid var(--v2-separateur)'">
+                <button
+                  type="button"
+                  class="row-link flex w-full items-center gap-3 px-4 py-3.5 text-left"
+                  (click)="openDetail(producer.id)"
+                >
+                  <span class="avatar">{{
+                    initials(producer.firstName + " " + producer.lastName)
+                  }}</span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate font-bold"
+                      >{{ producer.firstName }} {{ producer.lastName }}</span
+                    >
+                    <span class="sub block truncate"
+                      >{{ producer.village }} · {{ ageLabel(producer.age) }}</span
+                    >
+                  </span>
+                  <span
+                    class="badge"
+                    [style.background]="quality[producer.quality].bg"
+                    [style.color]="quality[producer.quality].fg"
+                    >{{ t()(quality[producer.quality].label) }}</span
+                  >
+                </button>
+              </li>
+            }
+          </ul>
+
+          <!-- Tablette et bureau : tableau -->
+          <div class="hidden overflow-x-auto md:block">
+            <table class="tbl min-w-[860px]">
+              <thead>
+                <tr>
+                  <th>{{ t()("producteurs.index.colProducer") }}</th>
+                  <th>{{ t()("producteurs.index.colSexAge") }}</th>
+                  <th>{{ t()("producteurs.col.village") }}</th>
+                  <th class="hidden xl:table-cell">{{ t()("producteurs.col.organisation") }}</th>
+                  <th class="hidden lg:table-cell">{{ t()("producteurs.col.phone") }}</th>
+                  <th>{{ t()("producteurs.col.status") }}</th>
+                  <th>{{ t()("producteurs.col.quality") }}</th>
+                  <th class="text-right">{{ t()("producteurs.index.colActions") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (producer of pager.items(); track producer.id) {
+                  <tr class="row-link" (click)="openDetail(producer.id)">
+                    <td>
+                      <span class="flex items-center gap-3">
+                        <span
+                          class="avatar"
+                          [style.background]="
+                            producer.sex === 'F' ? 'var(--v2-culture-bg)' : 'var(--v2-sauge)'
+                          "
+                          [style.color]="
+                            producer.sex === 'F' ? 'var(--v2-culture-fg)' : 'var(--v2-foret)'
+                          "
+                          >{{ initials(producer.firstName + " " + producer.lastName) }}</span
+                        >
+                        <span class="min-w-0">
+                          <span class="block truncate font-bold"
+                            >{{ producer.firstName }} {{ producer.lastName }}</span
+                          >
+                          <span class="code block">{{ producer.code }}</span>
+                        </span>
+                      </span>
+                    </td>
+                    <td class="whitespace-nowrap font-medium tabular-nums">
+                      {{ t()(producer.sex === "F" ? "producteurs.sex.F" : "producteurs.sex.H") }} ·
+                      <span [class.zero]="producer.age === null">{{ ageLabel(producer.age) }}</span>
+                    </td>
+                    <td class="font-medium">{{ producer.village }}</td>
+                    <td
+                      class="hidden max-w-56 truncate font-medium xl:table-cell"
+                      [class.zero]="!orgName(producer.orgId)"
+                    >
+                      {{ orgName(producer.orgId) || "—" }}
+                    </td>
+                    <td
+                      class="hidden whitespace-nowrap tabular-nums lg:table-cell"
+                      style="color: var(--v2-gris-texte)"
+                    >
+                      {{ store.phone(producer.phone) }}
+                    </td>
+                    <td>
+                      <span
+                        class="badge"
+                        [style.background]="status[producer.status].bg"
+                        [style.color]="status[producer.status].fg"
+                        >{{ t()(status[producer.status].label) }}</span
+                      >
+                    </td>
+                    <td>
+                      <span
+                        class="badge"
+                        [style.background]="quality[producer.quality].bg"
+                        [style.color]="quality[producer.quality].fg"
+                        >{{ t()(quality[producer.quality].label) }}</span
+                      >
+                    </td>
+                    <td>
+                      <span class="flex justify-end">
+                        <button
+                          type="button"
+                          class="act"
+                          [title]="t()('common.view')"
+                          [attr.aria-label]="
+                            t()('producteurs.index.view', {
+                              name: producer.firstName + ' ' + producer.lastName,
+                            })
+                          "
+                          (click)="$event.stopPropagation(); openDetail(producer.id)"
+                        >
+                          <ui-icon name="visibility" [size]="18" />
+                        </button>
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <ui-pagination class="px-5 pb-5" [pager]="pager" />
+        } @else {
+          <div class="flex flex-col items-center gap-3 p-10 text-center">
+            <span
+              class="grid size-14 place-items-center rounded-[16px]"
+              style="background: var(--v2-sauge); color: var(--v2-foret)"
+              ><ui-icon name="search" [size]="26"
+            /></span>
+            <p class="text-[15px] font-semibold" style="color: var(--v2-ardoise)">
+              {{ t()("producteurs.index.empty") }}
+            </p>
+            @if (activeCount() > 0) {
+              <button type="button" class="reset" (click)="resetFilters()">
+                {{ t()("producteurs.index.reset") }}
+              </button>
+            }
+          </div>
+        }
+      </section>
+
+      <!-- ───── Détail ───── -->
+      <ui-detail-modal [view]="detail()" (closed)="detailId.set(null)" />
+
+      <!-- ───── Export ───── -->
+      <ui-modal
+        [open]="exportOpen()"
+        [title]="
+          nominatif()
+            ? t()('producteurs.index.exportNominatif')
+            : t()('producteurs.index.exportAnonymise')
+        "
+        [description]="exportDesc()"
+        icon="download"
+        [width]="520"
+        [closeLabel]="t()('common.close')"
+        (closed)="exportOpen.set(false)"
+      >
+        <button modal-footer type="button" class="btn btn-ghost" (click)="exportOpen.set(false)">
+          {{ t()("producteurs.index.cancel") }}
+        </button>
+        <button modal-footer type="button" class="btn btn-primary" (click)="doExport()">
+          {{ t()("producteurs.index.export") }}
+          <span class="btn-chip"><ui-icon name="download" [size]="18" /></span>
+        </button>
+      </ui-modal>
     </app-shell>
   `,
 })
 export default class ProducteursPage {
   protected readonly store = inject(StoreService);
   protected readonly locale = inject(LocaleService);
-  private readonly toast = inject(ToastService);
+  private readonly snackbar = inject(SnackbarService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   protected readonly t = this.locale.t;
   protected readonly nf = nf;
-  protected readonly fmtAge = fmtAge;
   protected readonly maskPhone = maskPhone;
-  protected readonly ALL = ALL;
-  protected readonly statusKey = STATUS_KEY;
-  protected readonly icons = {
-    download: Download,
-    search: Search,
-    chevronLeft: ChevronLeft,
-    chevronRight: ChevronRight,
-    sliders: SlidersHorizontal,
-  };
+  protected readonly initials = initialsOf;
+  protected readonly quality = QUALITY;
+  protected readonly status = STATUS;
 
-  /** Route query (leaf) — same keys as React `validateSearch` on `/producteurs/`. */
+  /** Route query (leaf) — same keys as React `validateSearch` on `/dashboard/producteurs/`. */
   private readonly queryState = toSignal(
     this.route.queryParamMap.pipe(map(parseProducteursQuery)),
     { initialValue: parseProducteursQuery(this.route.snapshot.queryParamMap) },
@@ -382,11 +406,6 @@ export default class ProducteursPage {
 
   protected readonly q = signal(this.queryState().q);
 
-  protected readonly page = signal(0);
-  /** Filtres — feuille mobile uniquement. */
-  protected readonly filtersOpen = signal(false);
-  /** Filtres — panneau md+. */
-  protected readonly filtersExpanded = signal(false);
   protected readonly exportOpen = signal(false);
   protected readonly filters = signal({
     village: this.queryState().village,
@@ -422,38 +441,117 @@ export default class ProducteursPage {
     ),
   );
 
+  /** Filtres secondaires (la qualité est dans la barre à compteurs). */
   protected readonly filterDefs = computed(() => {
     const t = this.t();
+    const def = (
+      key: Exclude<FilterKey, "qualite">,
+      label: string,
+      icon: IconName,
+      opts: [string, string][],
+    ) => ({
+      key,
+      label,
+      icon,
+      options: [
+        { value: ALL, label: t("producteurs.index.filterAll", { label }) },
+        ...opts.map(([value, l]) => ({ value, label: l })),
+      ] as SelectOption[],
+    });
+    return [
+      def(
+        "village",
+        t("producteurs.col.village"),
+        "location_on",
+        VILLAGES.map((v) => [v, v]),
+      ),
+      def("sexe", t("producteurs.col.sex"), "person", [
+        ["F", t("producteurs.sex.F")],
+        ["H", t("producteurs.sex.H")],
+      ]),
+      def(
+        "age",
+        t("producteurs.col.age"),
+        "calendar_today",
+        AGE_BANDS.map((a) => [a, t("producteurs.index.ageBand", { band: a })]),
+      ),
+      def(
+        "culture",
+        t("producteurs.col.crop"),
+        "grass",
+        CROPS.map((c) => [c, c]),
+      ),
+    ];
+  });
+
+  /** Base avant le filtre qualité : les compteurs de la barre restent justes quand on change de qualité. */
+  private readonly beforeQuality = computed(() => this.filterRows(true));
+
+  protected readonly qualityButtons = computed(() => {
+    const t = this.t();
+    const base = this.beforeQuality();
+    return [
+      { id: ALL, label: t("producteurs.index.qualityAll"), count: base.length },
+      ...QUALITIES.map((q) => ({
+        id: q,
+        label: t(QUALITY[q].label),
+        count: base.filter((p) => p.quality === q).length,
+      })),
+    ];
+  });
+
+  protected readonly stats = computed<StatCard[]>(() => {
+    const t = this.t();
+    const rows = this.rows();
+    const n = rows.length || 1;
+    const pct = (k: number) => Math.round((k / n) * 100);
+    const youthAge = this.store.state().youthMaxAge;
+    const members = rows.filter((p) => p.status === "membre").length;
+    const women = rows.filter((p) => p.sex === "F").length;
+    const men = rows.filter((p) => p.sex === "H").length;
+    const youth = rows.filter((p) => ageAtMost(p.age, youthAge)).length;
+    const validated = rows.filter((p) => p.quality === "validé").length;
+    const toCheck = rows.filter((p) => p.quality === "à vérifier").length;
     return [
       {
-        key: "village" as const,
-        label: t("producteurs.col.village"),
-        options: VILLAGES.map((v) => [v, v] as [string, string]),
+        label: t("producteurs.index.stat.total"),
+        value: nf.format(rows.length),
+        sub: t("producteurs.index.stat.totalSub", {
+          members: nf.format(members),
+          census: nf.format(rows.length - members),
+        }),
+        icon: "agriculture",
+        bg: "",
+        fg: "",
+      },
+      // Hommes et femmes : deux statistiques distinctes (indicateurs de genre demandés par les partenaires).
+      {
+        label: t("producteurs.index.stat.men"),
+        value: nf.format(men),
+        sub: t("producteurs.index.stat.shareSub", { pct: pct(men) }),
+        icon: "person",
+        ...TONE.info,
       },
       {
-        key: "sexe" as const,
-        label: t("producteurs.col.sex"),
-        options: [
-          ["F", t("producteurs.sex.F")],
-          ["H", t("producteurs.sex.H")],
-        ] as [string, string][],
+        label: t("producteurs.index.stat.women"),
+        value: nf.format(women),
+        sub: t("producteurs.index.stat.shareSub", { pct: pct(women) }),
+        icon: "female",
+        ...TONE.culture,
       },
       {
-        key: "age" as const,
-        label: t("producteurs.col.age"),
-        options: AGE_BANDS.map((a) => [a, t("producteurs.index.ageBand", { band: a })] as [string, string]),
+        label: t("producteurs.index.stat.youth"),
+        value: nf.format(youth),
+        sub: t("producteurs.index.stat.youthSub", { age: youthAge, pct: pct(youth) }),
+        icon: "grass",
+        ...TONE.attente,
       },
       {
-        key: "qualite" as const,
-        label: t("producteurs.col.quality"),
-        options: (Object.keys(QUALITY_KEY) as Quality[]).map(
-          (x) => [x, t(QUALITY_KEY[x])] as [string, string],
-        ),
-      },
-      {
-        key: "culture" as const,
-        label: t("producteurs.col.crop"),
-        options: CROPS.map((c) => [c, c] as [string, string]),
+        label: t("producteurs.index.stat.validated"),
+        value: `${pct(validated)} %`,
+        sub: t("producteurs.index.stat.validatedSub", { count: nf.format(toCheck) }),
+        icon: "task_alt",
+        ...TONE.succes,
       },
     ];
   });
@@ -462,15 +560,17 @@ export default class ProducteursPage {
     () => Object.values(this.filters()).filter((v) => v !== ALL).length,
   );
 
-  protected readonly rows = computed(() => {
+  protected readonly rows = computed(() => this.filterRows(false));
+
+  /** Applique recherche, périmètre, en-tête (SCOOP / campagne) et filtres ; `skipQuality` pour les compteurs. */
+  private filterRows(skipQuality: boolean) {
     const s = this.store.state();
-    const session = s.session;
     const q = this.q().trim().toLowerCase();
     const f = this.filters();
     const url = this.queryState();
     return inScope(
       s.producers.filter((p) => !p.mergedInto),
-      session,
+      s.session,
     ).filter(
       (p) =>
         (!q || `${p.firstName} ${p.lastName} ${p.code}`.toLowerCase().includes(q)) &&
@@ -479,16 +579,103 @@ export default class ProducteursPage {
         (f.village === ALL || p.village === f.village) &&
         (f.sexe === ALL || p.sex === f.sexe) &&
         (f.age === ALL || ageBand(p.age) === f.age) &&
-        (f.qualite === ALL || p.quality === f.qualite) &&
+        (skipQuality || f.qualite === ALL || p.quality === f.qualite) &&
         (f.culture === ALL || p.crops.some((c) => c.crop === f.culture)),
     );
-  });
+  }
 
-  protected readonly pages = computed(() => Math.max(1, Math.ceil(this.rows().length / PAGE)));
+  /** Pagination : mêmes règles que l'API (`GET /v1/producers?page=&limit=`). */
+  protected readonly pager = createPager(() => this.rows());
 
-  protected readonly view = computed(() => {
-    const p = this.page();
-    return this.rows().slice(p * PAGE, p * PAGE + PAGE);
+  protected ageLabel(age: number | null): string {
+    return age === null ? "—" : this.t()("cooperatives.fiche.detail.ageValue", { count: age });
+  }
+
+  // ── Détail en modale : la liste reste en place ──
+  protected readonly detailId = signal<string | null>(null);
+
+  protected openDetail(id: string): void {
+    this.detailId.set(id);
+  }
+
+  protected readonly detail = computed<DetailView | null>(() => {
+    const id = this.detailId();
+    if (!id) return null;
+    const s = this.store.state();
+    const p = s.producers.find((x) => x.id === id);
+    if (!p) return null;
+    const t = this.t();
+    const plots = s.plots.filter((pl) => pl.producerId === p.id);
+    const area = plots.reduce((sum, pl) => sum + (pl.measured || pl.declared || 0), 0);
+    const scoop = s.scoops.find((c) => c.id === p.scoopId);
+    const org = this.orgName(p.orgId);
+    const crops = [...p.crops].sort((a, b) => b.campaign.localeCompare(a.campaign));
+    const q = QUALITY[p.quality];
+    const st = STATUS[p.status];
+    return {
+      title: `${p.firstName} ${p.lastName}`,
+      subtitle: [p.code, p.village].filter(Boolean).join(" · "),
+      icon: "agriculture",
+      badges: [
+        { label: t(st.label), bg: st.bg, fg: st.fg },
+        { label: t(q.label), bg: q.bg, fg: q.fg },
+      ],
+      kpis: [
+        detailKpi(t("producteurs.quick.plots"), plots.length, "landscape", TONE.info),
+        detailKpi(
+          t("producteurs.quick.area"),
+          area,
+          "square_foot",
+          TONE.succes,
+          t("producteurs.quick.areaValue", {
+            area: area.toLocaleString(this.locale.locale() === "wo" ? "fr-SN" : "fr-FR", {
+              maximumFractionDigits: 2,
+            }),
+          }),
+        ),
+        detailKpi(t("producteurs.quick.crops"), p.crops.length, "grass", TONE.culture),
+      ],
+      facts: [
+        detailFact(
+          t("producteurs.col.sex"),
+          t(p.sex === "F" ? "producteurs.sex.F" : "producteurs.sex.H"),
+          "person",
+        ),
+        detailFact(
+          t("producteurs.col.age"),
+          p.age === null ? null : this.ageLabel(p.age),
+          "calendar_today",
+        ),
+        detailFact(t("producteurs.col.phone"), this.store.phone(p.phone) || null, "call"),
+        detailFact(t("producteurs.col.village"), p.village, "location_on"),
+        detailFact(t("producteurs.col.organisation"), org || null, "hub"),
+        detailFact(t("producteurs.quick.cooperative"), scoop?.name, "apartment"),
+        detailFact(t("producteurs.quick.enumerator"), p.enumerator, "badge"),
+        detailFact(
+          t("producteurs.quick.createdAt"),
+          p.createdAt ? fmtDate(p.createdAt) : null,
+          "event_note",
+        ),
+      ],
+      sections: [
+        {
+          title: t("producteurs.quick.crops"),
+          icon: "grass",
+          count: crops.length,
+          empty: t("producteurs.quick.cropsEmpty"),
+          items: crops.slice(0, 8).map((c) => ({
+            label: c.crop,
+            sub: t("producteurs.quick.cropSub", {
+              campaign: c.campaign,
+              area: c.area.toLocaleString("fr-FR", { maximumFractionDigits: 2 }),
+            }),
+            initials: c.crop.slice(0, 2).toUpperCase(),
+          })),
+          more: Math.max(0, crops.length - 8),
+        },
+      ],
+      link: ["/dashboard/producteurs", p.id],
+    };
   });
 
   protected orgName(orgId: string | null | undefined): string {
@@ -497,7 +684,7 @@ export default class ProducteursPage {
   }
 
   private patchQuery(patch: Partial<Record<string, string | null>>): void {
-    this.page.set(0);
+    this.pager.setPage(1);
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: patch,
@@ -540,9 +727,9 @@ export default class ProducteursPage {
     try {
       downloadCsv(`producteurs${nominatif ? "_nominatif" : ""}.csv`, [head, ...body]);
     } catch {
-      this.toast.error("common.exportError", {
-        key: "common.exportErrorDesc",
-      });
+      this.snackbar.error(
+        `${this.t()("common.exportError")} · ${this.t()("common.exportErrorDesc")}`,
+      );
       return;
     }
     actions.audit(
@@ -550,10 +737,9 @@ export default class ProducteursPage {
       "Producteurs",
       `${rows.length} lignes (CSV)`,
     );
-    this.toast.success("producteurs.index.exportReady", {
-      key: "producteurs.index.exportReadyDesc",
-      params: { total: this.nf.format(rows.length) },
-    });
+    this.snackbar.success(
+      `${this.t()("producteurs.index.exportReady")} · ${this.t()("producteurs.index.exportReadyDesc", { total: this.nf.format(rows.length) })}`,
+    );
     this.exportOpen.set(false);
   }
 }

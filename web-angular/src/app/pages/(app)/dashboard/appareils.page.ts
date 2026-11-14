@@ -1,10 +1,4 @@
-import {
-  Component,
-  computed,
-  HostListener,
-  inject,
-  signal,
-} from "@angular/core";
+import { Component, computed, HostListener, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
@@ -27,12 +21,16 @@ import {
 
 import { fmtDate, fmtDateTime, nf } from "@/lib/format";
 import type { Device } from "@/lib/mock/data";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiDialogComponent } from "../shared/ui/dialog.component";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent } from "../shared/ui/pill.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
+import {
+  PaginationComponent,
+  UiDialogComponent,
+  UiPageHeaderComponent,
+  UiPillComponent,
+} from "@shared/ui";
+import { createPager } from "@shared/pager";
 
 type Filter = "tous" | "actif" | "révoqué";
 type ConfirmKind = "revoke" | "reactivate" | "signout";
@@ -41,6 +39,7 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
 @Component({
   selector: "app-appareils-page",
   imports: [
+    PaginationComponent,
     FormsModule,
     RouterLink,
     LucideAngularModule,
@@ -57,7 +56,9 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
         [description]="t()('appareils.description')"
       >
         <div actions class="flex flex-wrap gap-2">
-          <ui-pill tone="success">{{ t()("appareils.count.active", { n: nf.format(activeCount()) }) }}</ui-pill>
+          <ui-pill tone="success">{{
+            t()("appareils.count.active", { n: nf.format(activeCount()) })
+          }}</ui-pill>
           <ui-pill tone="neutral">{{
             t()("appareils.count.revoked", { n: nf.format(devices().length - activeCount()) })
           }}</ui-pill>
@@ -65,12 +66,16 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
       </ui-page-header>
 
       @if (flash()) {
-        <p class="mb-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">{{ flash() }}</p>
+        <p class="mb-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
+          {{ flash() }}
+        </p>
       }
 
-      @if (filterUser(); as fu) {
-        <div class="mb-3 flex flex-wrap items-center gap-2 rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
-          {{ t()("appareils.filter.of") }} <strong>{{ fu.name }}</strong>
+      @if (filterUser(); as filteredUser) {
+        <div
+          class="mb-3 flex flex-wrap items-center gap-2 rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg"
+        >
+          {{ t()("appareils.filter.of") }} <strong>{{ filteredUser.name }}</strong>
           <button
             type="button"
             class="ml-auto inline-flex items-center gap-1 text-xs font-semibold hover:underline"
@@ -84,15 +89,15 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
 
       <div class="surface mb-3 flex flex-wrap items-center gap-3 p-3">
         <div class="flex flex-wrap gap-1 rounded-md border bg-muted/40 p-1">
-          @for (opt of filterOptions; track opt.value) {
+          @for (option of filterOptions; track option.value) {
             <button
               type="button"
               class="rounded px-2.5 py-1 text-xs font-medium"
-              [class.bg-background]="filter() === opt.value"
-              [class.shadow-sm]="filter() === opt.value"
-              (click)="filter.set(opt.value)"
+              [class.bg-background]="filter() === option.value"
+              [class.shadow-sm]="filter() === option.value"
+              (click)="filter.set(option.value)"
             >
-              {{ opt.label }}
+              {{ option.label }}
             </button>
           }
         </div>
@@ -118,58 +123,68 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
               <tr>
                 <th class="py-3 pl-4 font-semibold">{{ t()("appareils.col.device") }}</th>
                 <th class="font-semibold">{{ t()("appareils.col.user") }}</th>
-                <th class="hidden font-semibold md:table-cell">{{ t()("appareils.col.registered") }}</th>
+                <th class="hidden font-semibold md:table-cell">
+                  {{ t()("appareils.col.registered") }}
+                </th>
                 <th class="font-semibold">{{ t()("appareils.col.lastActive") }}</th>
                 <th class="font-semibold">{{ t()("appareils.col.status") }}</th>
                 <th class="w-12 pr-4" aria-hidden="true"></th>
               </tr>
             </thead>
             <tbody class="divide-y">
-              @for (d of rows(); track d.id) {
-                <tr class="cursor-pointer hover:bg-muted/40" (click)="openDetail(d.id)">
+              @for (device of pager.items(); track device.id) {
+                <tr class="cursor-pointer hover:bg-muted/40" (click)="openDetail(device.id)">
                   <td class="py-2.5 pl-4">
                     <span class="flex items-center gap-2 font-medium">
                       <lucide-angular [img]="icons.phone" class="size-4 text-muted-foreground" />
-                      {{ d.label }}
+                      {{ device.label }}
                     </span>
                   </td>
                   <td>
-                    @if (user(d.userId); as u) {
+                    @if (user(device.userId); as owner) {
                       <a
-                        [routerLink]="['/utilisateurs']"
-                        [queryParams]="{ q: u.name }"
+                        [routerLink]="['/dashboard/utilisateurs']"
+                        [queryParams]="{ q: owner.name }"
                         (click)="$event.stopPropagation()"
                         class="font-medium hover:text-primary hover:underline"
                       >
-                        {{ u.name }}
+                        {{ owner.name }}
                       </a>
-                      <div class="text-xs text-muted-foreground">{{ locale.tEnum("role", u.role) }}</div>
+                      <div class="text-xs text-muted-foreground">
+                        {{ store.roleLabel(owner.role) }}
+                      </div>
                     } @else {
                       {{ t()("appareils.unknown") }}
                     }
                   </td>
                   <td class="hidden whitespace-nowrap text-muted-foreground md:table-cell">
-                    {{ fmtDate(d.registeredAt) }}
+                    {{ fmtDate(device.registeredAt) }}
                   </td>
-                  <td class="whitespace-nowrap text-muted-foreground">{{ fmtDate(d.lastActiveAt) }}</td>
+                  <td class="whitespace-nowrap text-muted-foreground">
+                    {{ fmtDate(device.lastActiveAt) }}
+                  </td>
                   <td>
-                    @if (d.active) {
+                    @if (device.active) {
                       <ui-pill tone="success">{{ t()("appareils.state.active") }}</ui-pill>
                     } @else {
                       <ui-pill tone="neutral">{{ t()("appareils.state.revoked") }}</ui-pill>
                     }
                   </td>
-                  <td class="relative pr-4 text-right" data-device-menu (click)="$event.stopPropagation()">
+                  <td
+                    class="relative pr-4 text-right"
+                    data-device-menu
+                    (click)="$event.stopPropagation()"
+                  >
                     <button
                       type="button"
                       class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input text-muted-foreground hover:bg-muted pointer-coarse:size-touch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      [attr.aria-expanded]="deviceMenuOpenId() === d.id"
+                      [attr.aria-expanded]="deviceMenuOpenId() === device.id"
                       [attr.aria-label]="t()('appareils.action.menu')"
-                      (click)="toggleDeviceMenu(d.id, $event)"
+                      (click)="toggleDeviceMenu(device.id, $event)"
                     >
                       <lucide-angular [img]="icons.more" class="size-4" />
                     </button>
-                    @if (deviceMenuOpenId() === d.id) {
+                    @if (deviceMenuOpenId() === device.id) {
                       <div
                         class="absolute right-4 z-20 mt-1 min-w-56 rounded-md border bg-popover p-1 text-left text-sm shadow-md"
                         data-device-menu
@@ -177,7 +192,7 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
                         <button
                           type="button"
                           class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted"
-                          (click)="openDetail(d.id); deviceMenuOpenId.set(null)"
+                          (click)="openDetail(device.id); deviceMenuOpenId.set(null)"
                         >
                           <lucide-angular [img]="icons.eye" class="size-4 shrink-0" />
                           {{ t()("appareils.action.detail") }}
@@ -185,25 +200,25 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
                         <button
                           type="button"
                           class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted"
-                          (click)="openRename(d); deviceMenuOpenId.set(null)"
+                          (click)="openRename(device); deviceMenuOpenId.set(null)"
                         >
                           <lucide-angular [img]="icons.pencil" class="size-4 shrink-0" />
                           {{ t()("appareils.action.rename") }}
                         </button>
-                        @if (d.active) {
+                        @if (device.active) {
                           <button
                             type="button"
                             class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted"
-                            (click)="resync(d); deviceMenuOpenId.set(null)"
+                            (click)="resync(device); deviceMenuOpenId.set(null)"
                           >
                             <lucide-angular [img]="icons.refresh" class="size-4 shrink-0" />
                             {{ t()("appareils.action.resync") }}
                           </button>
                         }
-                        @if (store.can('user.manage')) {
+                        @if (store.can("user.manage")) {
                           <a
-                            [routerLink]="['/utilisateurs']"
-                            [queryParams]="{ q: user(d.userId)?.name ?? '' }"
+                            [routerLink]="['/dashboard/utilisateurs']"
+                            [queryParams]="{ q: user(device.userId)?.name ?? '' }"
                             class="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
                             (click)="deviceMenuOpenId.set(null)"
                           >
@@ -211,10 +226,10 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
                             {{ t()("appareils.action.user") }}
                           </a>
                         }
-                        @if (store.can('audit.read')) {
+                        @if (store.can("audit.read")) {
                           <a
-                            [routerLink]="['/audit']"
-                            [queryParams]="{ q: d.label }"
+                            [routerLink]="['/dashboard/audit']"
+                            [queryParams]="{ q: device.label }"
                             class="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
                             (click)="deviceMenuOpenId.set(null)"
                           >
@@ -222,21 +237,21 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
                             {{ t()("appareils.action.audit") }}
                           </a>
                         }
-                        @if (d.active) {
+                        @if (device.active) {
                           <button
                             type="button"
                             class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-danger-fg hover:bg-muted"
-                            (click)="askConfirm('signout', d); deviceMenuOpenId.set(null)"
+                            (click)="askConfirm('signout', device); deviceMenuOpenId.set(null)"
                           >
                             <lucide-angular [img]="icons.logOut" class="size-4 shrink-0" />
                             {{ t()("appareils.action.signout") }}
                           </button>
                         }
-                        @if (d.active) {
+                        @if (device.active) {
                           <button
                             type="button"
                             class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-danger-fg hover:bg-muted"
-                            (click)="askConfirm('revoke', d); deviceMenuOpenId.set(null)"
+                            (click)="askConfirm('revoke', device); deviceMenuOpenId.set(null)"
                           >
                             <lucide-angular [img]="icons.ban" class="size-4 shrink-0" />
                             {{ t()("appareils.action.revoke") }}
@@ -245,7 +260,7 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
                           <button
                             type="button"
                             class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted"
-                            (click)="askConfirm('reactivate', d); deviceMenuOpenId.set(null)"
+                            (click)="askConfirm('reactivate', device); deviceMenuOpenId.set(null)"
                           >
                             <lucide-angular [img]="icons.rotate" class="size-4 shrink-0" />
                             {{ t()("appareils.action.reactivate") }}
@@ -258,6 +273,7 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
               }
             </tbody>
           </table>
+          <ui-pagination class="px-4 pb-4" [pager]="pager" />
         } @else {
           <div class="px-4 py-10 text-center text-muted-foreground">
             <lucide-angular [img]="icons.phone" class="mx-auto mb-2 size-10 opacity-50" />
@@ -298,13 +314,13 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
               <div>
                 <dt class="text-xs text-muted-foreground">{{ t()("appareils.col.user") }}</dt>
                 <dd class="mt-0.5">
-                  @if (user(detail.userId); as ud) {
+                  @if (user(detail.userId); as detailOwner) {
                     <a
-                      [routerLink]="['/utilisateurs']"
-                      [queryParams]="{ q: ud.name }"
+                      [routerLink]="['/dashboard/utilisateurs']"
+                      [queryParams]="{ q: detailOwner.name }"
                       class="text-primary hover:underline"
                     >
-                      {{ ud.name }}
+                      {{ detailOwner.name }}
                     </a>
                   } @else {
                     {{ t()("appareils.unknown") }}
@@ -314,8 +330,8 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
               <div>
                 <dt class="text-xs text-muted-foreground">{{ t()("appareils.detail.role") }}</dt>
                 <dd class="mt-0.5">
-                  @if (user(detail.userId); as ud) {
-                    {{ locale.tEnum("role", ud.role) }}
+                  @if (user(detail.userId); as detailOwner) {
+                    {{ store.roleLabel(detailOwner.role) }}
                   } @else {
                     {{ t()("appareils.unknown") }}
                   }
@@ -377,11 +393,11 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
               <div class="eyebrow mb-2">{{ t()("appareils.history") }}</div>
               @if (detailHistory().length) {
                 <ul class="divide-y text-sm">
-                  @for (h of detailHistory(); track h.id) {
+                  @for (event of detailHistory(); track event.id) {
                     <li class="py-2">
-                      <div class="font-medium">{{ h.action }}</div>
+                      <div class="font-medium">{{ event.action }}</div>
                       <div class="text-xs text-muted-foreground">
-                        {{ h.user }} · {{ fmtDateTime(h.at) }}
+                        {{ event.user }} · {{ fmtDateTime(event.at) }}
                       </div>
                     </li>
                   }
@@ -390,7 +406,7 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
                 <p class="text-sm text-muted-foreground">{{ t()("appareils.history.empty") }}</p>
               }
               <a
-                [routerLink]="['/audit']"
+                [routerLink]="['/dashboard/audit']"
                 [queryParams]="{ q: detail.label }"
                 class="mt-2 inline-block text-xs font-semibold text-primary hover:underline"
               >
@@ -432,20 +448,20 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
         </button>
       </ui-dialog>
 
-      @if (confirm(); as c) {
+      @if (confirm(); as confirmation) {
         <ui-dialog [open]="true" (openChange)="onConfirmOpen($event)" [title]="confirmTitle()">
           <p class="text-sm">
             {{ t()("appareils.confirm.device") }}
-            <span class="font-semibold">{{ c.device.label }}</span>
+            <span class="font-semibold">{{ confirmation.device.label }}</span>
             {{ t()("appareils.confirm.of") }}
-            {{ user(c.device.userId)?.name ?? t()("appareils.unknown") }}.
-            @if (c.kind === 'revoke') {
+            {{ user(confirmation.device.userId)?.name ?? t()("appareils.unknown") }}.
+            @if (confirmation.kind === "revoke") {
               {{ t()("appareils.confirm.revoke.note") }}
             }
-            @if (c.kind === 'reactivate') {
+            @if (confirmation.kind === "reactivate") {
               {{ t()("appareils.confirm.reactivate.note") }}
             }
-            @if (c.kind === 'signout') {
+            @if (confirmation.kind === "signout") {
               {{ t()("appareils.confirm.signout.note") }}
             }
           </p>
@@ -461,7 +477,7 @@ type ConfirmKind = "revoke" | "reactivate" | "signout";
           >
             {{ t()("common.cancel") }}
           </button>
-          @if (c.kind === 'reactivate') {
+          @if (confirmation.kind === "reactivate") {
             <button
               actions
               type="button"
@@ -510,10 +526,9 @@ export default class AppareilsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
-  private readonly userParam = toSignal(
-    this.route.queryParamMap.pipe(map((m) => m.get("user"))),
-    { initialValue: null as string | null },
-  );
+  private readonly userParam = toSignal(this.route.queryParamMap.pipe(map((m) => m.get("user"))), {
+    initialValue: null as string | null,
+  });
 
   protected readonly q = signal("");
   protected readonly filter = signal<Filter>("tous");
@@ -540,9 +555,7 @@ export default class AppareilsPage {
 
   protected readonly devices = computed(() => this.store.state().devices);
 
-  protected readonly activeCount = computed(
-    () => this.devices().filter((d) => d.active).length,
-  );
+  protected readonly activeCount = computed(() => this.devices().filter((d) => d.active).length);
 
   protected readonly filterUser = computed(() => {
     const id = this.userParam();
@@ -689,4 +702,7 @@ export default class AppareilsPage {
       `${this.t()("appareils.toast.resync")} — ${this.t()("appareils.toast.resyncDesc")}`,
     );
   }
+
+  /** Pagination (rows) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly pager = createPager(() => this.rows());
 }

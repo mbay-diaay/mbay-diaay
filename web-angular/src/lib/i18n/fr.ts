@@ -3,6 +3,7 @@ import { common } from "./messages/common";
 import { cooperatives } from "./messages/cooperatives";
 import { cotisations } from "./messages/cotisations";
 import { reunions } from "./messages/reunions";
+import { rappels } from "./messages/rappels";
 import { documents } from "./messages/documents";
 import { errors } from "./messages/errors";
 import { dashboard } from "./messages/dashboard";
@@ -76,6 +77,7 @@ export const fr = {
   ...cooperatives,
   ...cotisations,
   ...reunions,
+  ...rappels,
   ...documents,
   ...errors,
   ...dashboard,

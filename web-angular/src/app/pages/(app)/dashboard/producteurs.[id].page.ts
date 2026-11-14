@@ -1,28 +1,44 @@
 import { Component, computed, inject, signal } from "@angular/core";
-import { FormsModule } from "@angular/forms";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { map } from "rxjs";
-import { LucideAngularModule, ArrowLeft, Eye, Pencil } from "lucide-angular";
 
 import { fmtAge, fmtDate, fmtDateTime, maskCni, maskPhone, nf, nf1 } from "@/lib/format";
 import type { MessageKey } from "@/lib/i18n";
 import type { CorrectionChange, Producer } from "@/lib/mock/data";
 import { inScope } from "@/lib/store";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { PlotMapComponent } from "../shared/plot-map.component";
-import { StoreService } from "../shared/store.service";
-import { UiDialogComponent } from "../shared/ui/dialog.component";
-import { UiEmptyComponent } from "../shared/ui/empty.component";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent, UiQualityPillComponent, type UiPillTone } from "../shared/ui/pill.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { PlotMapComponent } from "@shared/plot-map.component";
+import { StoreService } from "@shared/store.service";
+import {
+  DetailHeroComponent,
+  IconComponent,
+  initialsOf,
+  ModalComponent,
+  SnackbarService,
+  StatCardsComponent,
+  TextFieldComponent,
+  TONE,
+  V2_PAGE_STYLES,
+  type HeroBadge,
+  type HeroMeta,
+  type StatCard,
+} from "@shared/ui";
 
-const PLOT_TONE: Record<string, UiPillTone> = {
-  relevée: "info",
-  validée: "success",
-  "à reprendre": "warning",
-  chevauchement: "danger",
+/** Couleur d'état d'une parcelle (charte V2). */
+const PLOT_TONE: Record<string, { bg: string; fg: string }> = {
+  relevée: TONE.info,
+  validée: TONE.succes,
+  "à reprendre": TONE.attente,
+  chevauchement: TONE.erreur,
+};
+
+const QUALITY_TONE: Record<Producer["quality"], { label: MessageKey; bg: string; fg: string }> = {
+  validé: { label: "producteurs.quality.validé", ...TONE.succes },
+  "à vérifier": { label: "producteurs.quality.à vérifier", ...TONE.attente },
+  doublon: { label: "producteurs.quality.doublon", ...TONE.info },
+  invalide: { label: "producteurs.quality.invalide", ...TONE.erreur },
 };
 
 const STATUS_KEY = {
@@ -32,359 +48,563 @@ const STATUS_KEY = {
 
 const PHONE_RE = /^7[0678]\s?\d{3}\s?\d{2}\s?\d{2}$/;
 
-/** Port approfondi de producteurs.$id — identité, révélations auditées, demande de correction, carte, parcelles, cultures, historique. */
+/**
+ * Fiche producteur (charte V2) : en-tête, chiffres clés, identité (CNI et téléphone révélés avec trace),
+ * carte et tableau des parcelles, cultures, historique ; demande de correction et révélation CNI en modale.
+ */
 @Component({
   selector: "app-producteur-detail-page",
   imports: [
-    FormsModule,
-    RouterLink,
-    LucideAngularModule,
     AppShellComponent,
+    DetailHeroComponent,
+    IconComponent,
+    ModalComponent,
     PlotMapComponent,
-    UiDialogComponent,
-    UiEmptyComponent,
-    UiPageHeaderComponent,
-    UiPillComponent,
-    UiQualityPillComponent,
+    RouterLink,
+    StatCardsComponent,
+    TextFieldComponent,
+  ],
+  styles: [
+    V2_PAGE_STYLES,
+    `
+      .grid-main {
+        display: grid;
+        gap: 16px;
+      }
+      @media (min-width: 1100px) {
+        .grid-main {
+          grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+        }
+      }
+      .map {
+        height: 100%;
+        min-height: 300px;
+      }
+      .timeline li {
+        position: relative;
+        display: flex;
+        gap: 14px;
+        padding: 12px 20px;
+        border-top: 1px solid var(--v2-separateur);
+      }
+      .dot {
+        margin-top: 4px;
+        height: 12px;
+        width: 12px;
+        flex-shrink: 0;
+        border-radius: 999px;
+        background: var(--v2-foret);
+        box-shadow: 0 0 0 4px var(--v2-sauge);
+      }
+      .chg {
+        display: grid;
+        gap: 6px;
+        border-radius: 16px;
+        background: var(--v2-creme);
+        padding: 12px 14px;
+        font-size: 14px;
+      }
+      .seg-form button {
+        flex: 1;
+        justify-content: center;
+      }
+    `,
   ],
   template: `
     <app-shell perm="producer.read" [area]="t()('producteurs.detail.area')">
-      @if (producer(); as p) {
+      @if (producer(); as current) {
         @if (!inScopeProducer()) {
-          <ui-page-header [title]="t()('producteurs.detail.outOfScope')" />
-          <p class="text-sm text-muted-foreground">{{ t()("producteurs.detail.outOfScopeDesc") }}</p>
-          <a routerLink="/producteurs" class="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
-            <lucide-angular [img]="icons.arrowLeft" class="size-4" />
-            {{ t()("producteurs.fiche.back") }}
-          </a>
+          <div
+            class="card mx-auto mt-16 flex max-w-lg flex-col items-center gap-3 p-10 text-center"
+          >
+            <span
+              class="grid size-14 place-items-center rounded-[16px]"
+              style="background: var(--v2-attente-bg); color: var(--v2-attente-fg)"
+              ><ui-icon name="warning" [size]="26"
+            /></span>
+            <h1 class="text-[22px] font-extrabold">{{ t()("producteurs.detail.outOfScope") }}</h1>
+            <p class="sub">{{ t()("producteurs.detail.outOfScopeDesc") }}</p>
+            <a class="btn btn-ghost mt-2" routerLink="/dashboard/producteurs">{{
+              t()("producteurs.index.title")
+            }}</a>
+          </div>
         } @else {
-          @if (feedback()) {
-            <p class="mb-3 text-sm text-muted-foreground">{{ feedback() }}</p>
-          }
+          <ui-detail-hero
+            [crumb]="{ label: t()('producteurs.index.title'), link: '/dashboard/producteurs' }"
+            [title]="current.firstName + ' ' + current.lastName"
+            [eyebrow]="current.code"
+            [mono]="initials(current.firstName + ' ' + current.lastName)"
+            [badges]="heroBadges()"
+            [meta]="heroMeta()"
+            [backLabel]="t()('producteurs.fiche.back')"
+          >
+            @if (store.can("producer.edit")) {
+              <button hero-actions type="button" class="btn btn-citron" (click)="openCorrection()">
+                <ui-icon name="edit" [size]="18" />{{ t()("producteurs.detail.requestEdit") }}
+              </button>
+            }
+          </ui-detail-hero>
 
-          <ui-page-header [title]="p.firstName + ' ' + p.lastName" [description]="p.code">
-            <a
-              actions
-              routerLink="/producteurs"
-              class="inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium shadow-sm hover:bg-accent"
-            >
-              <lucide-angular [img]="icons.arrowLeft" class="size-4" />
-              {{ t()("producteurs.index.title") }}
-            </a>
-          </ui-page-header>
-
-          @if (p.mergedInto) {
-            <div class="mb-4 rounded-md bg-info-bg p-3 text-sm text-info-fg">
-              {{ t()("producteurs.detail.merged") }}
-              <a [routerLink]="['/producteurs', p.mergedInto]" class="ml-1 font-semibold underline">{{
+          @if (current.mergedInto) {
+            <p class="notice mt-4" style="background: var(--v2-info-bg); color: var(--v2-info-fg)">
+              <ui-icon name="info" [size]="18" />{{ t()("producteurs.detail.merged") }}
+              <a class="underline" [routerLink]="['/dashboard/producteurs', current.mergedInto]">{{
                 t()("producteurs.detail.seeMain")
               }}</a>
-            </div>
+            </p>
           }
 
-          @if (store.can('producer.edit')) {
-            <div class="mb-4">
-              <button
-                type="button"
-                class="inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium shadow-sm hover:bg-accent"
-                (click)="openCorrection()"
-              >
-                <lucide-angular [img]="icons.pencil" class="size-4" />
-                {{ t()("producteurs.detail.requestEdit") }}
-              </button>
-            </div>
-          }
+          <ui-stat-cards class="rise mt-6" [stats]="stats()" />
 
-          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {{ t()("producteurs.detail.identity") }}
-          </h2>
-          <div class="surface mb-4 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.sex") }}</dt>
-              <dd class="mt-0.5 font-medium">
-                {{ t()(p.sex === "F" ? "producteurs.sex.F" : "producteurs.sex.H") }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.age") }}</dt>
-              <dd class="mt-0.5 font-medium">{{ fmtAge(p.age) }}</dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.handicap") }}</dt>
-              <dd class="mt-0.5 font-medium">
-                {{ t()(p.handicap ? "producteurs.detail.yes" : "producteurs.detail.no") }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.createdAt") }}</dt>
-              <dd class="mt-0.5 font-medium">{{ fmtDate(p.createdAt) }}</dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.cni") }}</dt>
-              <dd class="mt-0.5 font-medium tabular">
-                {{ showCni() ? (p.cni || t()("producteurs.notSet")) : maskCni(p.cni) }}
-                @if (canCni() && p.cni && !showCni()) {
-                  <button
-                    type="button"
-                    class="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-primary"
-                    (click)="openCniDialog()"
-                  >
-                    <lucide-angular [img]="icons.eye" class="size-3" />
-                    {{ t()("producteurs.detail.reveal") }}
-                  </button>
-                }
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.phone") }}</dt>
-              <dd class="mt-0.5 font-medium tabular">
-                {{ showPhone() ? (p.phone || t()("producteurs.notSet")) : maskPhone(p.phone) }}
-                @if (p.phone && !showPhone() && store.can('producer.edit')) {
-                  <button
-                    type="button"
-                    class="ml-2 text-xs font-semibold text-primary"
-                    (click)="revealPhone(p)"
-                  >
-                    {{ t()("producteurs.detail.reveal") }}
-                  </button>
-                }
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.organisation") }}</dt>
-              <dd class="mt-0.5 font-medium">
-                @if (org(p.orgId); as o) {
-                  <a [routerLink]="['/organisations', o.id]" class="text-primary hover:underline">{{ o.name }}</a>
-                } @else {
-                  {{ t()("producteurs.notSet") }}
-                }
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.status") }}</dt>
-              <dd class="mt-0.5 font-medium capitalize">{{ t()(STATUS_KEY[p.status]) }}</dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.detail.enumerator") }}</dt>
-              <dd class="mt-0.5 font-medium">{{ p.enumerator }}</dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.col.village") }}</dt>
-              <dd class="mt-0.5 font-medium">{{ p.village }}</dd>
-            </div>
-            <div>
-              <dt class="text-xs text-muted-foreground">{{ t()("producteurs.col.quality") }}</dt>
-              <dd class="mt-1"><ui-quality-pill [q]="p.quality" /></dd>
-            </div>
-          </div>
-
-          @if (plots().length && store.can('map.read')) {
-            <div class="mb-4">
-              <div class="eyebrow mb-2">{{ t()("producteurs.detail.plotsMap") }}</div>
-              <div class="h-56 overflow-hidden rounded-md border">
-                <app-plot-map
-                  [plots]="plots()"
-                  [selectedId]="selectedPlotId() ?? plots()[0]!.id"
-                  basemap="sat"
-                  [onSelect]="selectPlot"
-                />
+          <div class="grid-main mt-6">
+            <!-- Identité -->
+            <section class="sec-card">
+              <div class="sec-head">
+                <h2>
+                  <span class="sec-ico"><ui-icon name="person" [size]="18" /></span
+                  >{{ t()("producteurs.detail.identity") }}
+                </h2>
               </div>
-              <p class="mt-1.5 text-xs text-muted-foreground">
-                {{ t()("producteurs.detail.plotsMapHint") }}
-              </p>
-            </div>
-          }
-
-          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {{ t()("producteurs.detail.section.plots") }} · {{ nf.format(plots().length) }}
-          </h2>
-          <div class="surface mb-4 divide-y overflow-hidden">
-            @for (pl of plots(); track pl.id) {
-              <button
-                type="button"
-                class="flex w-full flex-wrap items-start justify-between gap-2 px-4 py-3 text-left hover:bg-muted/60"
-                (click)="selectPlot(pl.id)"
-              >
-                <div class="min-w-0">
-                  <div class="font-semibold">{{ pl.code }} · {{ pl.crop }}</div>
-                  <div class="mt-0.5 text-xs text-muted-foreground">
-                    {{ t()("producteurs.detail.plot.declared", { value: nf1.format(pl.declared) }) }} ·
-                    {{ t()("producteurs.detail.plot.measured", { value: nf1.format(pl.measured) }) }} · {{ pl.campaign }}
+              <dl class="facts">
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="person" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.detail.sex") }}</dt>
+                    <dd>
+                      {{ t()(current.sex === "F" ? "producteurs.sex.F" : "producteurs.sex.H") }}
+                    </dd>
                   </div>
                 </div>
-                <ui-pill [tone]="plotTone[pl.status] ?? 'neutral'">{{ pl.status }}</ui-pill>
-              </button>
-            } @empty {
-              <ui-empty>{{ t()("producteurs.detail.plots.empty") }}</ui-empty>
-            }
-          </div>
-
-          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {{ t()("producteurs.detail.section.crops") }}
-          </h2>
-          <div class="surface mb-4 divide-y overflow-hidden">
-            @for (c of p.crops; track c.campaign + c.crop) {
-              <div class="flex justify-between gap-2 px-4 py-3 text-sm">
-                <span class="font-medium">{{ c.crop }}</span>
-                <span class="text-muted-foreground">{{ c.campaign }} · {{ nf1.format(c.area) }} ha</span>
-              </div>
-            } @empty {
-              <ui-empty>{{ t()("producteurs.detail.crops.empty") }}</ui-empty>
-            }
-          </div>
-
-          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {{ t()("producteurs.detail.section.history") }}
-          </h2>
-          <div class="surface divide-y overflow-hidden">
-            @for (h of p.history; track h.at + h.field) {
-              <div class="px-4 py-3 text-sm">
-                <div class="font-medium">{{ h.field }}</div>
-                <div class="mt-0.5 text-xs text-muted-foreground">
-                  {{ fmtDateTime(h.at) }} · {{ h.by }} · {{ h.from || t()("producteurs.notSet") }} → {{ h.to }}
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="calendar_today" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.detail.age") }}</dt>
+                    <dd [class.zero]="current.age === null">
+                      {{ current.age === null ? "—" : fmtAge(current.age) }}
+                    </dd>
+                  </div>
                 </div>
-              </div>
-            } @empty {
-              <ui-empty>{{ t()("producteurs.detail.history.empty") }}</ui-empty>
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="badge" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.detail.cni") }}</dt>
+                    <dd class="tabular-nums">
+                      {{
+                        showCni() ? current.cni || t()("producteurs.notSet") : maskCni(current.cni)
+                      }}
+                      @if (canCni() && current.cni && !showCni()) {
+                        <button type="button" class="reveal" (click)="openCniDialog()">
+                          <ui-icon name="visibility" [size]="14" />{{
+                            t()("producteurs.detail.reveal")
+                          }}
+                        </button>
+                      }
+                    </dd>
+                  </div>
+                </div>
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="call" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.detail.phone") }}</dt>
+                    <dd class="tabular-nums" [class.zero]="!current.phone">
+                      {{
+                        showPhone() || store.can("contact.read")
+                          ? current.phone || "—"
+                          : maskPhone(current.phone)
+                      }}
+                      @if (
+                        current.phone &&
+                        !showPhone() &&
+                        !store.can("contact.read") &&
+                        store.can("producer.edit")
+                      ) {
+                        <button type="button" class="reveal" (click)="revealPhone(current)">
+                          <ui-icon name="visibility" [size]="14" />{{
+                            t()("producteurs.detail.reveal")
+                          }}
+                        </button>
+                      }
+                    </dd>
+                  </div>
+                </div>
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="location_on" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.col.village") }}</dt>
+                    <dd>{{ current.village }}</dd>
+                  </div>
+                </div>
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="hub" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.detail.organisation") }}</dt>
+                    <dd>
+                      @if (org(current.orgId); as organisation) {
+                        <a
+                          class="underline decoration-[var(--v2-gris-trait)] underline-offset-4 hover:text-[var(--v2-vert-pousse)]"
+                          [routerLink]="['/dashboard/organisations', organisation.id]"
+                          >{{ organisation.name }}</a
+                        >
+                      } @else {
+                        <span class="zero">—</span>
+                      }
+                    </dd>
+                  </div>
+                </div>
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="apartment" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.v2.coop") }}</dt>
+                    <dd>{{ scoopName(current.scoopId) }}</dd>
+                  </div>
+                </div>
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="accessibility" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.detail.handicap") }}</dt>
+                    <dd>
+                      {{
+                        t()(current.handicap ? "producteurs.detail.yes" : "producteurs.detail.no")
+                      }}
+                    </dd>
+                  </div>
+                </div>
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="badge" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.detail.enumerator") }}</dt>
+                    <dd>{{ current.enumerator }}</dd>
+                  </div>
+                </div>
+                <div class="fact">
+                  <span class="fact-ico"><ui-icon name="event_note" [size]="18" /></span>
+                  <div>
+                    <dt>{{ t()("producteurs.detail.createdAt") }}</dt>
+                    <dd>{{ fmtDate(current.createdAt) }}</dd>
+                  </div>
+                </div>
+              </dl>
+            </section>
+
+            <!-- Carte des parcelles -->
+            @if (plots().length && store.can("map.read")) {
+              <section class="sec-card flex flex-col">
+                <div class="sec-head">
+                  <h2>
+                    <span class="sec-ico"><ui-icon name="map" [size]="18" /></span
+                    >{{ t()("producteurs.detail.plotsMap") }}
+                  </h2>
+                </div>
+                <div class="map flex-1 border-t" style="border-color: var(--v2-separateur)">
+                  <app-plot-map
+                    [plots]="plots()"
+                    [selectedId]="selectedPlotId() ?? plots()[0]!.id"
+                    basemap="sat"
+                    [onSelect]="selectPlot"
+                  />
+                </div>
+                <p class="sub px-5 py-3">{{ t()("producteurs.detail.plotsMapHint") }}</p>
+              </section>
             }
           </div>
 
-          <ui-dialog
+          <!-- Parcelles -->
+          <section class="sec-card mt-4">
+            <div class="sec-head">
+              <h2>
+                <span class="sec-ico"><ui-icon name="landscape" [size]="18" /></span
+                >{{ t()("producteurs.detail.section.plots")
+                }}<span class="n">{{ nf.format(plots().length) }}</span>
+              </h2>
+            </div>
+            @if (plots().length) {
+              <div class="overflow-x-auto">
+                <table class="tbl min-w-[640px]">
+                  <thead>
+                    <tr>
+                      <th>{{ t()("producteurs.v2.col.plot") }}</th>
+                      <th>{{ t()("producteurs.v2.col.crop") }}</th>
+                      <th class="text-right">{{ t()("producteurs.v2.col.declared") }}</th>
+                      <th class="text-right">{{ t()("producteurs.v2.col.measured") }}</th>
+                      <th>{{ t()("producteurs.v2.col.campaign") }}</th>
+                      <th>{{ t()("producteurs.v2.col.status") }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (plot of plots(); track plot.id) {
+                      <tr
+                        class="row-link"
+                        [class.font-bold]="selectedPlotId() === plot.id"
+                        [attr.aria-label]="t()('producteurs.v2.viewPlot', { code: plot.code })"
+                        tabindex="0"
+                        (click)="selectPlot(plot.id)"
+                        (keydown.enter)="selectPlot(plot.id)"
+                      >
+                        <td>
+                          <span class="mono" style="color: var(--v2-foret)">{{ plot.code }}</span>
+                        </td>
+                        <td class="font-semibold">{{ plot.crop }}</td>
+                        <td class="text-right tabular-nums">{{ nf1.format(plot.declared) }} ha</td>
+                        <td class="text-right font-extrabold tabular-nums">
+                          {{ nf1.format(plot.measured) }} ha
+                        </td>
+                        <td class="font-medium">{{ plot.campaign }}</td>
+                        <td>
+                          <span
+                            class="badge"
+                            [style.background]="plotTone(plot.status).bg"
+                            [style.color]="plotTone(plot.status).fg"
+                            >{{ plot.status }}</span
+                          >
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="sub border-t px-5 py-5" style="border-color: var(--v2-separateur)">
+                {{ t()("producteurs.detail.plots.empty") }}
+              </p>
+            }
+          </section>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <!-- Cultures -->
+            <section class="sec-card">
+              <div class="sec-head">
+                <h2>
+                  <span class="sec-ico"><ui-icon name="grass" [size]="18" /></span
+                  >{{ t()("producteurs.detail.section.crops")
+                  }}<span class="n">{{ current.crops.length }}</span>
+                </h2>
+              </div>
+              <ul>
+                @for (crop of current.crops; track crop.campaign + crop.crop) {
+                  <li
+                    class="flex items-center gap-3 border-t px-5 py-3"
+                    style="border-color: var(--v2-separateur)"
+                  >
+                    <span class="avatar" style="height: 32px; width: 32px; font-size: 11px">{{
+                      crop.crop.slice(0, 2).toUpperCase()
+                    }}</span>
+                    <span class="min-w-0 flex-1 font-bold">{{ crop.crop }}</span>
+                    <span class="sub tabular-nums"
+                      >{{ crop.campaign }} · {{ nf1.format(crop.area) }} ha</span
+                    >
+                  </li>
+                } @empty {
+                  <li class="sub border-t px-5 py-5" style="border-color: var(--v2-separateur)">
+                    {{ t()("producteurs.detail.crops.empty") }}
+                  </li>
+                }
+              </ul>
+            </section>
+
+            <!-- Historique -->
+            <section class="sec-card">
+              <div class="sec-head">
+                <h2>
+                  <span class="sec-ico"><ui-icon name="event_note" [size]="18" /></span
+                  >{{ t()("producteurs.detail.section.history")
+                  }}<span class="n">{{ current.history.length }}</span>
+                </h2>
+              </div>
+              <ol class="timeline">
+                @for (historyEntry of current.history; track historyEntry.at + historyEntry.field) {
+                  <li>
+                    <span class="dot" aria-hidden="true"></span>
+                    <span class="min-w-0">
+                      <span class="block font-bold">{{ historyEntry.field }}</span>
+                      <span class="block text-[14px]"
+                        ><span class="line-through" style="color: var(--v2-gris-texte)">{{
+                          historyEntry.from || t()("producteurs.notSet")
+                        }}</span>
+                        → <b>{{ historyEntry.to }}</b></span
+                      >
+                      <span class="sub block"
+                        >{{ fmtDateTime(historyEntry.at) }} · {{ historyEntry.by }}</span
+                      >
+                    </span>
+                  </li>
+                } @empty {
+                  <li class="sub">{{ t()("producteurs.detail.history.empty") }}</li>
+                }
+              </ol>
+            </section>
+          </div>
+
+          <!-- Révéler la CNI -->
+          <ui-modal
             [open]="cniOpen()"
-            (openChange)="onCniOpenChange($event)"
             [title]="t()('producteurs.detail.cniDialog.title')"
+            [description]="t()('producteurs.detail.cniDialog.description')"
+            icon="badge"
+            [width]="540"
+            [closeLabel]="t()('common.close')"
+            (closed)="closeCniDialog()"
           >
-            <p class="text-sm text-muted-foreground">{{ t()("producteurs.detail.cniDialog.description") }}</p>
-            <label class="mt-3 block text-sm font-medium">
-              {{ t()("producteurs.detail.cniDialog.reason") }}
-              <textarea
-                class="mt-1 min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-normal"
-                [(ngModel)]="cniReason"
-                [placeholder]="t()('producteurs.detail.cniDialog.reasonPlaceholder')"
-              ></textarea>
-            </label>
-            <button
-              actions
-              type="button"
-              class="inline-flex h-9 items-center rounded-md border px-4 text-sm"
-              (click)="closeCniDialog()"
-            >
+            <label class="lbl" for="cni-reason">{{
+              t()("producteurs.detail.cniDialog.reason")
+            }}</label>
+            <textarea
+              id="cni-reason"
+              class="area mb-5 mt-2"
+              [placeholder]="t()('producteurs.detail.cniDialog.reasonPlaceholder')"
+              [value]="cniReason()"
+              (input)="cniReason.set($any($event.target).value)"
+            ></textarea>
+            <button modal-footer type="button" class="btn btn-ghost" (click)="closeCniDialog()">
               {{ t()("common.cancel") }}
             </button>
             <button
-              actions
+              modal-footer
               type="button"
-              class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
-              [disabled]="cniReason.trim().length < 3"
+              class="btn btn-primary"
+              [disabled]="cniReason().trim().length < 3"
               (click)="confirmRevealCni()"
             >
-              {{ t()("producteurs.detail.cniDialog.submit") }}
+              {{ t()("producteurs.detail.cniDialog.submit")
+              }}<span class="btn-chip"><ui-icon name="visibility" [size]="18" /></span>
             </button>
-          </ui-dialog>
+          </ui-modal>
 
-          <ui-dialog
+          <!-- Demander une correction -->
+          <ui-modal
             [open]="correctionOpen()"
-            (openChange)="onCorrectionOpenChange($event)"
             [title]="correctionDialogTitle()"
+            [description]="t()('producteurs.detail.correction.description')"
+            icon="edit"
+            [width]="640"
+            [closeLabel]="t()('common.close')"
+            (closed)="correctionOpen.set(false)"
           >
-            <p class="text-sm text-muted-foreground">{{ t()("producteurs.detail.correction.description") }}</p>
-            <div class="mt-3 grid grid-cols-2 gap-3">
-              <label class="block text-sm font-medium">
-                {{ t()("producteurs.detail.correction.firstName") }}
-                <input
-                  class="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  [(ngModel)]="corrFirstName"
-                />
-              </label>
-              <label class="block text-sm font-medium">
-                {{ t()("producteurs.detail.correction.lastName") }}
-                <input
-                  class="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  [(ngModel)]="corrLastName"
-                />
-              </label>
-            </div>
-            <label class="mt-3 block text-sm font-medium">
-              {{ t()("producteurs.detail.correction.phone") }}
-              @if (corrPhoneErr()) {
-                <span class="ml-1 text-xs font-normal text-destructive">{{ corrPhoneErr() }}</span>
-              }
-              <input
-                class="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                [(ngModel)]="corrPhone"
-                inputmode="tel"
-                placeholder="77 123 45 67"
+            <div class="grid gap-5 pb-5 sm:grid-cols-2">
+              <ui-text-field
+                preset="firstName"
+                [label]="t()('producteurs.detail.correction.firstName')"
+                [value]="corrFirstName()"
+                (valueChange)="corrFirstName.set($event)"
               />
-            </label>
-            <label class="mt-3 block text-sm font-medium">
-              {{ t()("producteurs.detail.correction.age") }}
-              @if (corrAgeErr()) {
-                <span class="ml-1 text-xs font-normal text-destructive">{{ corrAgeErr() }}</span>
-              }
-              <input
-                class="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                [(ngModel)]="corrAge"
-                inputmode="numeric"
+              <ui-text-field
+                preset="lastName"
+                [label]="t()('producteurs.detail.correction.lastName')"
+                [value]="corrLastName()"
+                (valueChange)="corrLastName.set($event)"
               />
-            </label>
-            <label class="mt-3 block text-sm font-medium">
-              {{ t()("producteurs.detail.correction.status") }}
-              <select
-                class="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                [(ngModel)]="corrStatus"
-              >
-                <option value="recensé">{{ t()("producteurs.status.recensé") }}</option>
-                <option value="membre">{{ t()("producteurs.status.membre") }}</option>
-              </select>
-            </label>
-            @if (correctionChanges().length > 0) {
-              <div class="mt-3 rounded-md border p-3 text-sm">
-                <div class="mb-2 font-semibold">
-                  {{ t()("producteurs.detail.correction.beforeAfter", { n: correctionChanges().length }) }}
+              <ui-text-field
+                preset="phone"
+                [label]="t()('producteurs.detail.correction.phone')"
+                [value]="corrPhone()"
+                [error]="corrPhoneErr()"
+                (valueChange)="corrPhone.set($event)"
+              />
+              <ui-text-field
+                preset="age"
+                [label]="t()('producteurs.detail.correction.age')"
+                [value]="corrAge()"
+                [error]="corrAgeErr()"
+                (valueChange)="corrAge.set($event)"
+              />
+              <div class="sm:col-span-2">
+                <p class="lbl">{{ t()("producteurs.detail.correction.status") }}</p>
+                <div
+                  class="seg seg-form mt-2"
+                  role="radiogroup"
+                  [attr.aria-label]="t()('producteurs.detail.correction.status')"
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    [class.on]="corrStatus() === 'recensé'"
+                    [attr.aria-checked]="corrStatus() === 'recensé'"
+                    (click)="corrStatus.set('recensé')"
+                  >
+                    {{ t()("producteurs.status.recensé") }}
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    [class.on]="corrStatus() === 'membre'"
+                    [attr.aria-checked]="corrStatus() === 'membre'"
+                    (click)="corrStatus.set('membre')"
+                  >
+                    {{ t()("producteurs.status.membre") }}
+                  </button>
                 </div>
-                @for (ch of correctionChanges(); track ch.field + ch.from + ch.to) {
-                  <div>
-                    <span class="font-medium">{{ ch.field }}</span> :
-                    <span class="text-muted-foreground line-through">{{ showVal(ch.field, ch.from) }}</span>
-                    → {{ showVal(ch.field, ch.to) }}
-                  </div>
-                }
               </div>
-            }
-            <label class="mt-3 block text-sm font-medium">
-              {{ t()("producteurs.detail.correction.motif") }}
-              <textarea
-                class="mt-1 min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-normal"
-                [(ngModel)]="corrMotif"
-                [placeholder]="t()('producteurs.detail.correction.motifPlaceholder')"
-              ></textarea>
-            </label>
+              @if (correctionChanges().length > 0) {
+                <div class="chg sm:col-span-2">
+                  <p class="lbl">
+                    {{
+                      t()("producteurs.detail.correction.beforeAfter", {
+                        n: correctionChanges().length,
+                      })
+                    }}
+                  </p>
+                  @for (
+                    change of correctionChanges();
+                    track change.field + change.from + change.to
+                  ) {
+                    <p>
+                      <b>{{ change.field }}</b> :
+                      <span class="line-through" style="color: var(--v2-gris-texte)">{{
+                        showVal(change.field, change.from)
+                      }}</span>
+                      →
+                      <b style="color: var(--v2-vert-pousse)">{{
+                        showVal(change.field, change.to)
+                      }}</b>
+                    </p>
+                  }
+                </div>
+              }
+              <div class="sm:col-span-2">
+                <label class="lbl" for="corr-motif">{{
+                  t()("producteurs.detail.correction.motif")
+                }}</label>
+                <textarea
+                  id="corr-motif"
+                  class="area mt-2"
+                  [placeholder]="t()('producteurs.detail.correction.motifPlaceholder')"
+                  [value]="corrMotif()"
+                  (input)="corrMotif.set($any($event.target).value)"
+                ></textarea>
+              </div>
+            </div>
             <button
-              actions
+              modal-footer
               type="button"
-              class="inline-flex h-9 items-center rounded-md border px-4 text-sm"
+              class="btn btn-ghost"
               (click)="correctionOpen.set(false)"
             >
               {{ t()("common.cancel") }}
             </button>
             <button
-              actions
+              modal-footer
               type="button"
-              class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              class="btn btn-primary"
               [disabled]="!canSubmitCorrection()"
               (click)="submitCorrectionForm()"
             >
-              {{ t()("producteurs.detail.correction.submit") }}
+              {{ t()("producteurs.detail.correction.submit")
+              }}<span class="btn-chip"><ui-icon name="arrow_forward" [size]="18" /></span>
             </button>
-          </ui-dialog>
+          </ui-modal>
         }
       } @else {
-        <ui-page-header [title]="t()('producteurs.detail.notFound')" />
-        <p class="text-sm text-muted-foreground">{{ t()("producteurs.detail.notFoundDesc") }}</p>
-        <a routerLink="/producteurs" class="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
-          <lucide-angular [img]="icons.arrowLeft" class="size-4" />
-          {{ t()("producteurs.index.title") }}
-        </a>
+        <div class="card mx-auto mt-16 flex max-w-lg flex-col items-center gap-3 p-10 text-center">
+          <span
+            class="grid size-14 place-items-center rounded-[16px]"
+            style="background: var(--v2-attente-bg); color: var(--v2-attente-fg)"
+            ><ui-icon name="warning" [size]="26"
+          /></span>
+          <h1 class="text-[22px] font-extrabold">{{ t()("producteurs.detail.notFound") }}</h1>
+          <p class="sub">{{ t()("producteurs.detail.notFoundDesc") }}</p>
+          <a class="btn btn-ghost mt-2" routerLink="/dashboard/producteurs">{{
+            t()("producteurs.index.title")
+          }}</a>
+        </div>
       }
     </app-shell>
   `,
@@ -401,27 +621,25 @@ export default class ProducteurDetailPage {
   readonly maskCni = maskCni;
   readonly nf = nf;
   readonly nf1 = nf1;
-  readonly icons = { arrowLeft: ArrowLeft, eye: Eye, pencil: Pencil };
-  readonly plotTone = PLOT_TONE;
+  readonly initials = initialsOf;
   readonly STATUS_KEY = STATUS_KEY;
+  private readonly snackbar = inject(SnackbarService);
 
   readonly selectedPlotId = signal<string | undefined>(undefined);
   readonly selectPlot = (id: string) => this.selectedPlotId.set(id);
 
   readonly showCni = signal(false);
   readonly showPhone = signal(false);
-  readonly feedback = signal("");
-
   readonly cniOpen = signal(false);
-  cniReason = "";
+  readonly cniReason = signal("");
 
   readonly correctionOpen = signal(false);
-  corrFirstName = "";
-  corrLastName = "";
-  corrPhone = "";
-  corrAge = "";
-  corrStatus: Producer["status"] = "recensé";
-  corrMotif = "";
+  readonly corrFirstName = signal("");
+  readonly corrLastName = signal("");
+  readonly corrPhone = signal("");
+  readonly corrAge = signal("");
+  readonly corrStatus = signal<Producer["status"]>("recensé");
+  readonly corrMotif = signal("");
 
   private readonly id = toSignal(this.route.paramMap.pipe(map((p) => p.get("id") ?? "")), {
     initialValue: "",
@@ -443,7 +661,92 @@ export default class ProducteurDetailPage {
     return this.store.state().plots.filter((pl) => pl.producerId === id);
   });
 
-  readonly canCni = () => this.store.can("cni.read");
+  readonly canCni = () => this.store.can("identity.read_full");
+
+  plotTone(status: string) {
+    return PLOT_TONE[status] ?? TONE.neutre;
+  }
+
+  scoopName(id: string): string {
+    return this.store.state().scoops.find((c) => c.id === id)?.name ?? id;
+  }
+
+  readonly heroBadges = computed<HeroBadge[]>(() => {
+    const p = this.producer();
+    if (!p) return [];
+    const t = this.t();
+    const q = QUALITY_TONE[p.quality];
+    return [
+      {
+        label: t(STATUS_KEY[p.status]),
+        tone: p.status === "membre" ? "citron" : "light",
+        icon: p.status === "membre" ? "check_circle" : "person",
+      },
+      {
+        label: t(q.label),
+        tone: p.quality === "validé" ? "glass" : p.quality === "invalide" ? "danger" : "warn",
+        icon: p.quality === "validé" ? "task_alt" : "warning",
+      },
+      ...(p.mergedInto
+        ? [{ label: t("producteurs.detail.merged"), tone: "warn" as const, icon: "info" as const }]
+        : []),
+    ];
+  });
+
+  readonly heroMeta = computed<HeroMeta[]>(() => {
+    const p = this.producer();
+    if (!p) return [];
+    const o = this.org(p.orgId);
+    return [
+      { icon: "location_on", text: p.village },
+      ...(o ? [{ icon: "hub" as const, text: o.name }] : []),
+      { icon: "apartment", text: this.scoopName(p.scoopId) },
+    ];
+  });
+
+  readonly stats = computed<StatCard[]>(() => {
+    const p = this.producer();
+    if (!p) return [];
+    const t = this.t();
+    const plots = this.plots();
+    const measured = plots.reduce((n, x) => n + (x.measured || 0), 0);
+    const declared = plots.reduce((n, x) => n + (x.declared || 0), 0);
+    return [
+      {
+        label: t("producteurs.v2.kpi.plots"),
+        value: nf.format(plots.length),
+        sub: t("producteurs.v2.kpi.plotsSub", {
+          count: plots.filter((x) => x.status === "validée").length,
+        }),
+        icon: "landscape",
+        bg: "",
+        fg: "",
+      },
+      {
+        label: t("producteurs.v2.kpi.area"),
+        value: `${nf1.format(measured)} ha`,
+        sub: t("producteurs.v2.kpi.areaSub", { declared: nf1.format(declared) }),
+        icon: "square_foot",
+        ...TONE.succes,
+      },
+      {
+        label: t("producteurs.v2.kpi.crops"),
+        value: nf.format(p.crops.length),
+        sub: t("producteurs.v2.kpi.cropsSub", {
+          count: new Set(p.crops.map((c) => c.campaign)).size,
+        }),
+        icon: "grass",
+        ...TONE.culture,
+      },
+      {
+        label: t("producteurs.v2.kpi.changes"),
+        value: nf.format(p.history.length),
+        sub: t("producteurs.v2.kpi.changesSub"),
+        icon: "event_note",
+        ...TONE.info,
+      },
+    ];
+  });
 
   org(orgId: string): { id: string; name: string } | undefined {
     const o = this.store.state().orgs.find((x) => x.id === orgId);
@@ -460,22 +763,25 @@ export default class ProducteurDetailPage {
   readonly correctionDialogTitle = computed(() => {
     const p = this.producer();
     if (!p) return "";
-    return this.t()("producteurs.detail.correction.title", { name: `${p.firstName} ${p.lastName}` });
+    return this.t()("producteurs.detail.correction.title", {
+      name: `${p.firstName} ${p.lastName}`,
+    });
   });
 
   corrPhoneErr(): string {
     if (!this.correctionOpen()) return "";
-    const phone = this.corrPhone.trim();
+    const phone = this.corrPhone().trim();
     if (!phone) return "";
     return PHONE_RE.test(phone) ? "" : this.t()("producteurs.detail.correction.phoneError");
   }
 
   corrAgeErr(): string {
     if (!this.correctionOpen()) return "";
-    const raw = this.corrAge.trim();
+    const raw = this.corrAge().trim();
     if (raw === "") return "";
     const n = Number(raw);
-    if (!Number.isInteger(n) || n < 15 || n > 100) return this.t()("producteurs.detail.correction.ageError");
+    if (!Number.isInteger(n) || n < 15 || n > 100)
+      return this.t()("producteurs.detail.correction.ageError");
     return "";
   }
 
@@ -483,17 +789,18 @@ export default class ProducteurDetailPage {
     const p = this.producer();
     if (!p || !this.correctionOpen()) return [];
     const out: CorrectionChange[] = [];
-    if (this.corrFirstName !== p.firstName)
-      out.push({ field: "Prénom", from: p.firstName, to: this.corrFirstName });
-    if (this.corrLastName !== p.lastName) out.push({ field: "Nom", from: p.lastName, to: this.corrLastName });
-    if (this.corrPhone.trim() !== p.phone)
-      out.push({ field: "Téléphone", from: p.phone, to: this.corrPhone.trim() });
-    const ageRaw = this.corrAge.trim();
+    if (this.corrFirstName() !== p.firstName)
+      out.push({ field: "Prénom", from: p.firstName, to: this.corrFirstName() });
+    if (this.corrLastName() !== p.lastName)
+      out.push({ field: "Nom", from: p.lastName, to: this.corrLastName() });
+    if (this.corrPhone().trim() !== p.phone)
+      out.push({ field: "Téléphone", from: p.phone, to: this.corrPhone().trim() });
+    const ageRaw = this.corrAge().trim();
     const ageN = ageRaw === "" ? null : Number(ageRaw);
     if (ageN !== null && ageN !== p.age)
       out.push({ field: "Âge", from: p.age === null ? "" : String(p.age), to: String(ageN) });
-    if (this.corrStatus !== p.status)
-      out.push({ field: "Statut d'adhésion", from: p.status, to: this.corrStatus });
+    if (this.corrStatus() !== p.status)
+      out.push({ field: "Statut d'adhésion", from: p.status, to: this.corrStatus() });
     return out;
   }
 
@@ -502,75 +809,60 @@ export default class ProducteurDetailPage {
     if (!p) return false;
     return (
       this.correctionChanges().length > 0 &&
-      this.corrMotif.trim().length >= 10 &&
+      this.corrMotif().trim().length >= 10 &&
       !this.corrPhoneErr() &&
       !this.corrAgeErr()
     );
   }
 
-  onCniOpenChange(open: boolean): void {
-    this.cniOpen.set(open);
-    if (!open) this.cniReason = "";
-  }
-
   openCniDialog(): void {
-    this.feedback.set("");
-    this.cniReason = "";
+    this.cniReason.set("");
     this.cniOpen.set(true);
   }
 
   closeCniDialog(): void {
     this.cniOpen.set(false);
-    this.cniReason = "";
+    this.cniReason.set("");
   }
 
   confirmRevealCni(): void {
     const p = this.producer();
     if (!p) return;
     try {
-      this.store.actions.revealCni(p, this.cniReason.trim());
+      this.store.actions.revealCni(p, this.cniReason().trim());
       this.showCni.set(true);
-      this.feedback.set(this.t()("producteurs.detail.revealed"));
+      this.snackbar.info(this.t()("producteurs.detail.revealed"));
       this.closeCniDialog();
     } catch {
-      this.feedback.set(this.t()("producteurs.detail.cniDialog.tooShort"));
-    }
-  }
-
-  onCorrectionOpenChange(open: boolean): void {
-    this.correctionOpen.set(open);
-    if (!open) {
-      this.corrMotif = "";
+      this.snackbar.error(this.t()("producteurs.detail.cniDialog.tooShort"));
     }
   }
 
   revealPhone(p: Producer): void {
-    this.feedback.set("");
     this.store.actions.revealPhone(p);
     this.showPhone.set(true);
-    this.feedback.set(this.t()("producteurs.detail.revealed"));
+    this.snackbar.info(this.t()("producteurs.detail.revealed"));
   }
 
   openCorrection(): void {
     const p = this.producer();
     if (!p) return;
-    this.feedback.set("");
-    this.corrFirstName = p.firstName;
-    this.corrLastName = p.lastName;
-    this.corrPhone = p.phone;
-    this.corrAge = p.age === null ? "" : String(p.age);
-    this.corrStatus = p.status;
-    this.corrMotif = "";
+    this.corrFirstName.set(p.firstName);
+    this.corrLastName.set(p.lastName);
+    this.corrPhone.set(p.phone);
+    this.corrAge.set(p.age === null ? "" : String(p.age));
+    this.corrStatus.set(p.status);
+    this.corrMotif.set("");
     this.correctionOpen.set(true);
   }
 
   submitCorrectionForm(): void {
     const p = this.producer();
     if (!p || !this.canSubmitCorrection()) return;
-    this.store.actions.submitCorrection(p.id, this.correctionChanges(), this.corrMotif.trim());
+    this.store.actions.submitCorrection(p.id, this.correctionChanges(), this.corrMotif().trim());
     this.correctionOpen.set(false);
-    this.feedback.set(
-      `${this.t()("producteurs.detail.correction.sent")} — ${this.t()("producteurs.detail.correction.sentDesc")}`,
+    this.snackbar.success(
+      `${this.t()("producteurs.detail.correction.sent")} · ${this.t()("producteurs.detail.correction.sentDesc")}`,
     );
   }
 }

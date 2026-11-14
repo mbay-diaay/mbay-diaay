@@ -28,12 +28,16 @@ import {
 } from "@/lib/mock/data";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiButtonComponent } from "../shared/ui/button.component";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent } from "../shared/ui/pill.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
+import {
+  PaginationComponent,
+  UiButtonComponent,
+  UiPageHeaderComponent,
+  UiPillComponent,
+} from "@shared/ui";
+import { createPager } from "@shared/pager";
 
 const SECTIONS = [
   "cultures",
@@ -115,6 +119,7 @@ const RULE_DEFS: {
 @Component({
   selector: "app-referentiels-page",
   imports: [
+    PaginationComponent,
     FormsModule,
     RouterLink,
     LucideAngularModule,
@@ -163,15 +168,19 @@ const RULE_DEFS: {
         </button>
       </div>
 
-      @if (mainView() === 'cultures') {
+      @if (mainView() === "cultures") {
         <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <section>
-            <p class="mb-3 max-w-3xl text-sm text-muted-foreground">{{ t()("referentiels.cultures.intro") }}</p>
+            <p class="mb-3 max-w-3xl text-sm text-muted-foreground">
+              {{ t()("referentiels.cultures.intro") }}
+            </p>
             <div class="overflow-x-auto rounded-md border">
               <table class="w-full text-sm">
                 <thead class="border-b bg-muted text-left text-xs text-muted-foreground">
                   <tr>
-                    <th class="px-4 py-3 font-semibold">{{ t()("referentiels.cultures.col.crop") }}</th>
+                    <th class="px-4 py-3 font-semibold">
+                      {{ t()("referentiels.cultures.col.crop") }}
+                    </th>
                     <th class="font-semibold">{{ t()("referentiels.cultures.col.family") }}</th>
                     <th class="hidden text-right font-semibold sm:table-cell">
                       {{ t()("referentiels.cultures.col.producers") }}
@@ -182,58 +191,68 @@ const RULE_DEFS: {
                   </tr>
                 </thead>
                 <tbody class="divide-y">
-                  @for (r of cropRefs(); track r.name) {
+                  @for (crop of cropPager.items(); track crop.name) {
                     <tr>
-                      <td class="px-4 py-2 font-medium">{{ r.name }}</td>
+                      <td class="px-4 py-2 font-medium">{{ crop.name }}</td>
                       <td class="pr-4 sm:pr-0">
                         <select
                           class="flex h-9 w-full min-w-40 rounded-md border border-input bg-background px-2 text-sm sm:w-56"
-                          [ngModel]="r.family"
-                          (ngModelChange)="onFamilyChange(r.name, $event)"
-                          [attr.aria-label]="t()('referentiels.cultures.familyOf', { name: r.name })"
+                          [ngModel]="crop.family"
+                          (ngModelChange)="onFamilyChange(crop.name, $event)"
+                          [attr.aria-label]="
+                            t()('referentiels.cultures.familyOf', { name: crop.name })
+                          "
                         >
-                          @for (fam of cropFamilies; track fam) {
-                            <option [ngValue]="fam">{{ t()(FAMILY_LABEL[fam]) }}</option>
+                          @for (family of cropFamilies; track family) {
+                            <option [ngValue]="family">{{ t()(FAMILY_LABEL[family]) }}</option>
                           }
                         </select>
                       </td>
                       <td class="hidden text-right tabular text-muted-foreground sm:table-cell">
-                        {{ nf.format(producerCountForCrop(r.name)) }}
+                        {{ nf.format(producerCountForCrop(crop.name)) }}
                       </td>
-                      <td class="hidden pr-4 text-right tabular text-muted-foreground sm:table-cell">
-                        {{ nf.format(plotCountForCrop(r.name)) }}
+                      <td
+                        class="hidden pr-4 text-right tabular text-muted-foreground sm:table-cell"
+                      >
+                        {{ nf.format(plotCountForCrop(crop.name)) }}
                       </td>
                     </tr>
                   }
                 </tbody>
               </table>
             </div>
+            <ui-pagination class="px-4 pb-4" [pager]="cropPager" />
           </section>
           <section>
-            <p class="mb-3 max-w-3xl text-sm text-muted-foreground">{{ t()("referentiels.noms.intro") }}</p>
+            <p class="mb-3 max-w-3xl text-sm text-muted-foreground">
+              {{ t()("referentiels.noms.intro") }}
+            </p>
             <div class="rounded-md border p-2">
               @if (aliases().length) {
                 <ul class="divide-y">
-                  @for (a of aliases(); track a) {
+                  @for (alias of aliases(); track alias) {
                     <li class="flex flex-wrap items-center gap-3 px-3 py-3">
-                      <span class="w-40 font-medium">« {{ a }} »</span>
-                      <lucide-angular [img]="icons.arrowRight" class="size-4 text-muted-foreground" />
+                      <span class="w-40 font-medium">« {{ alias }} »</span>
+                      <lucide-angular
+                        [img]="icons.arrowRight"
+                        class="size-4 text-muted-foreground"
+                      />
                       <select
                         class="h-9 w-56 rounded-md border border-input bg-background px-2 text-sm"
-                        [ngModel]="aliasChoice()[a] ?? ''"
-                        (ngModelChange)="setAliasChoice(a, $event)"
-                        [attr.aria-label]="t()('referentiels.noms.cropFor', { name: a })"
+                        [ngModel]="aliasChoice()[alias] ?? ''"
+                        (ngModelChange)="setAliasChoice(alias, $event)"
+                        [attr.aria-label]="t()('referentiels.noms.cropFor', { name: alias })"
                       >
                         <option value="">{{ t()("referentiels.noms.choose") }}</option>
-                        @for (r of cropRefs(); track r.name) {
-                          <option [value]="r.name">{{ r.name }}</option>
+                        @for (crop of cropRefs(); track crop.name) {
+                          <option [value]="crop.name">{{ crop.name }}</option>
                         }
                       </select>
                       <ui-button
                         size="sm"
                         class="h-9"
-                        [disabled]="!aliasChoice()[a]"
-                        (click)="validateAlias(a)"
+                        [disabled]="!aliasChoice()[alias]"
+                        (click)="validateAlias(alias)"
                       >
                         {{ t()("referentiels.noms.validate") }}
                       </ui-button>
@@ -243,7 +262,9 @@ const RULE_DEFS: {
               } @else {
                 <div class="px-4 py-10 text-center text-muted-foreground">
                   <lucide-angular [img]="icons.help" class="mx-auto mb-2 size-10 opacity-50" />
-                  <div class="font-semibold text-foreground">{{ t()("referentiels.noms.empty") }}</div>
+                  <div class="font-semibold text-foreground">
+                    {{ t()("referentiels.noms.empty") }}
+                  </div>
                   <p class="mt-1 text-sm">{{ t()("referentiels.noms.emptyDesc") }}</p>
                 </div>
               }
@@ -269,11 +290,15 @@ const RULE_DEFS: {
                 <p class="mb-3 text-sm text-muted-foreground">{{ t()(block.purpose) }}</p>
                 @switch (block.key) {
                   @case ("regles") {
-                    <p class="mb-3 text-sm text-muted-foreground">{{ t()("referentiels.regles.intro") }}</p>
+                    <p class="mb-3 text-sm text-muted-foreground">
+                      {{ t()("referentiels.regles.intro") }}
+                    </p>
                     <div class="max-w-3xl space-y-3">
                       @for (rule of ruleDefs; track rule.key) {
                         <div class="rounded-md border p-3 sm:p-4">
-                          <p class="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm leading-snug">
+                          <p
+                            class="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm leading-snug"
+                          >
                             <span>{{ t()(rule.before) }}</span>
                             <input
                               class="h-9 w-24 rounded-md border border-input bg-background px-2 tabular text-sm"
@@ -296,7 +321,9 @@ const RULE_DEFS: {
                                   n: nf.format(ruleDraftCount(rule)),
                                 })
                               }}
-                              @if (ruleNumberOk(rule) && ruleDraftNum(rule) !== seuils()[rule.key]) {
+                              @if (
+                                ruleNumberOk(rule) && ruleDraftNum(rule) !== seuils()[rule.key]
+                              ) {
                                 <span>
                                   {{
                                     t()("referentiels.currently", {
@@ -320,7 +347,9 @@ const RULE_DEFS: {
                     </div>
                   }
                   @case ("jeune") {
-                    <p class="mb-3 text-sm text-muted-foreground">{{ t()("referentiels.jeune.intro") }}</p>
+                    <p class="mb-3 text-sm text-muted-foreground">
+                      {{ t()("referentiels.jeune.intro") }}
+                    </p>
                     <div class="rounded-md border p-5">
                       <div class="flex flex-wrap items-center gap-2 text-sm">
                         <span>{{ t()("referentiels.jeune.before") }}</span>
@@ -349,17 +378,26 @@ const RULE_DEFS: {
                             </span>
                           }
                         </span>
-                        <ui-button size="sm" class="h-9" [disabled]="!canSaveYouth()" (click)="saveYouth()">
+                        <ui-button
+                          size="sm"
+                          class="h-9"
+                          [disabled]="!canSaveYouth()"
+                          (click)="saveYouth()"
+                        >
                           {{ t()("referentiels.save") }}
                         </ui-button>
                       </div>
                       @if (!youthOk() && youthDraft()) {
-                        <p class="mt-2 text-xs text-danger-fg">{{ t()("referentiels.jeune.error") }}</p>
+                        <p class="mt-2 text-xs text-danger-fg">
+                          {{ t()("referentiels.jeune.error") }}
+                        </p>
                       }
                     </div>
                   }
                   @case ("types") {
-                    <p class="mb-3 text-sm text-muted-foreground">{{ t()("referentiels.types.intro") }}</p>
+                    <p class="mb-3 text-sm text-muted-foreground">
+                      {{ t()("referentiels.types.intro") }}
+                    </p>
                     <section class="rounded-md border p-5">
                       <ul class="divide-y">
                         @for (type of orgTypes; track type) {
@@ -375,16 +413,20 @@ const RULE_DEFS: {
                           </li>
                         }
                         <li class="flex items-center justify-between py-2.5 text-sm">
-                          <ui-pill tone="warning">{{ t()("referentiels.types.toQualify") }}</ui-pill>
+                          <ui-pill tone="warning">{{
+                            t()("referentiels.types.toQualify")
+                          }}</ui-pill>
                           <span class="flex items-center gap-3">
                             <span class="tabular text-muted-foreground">
                               {{
-                                t()("referentiels.types.orgCount", { n: nf.format(orgsMissingType()) })
+                                t()("referentiels.types.orgCount", {
+                                  n: nf.format(orgsMissingType()),
+                                })
                               }}
                             </span>
                             @if (orgsMissingType() > 0) {
                               <a
-                                routerLink="/organisations"
+                                routerLink="/dashboard/organisations"
                                 [queryParams]="{ vue: 'a-qualifier' }"
                                 class="text-xs font-semibold text-primary hover:underline"
                               >
@@ -400,7 +442,9 @@ const RULE_DEFS: {
                     </section>
                   }
                   @case ("campagnes") {
-                    <p class="mb-3 text-sm text-muted-foreground">{{ t()("referentiels.campagnes.intro") }}</p>
+                    <p class="mb-3 text-sm text-muted-foreground">
+                      {{ t()("referentiels.campagnes.intro") }}
+                    </p>
                     <section class="surface max-w-3xl overflow-x-auto">
                       <table class="w-full text-sm">
                         <thead class="border-b bg-muted text-left text-xs text-muted-foreground">
@@ -417,11 +461,15 @@ const RULE_DEFS: {
                           </tr>
                         </thead>
                         <tbody class="divide-y">
-                          @for (c of campaignNames(); track c) {
+                          @for (campaign of campaignNames(); track campaign) {
                             <tr>
-                              <td class="px-4 py-2.5 font-medium">{{ c }}</td>
-                              <td class="text-right tabular">{{ nf.format(producersInCampaign(c)) }}</td>
-                              <td class="pr-4 text-right tabular">{{ nf.format(plotsInCampaign(c)) }}</td>
+                              <td class="px-4 py-2.5 font-medium">{{ campaign }}</td>
+                              <td class="text-right tabular">
+                                {{ nf.format(producersInCampaign(campaign)) }}
+                              </td>
+                              <td class="pr-4 text-right tabular">
+                                {{ nf.format(plotsInCampaign(campaign)) }}
+                              </td>
                             </tr>
                           }
                         </tbody>
@@ -429,7 +477,9 @@ const RULE_DEFS: {
                     </section>
                   }
                   @case ("localites") {
-                    <p class="mb-3 text-sm text-muted-foreground">{{ t()("referentiels.localites.intro") }}</p>
+                    <p class="mb-3 text-sm text-muted-foreground">
+                      {{ t()("referentiels.localites.intro") }}
+                    </p>
                     <section class="rounded-md border p-5">
                       <div class="flex flex-wrap items-center justify-between gap-3">
                         <h3 class="font-semibold">
@@ -446,16 +496,22 @@ const RULE_DEFS: {
                       <table class="mt-4 w-full text-sm">
                         <thead class="text-left text-xs text-muted-foreground">
                           <tr>
-                            <th class="py-2 font-semibold">{{ t()("referentiels.localites.col.village") }}</th>
-                            <th class="font-semibold">{{ t()("referentiels.localites.col.commune") }}</th>
-                            <th class="text-right font-semibold">{{ t()("referentiels.localites.col.orgs") }}</th>
+                            <th class="py-2 font-semibold">
+                              {{ t()("referentiels.localites.col.village") }}
+                            </th>
+                            <th class="font-semibold">
+                              {{ t()("referentiels.localites.col.commune") }}
+                            </th>
+                            <th class="text-right font-semibold">
+                              {{ t()("referentiels.localites.col.orgs") }}
+                            </th>
                             <th class="text-right font-semibold">
                               {{ t()("referentiels.localites.col.producers") }}
                             </th>
                           </tr>
                         </thead>
                         <tbody class="divide-y">
-                          @for (row of localiteRows(); track row.village) {
+                          @for (row of localitePager.items(); track row.village) {
                             <tr>
                               <td class="py-2 font-medium">{{ row.village }}</td>
                               <td class="text-muted-foreground">{{ row.commune }}</td>
@@ -465,6 +521,7 @@ const RULE_DEFS: {
                           }
                         </tbody>
                       </table>
+                      <ui-pagination class="px-4 pb-4" [pager]="localitePager" />
                     </section>
                   }
                 }
@@ -539,9 +596,9 @@ export default class ReferentielsPage {
 
   protected readonly scoopsCount = computed(() => this.store.state().scoops.length);
 
-  protected readonly campaignNames = computed(() =>
-    [...new Set(this.store.state().campaigns.map((c) => c.name))],
-  );
+  protected readonly campaignNames = computed(() => [
+    ...new Set(this.store.state().campaigns.map((c) => c.name)),
+  ]);
 
   protected readonly localiteRows = computed(() => {
     const scoops = this.store.state().scoops;
@@ -580,13 +637,12 @@ export default class ReferentielsPage {
       {
         key: "types" as const,
         title: t("referentiels.types.title"),
-        summary:
-          orgs.some((o) => !o.type)
-            ? t("referentiels.types.summaryMissing", {
-                n: ORG_TYPES.length,
-                m: missing,
-              })
-            : t("referentiels.types.summary", { n: ORG_TYPES.length }),
+        summary: orgs.some((o) => !o.type)
+          ? t("referentiels.types.summaryMissing", {
+              n: ORG_TYPES.length,
+              m: missing,
+            })
+          : t("referentiels.types.summary", { n: ORG_TYPES.length }),
         purpose: "referentiels.purpose.types" as MessageKey,
         icon: Network,
       },
@@ -661,7 +717,9 @@ export default class ReferentielsPage {
   }
 
   ruleDraftCount(rule: (typeof RULE_DEFS)[number]): number {
-    return this.ruleNumberOk(rule) ? this.ruleHits(rule, this.ruleDraftNum(rule)) : this.ruleSavedCount(rule);
+    return this.ruleNumberOk(rule)
+      ? this.ruleHits(rule, this.ruleDraftNum(rule))
+      : this.ruleSavedCount(rule);
   }
 
   ruleSavedCount(rule: (typeof RULE_DEFS)[number]): number {
@@ -673,7 +731,9 @@ export default class ReferentielsPage {
     const saved = this.seuils()[rule.key];
     return cn(
       "text-sm",
-      this.ruleNumberOk(rule) && n !== saved ? "font-medium text-warning-fg" : "text-muted-foreground",
+      this.ruleNumberOk(rule) && n !== saved
+        ? "font-medium text-warning-fg"
+        : "text-muted-foreground",
     );
   }
 
@@ -746,4 +806,10 @@ export default class ReferentielsPage {
   plotsInCampaign(name: string): number {
     return this.plots().filter((p) => p.campaign === name).length;
   }
+
+  /** Pagination (cropRefs) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly cropPager = createPager(() => this.cropRefs());
+
+  /** Pagination (localiteRows) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly localitePager = createPager(() => this.localiteRows());
 }

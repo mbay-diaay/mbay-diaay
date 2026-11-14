@@ -19,17 +19,22 @@ export type ActionResult<T = object> =
   ({ ok: true } & T) | { ok: false; error: string; issues?: DraftIssue[] };
 
 /**
- * Rôles qui peuvent approuver un dossier qu'ils ont eux-mêmes créé ou soumis (décision D12) :
- * le rang le plus élevé, qui gère producteurs, techniciens et GIE. L'approbation est alors tracée « auto-approuvé ».
- * Pour tous les autres rôles, la séparation des tâches est absolue.
+ * Rôles qui peuvent approuver un dossier qu'ils ont eux-mêmes créé ou soumis. Vide : la matrice des droits M1
+ * (DEC 05) remplace l'exception D12, la séparation des tâches est absolue pour tous (« jamais son propre dossier »).
  */
-export const SELF_APPROVE_ROLES: readonly RoleId[] = ["admin", "gestionnaire"];
+export const SELF_APPROVE_ROLES: readonly RoleId[] = [];
 
 /**
  * Rôles qui décident (approuver ou refuser) : la secrétaire instruit (examen, demande de complément) mais ne décide
  * pas ; la décision revient au gestionnaire ou au représentant (l'administrateur garde tous les droits).
  */
-export const DECIDE_ROLES: readonly RoleId[] = ["admin", "gestionnaire", "representant"];
+export const DECIDE_ROLES: readonly RoleId[] = [
+  "superadmin",
+  "admin",
+  "gestionnaire",
+  "representant",
+  "bureau",
+];
 export const canDecide = (role: RoleId) => DECIDE_ROLES.includes(role);
 
 /** Délai sans réponse après lequel un rappel est envoyé (jamais une approbation automatique). */
@@ -130,7 +135,7 @@ export interface Actor {
 
 /**
  * Séparation des tâches : qui crée ou soumet un dossier ne peut pas l'approuver, sauf le rang le plus élevé
- * (administrateur, gestionnaire de sa SCOOP), avec la trace « auto-approuvé ». Un refus suit la même règle.
+ * (liste vide aujourd'hui : séparation absolue). Un refus suit la même règle.
  */
 export function decisionCheck(
   d: Pick<ProducerDossier, "createdByEmail" | "submittedByEmail">,

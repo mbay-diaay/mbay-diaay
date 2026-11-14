@@ -97,12 +97,30 @@
 
 :root {
   /* ───── primitive (from design-tokens.json — the ONLY block to change) ───── */
+  /* Charte CRADESC : 1 principale (#4E3228) + 4 secondaires (#394076, #959DBB, #A69895, #A199A1). */
+  --p-brand-900: #2f1d17;
+  --p-brand-800: #3d281f;
   --p-brand-700: #4e3228;
   --p-brand-600: #664336;
   --p-brand-100: #ebe0dc;
   --p-accent-600: #394076;
   --p-accent-800: #1e2344;
   --p-accent-100: #d4d7ea;
+  /* Bleu brume (#959DBB) */
+  --p-mist-700: #5d6690;
+  --p-mist-500: #959dbb;
+  --p-mist-300: #bcc2d6;
+  --p-mist-100: #e6e8f1;
+  /* Taupe (#A69895) */
+  --p-taupe-700: #6e625f;
+  --p-taupe-500: #a69895;
+  --p-taupe-300: #c9bfbd;
+  --p-taupe-100: #eeeae9;
+  /* Mauve gris (#A199A1) */
+  --p-mauve-700: #6a626a;
+  --p-mauve-500: #a199a1;
+  --p-mauve-300: #c6c0c6;
+  --p-mauve-100: #edeaed;
   --p-neutral-0: #ffffff;
   --p-neutral-50: #f8f6f3;
   --p-neutral-200: #ddd6d0;
@@ -488,4 +506,67 @@
   .animate-spin {
     animation: none !important;
   }
+}
+
+/*
+ * Charte graphique Mbay Diaay V2 (oct. 2026) — appliquée écran par écran via la classe `.charte-v2`
+ * (pour l'instant : connexion uniquement). Les autres écrans gardent les tokens ci-dessus.
+ * Forêt = identité, citron = action (jamais sur crème ni blanc), crème = surface de travail.
+ * Le marron CRADESC reste présent : « Diaay » du logotype et mise en avant du porteur.
+ */
+:root {
+  /* ───── charte V2 : primitives (préfixées, sans effet tant qu'un écran ne les utilise pas) ───── */
+  --v2-foret: #0f3d2a;
+  --v2-foret-clair: #1c5a3e;
+  --v2-foret-carte: #164b35;
+  --v2-foret-trait: #1f5c42;
+  --v2-citron: #c6f05a;
+  --v2-citron-presse: #b5dd4f;
+  --v2-creme: #f5f2ea;
+  --v2-vert-pousse: #2e7d32;
+  --v2-soleil: #f4b400;
+  --v2-encre: #0e1a14;
+  --v2-ardoise: #3a4540;
+  --v2-gris-texte: #5b6660;
+  --v2-gris-trait: #b9c0bb;
+  --v2-lin: #e6e2d6;
+  --v2-sauge: #eef3e4;
+  --v2-blanc: #ffffff;
+  --v2-bord-carte: #dde3d4;
+  --v2-separateur: #efece3;
+  --v2-terre: var(--p-brand-700);
+  --v2-succes-bg: #c6f05a;
+  --v2-succes-fg: #0f3d2a;
+  --v2-info-bg: #d6e6ff;
+  --v2-info-fg: #12305e;
+  --v2-attente-bg: #ffe1a8;
+  --v2-attente-fg: #4a2c00;
+  --v2-erreur-bg: #ffe0e0;
+  --v2-erreur-fg: #b3261e;
+  --v2-bloquant-bg: #ff6b6b;
+  --v2-bloquant-fg: #2a1012;
+  --v2-culture-bg: #e8d5ff;
+  --v2-culture-fg: #3d1a66;
+  --v2-font: "Plus Jakarta Sans", "Noto Sans", system-ui, sans-serif;
+  --v2-font-logo: "Poppins", "Plus Jakarta Sans", system-ui, sans-serif;
+  --v2-font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --v2-radius-pastille: 999px;
+  --v2-radius-icone: 12px;
+  --v2-radius-bouton-2: 16px;
+  --v2-radius-champ: 20px;
+  --v2-radius-carte: 24px;
+  --v2-ombre-flottant: 0 4px 12px color-mix(in oklab, var(--v2-foret) 10%, transparent);
+  /* Focus : contour forêt + halo forêt léger (le halo citron était trop criard sur crème/blanc). */
+  --v2-halo: 0 0 0 4px color-mix(in oklab, var(--v2-foret) 14%, transparent);
+  --v2-ombre-modale: 0 24px 60px color-mix(in oklab, var(--v2-foret) 28%, transparent);
+  /* Graphiques : forêt + vert clair du logo (le citron est interdit sur fond blanc). */
+  --v2-chart-1: var(--v2-foret);
+  --v2-chart-2: #7cb342;
+  --v2-chart-3: var(--v2-vert-pousse);
+}
+
+.charte-v2 {
+  font-family: var(--v2-font);
+  color: var(--v2-encre);
+  background: var(--v2-creme);
 }

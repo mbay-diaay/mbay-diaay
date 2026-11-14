@@ -5,8 +5,8 @@ import { take } from "rxjs";
 
 import { authErrorMessage } from "@/lib/auth/messages";
 import { isPasswordValid } from "@/lib/auth/policy";
-import { AuthService } from "../shared/auth.service";
-import { LocaleService } from "../shared/locale.service";
+import { AuthService } from "@shared/auth.service";
+import { LocaleService } from "@shared/locale.service";
 
 /**
  * Port de src/routes/invitation.tsx — activation de compte (premier mot de passe).
@@ -35,7 +35,9 @@ import { LocaleService } from "../shared/locale.service";
               {{ t()("auth.invitation.account", { email: k.maskedEmail }) }}
             </p>
             <div class="space-y-2">
-              <label for="pw1" class="text-sm font-medium">{{ t()("auth.invitation.password") }}</label>
+              <label for="pw1" class="text-sm font-medium">{{
+                t()("auth.invitation.password")
+              }}</label>
               <input
                 id="pw1"
                 type="password"
@@ -47,7 +49,9 @@ import { LocaleService } from "../shared/locale.service";
               />
             </div>
             <div class="space-y-2">
-              <label for="pw2" class="text-sm font-medium">{{ t()("auth.invitation.confirm") }}</label>
+              <label for="pw2" class="text-sm font-medium">{{
+                t()("auth.invitation.confirm")
+              }}</label>
               <input
                 id="pw2"
                 type="password"
@@ -75,10 +79,7 @@ import { LocaleService } from "../shared/locale.service";
             </button>
           </form>
         } @else {
-          <div
-            role="alert"
-            class="mt-6 rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg"
-          >
+          <div role="alert" class="mt-6 rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
             {{ error() || t()("auth.error.invitation_invalid") }}
           </div>
         }
@@ -105,7 +106,9 @@ export default class InvitationPage {
 
   private token: string | null = null;
   protected readonly checking = signal(false);
-  protected readonly known = signal<{ name: string; email: string; maskedEmail: string } | null>(null);
+  protected readonly known = signal<{ name: string; email: string; maskedEmail: string } | null>(
+    null,
+  );
   protected readonly password = signal("");
   protected readonly confirm = signal("");
   protected readonly error = signal("");

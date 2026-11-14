@@ -16,12 +16,16 @@ import { actions, type AppUser } from "@/lib/store";
 import { inScope } from "@/lib/scope";
 import { fmtDateTime, maskPhone } from "@/lib/format";
 import type { AccountLink, Producer } from "@/lib/mock/data";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
-import { UiButtonComponent } from "../shared/ui/button.component";
-import { UiPageHeaderComponent } from "../shared/ui/page-header.component";
-import { UiPillComponent } from "../shared/ui/pill.component";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
+import {
+  PaginationComponent,
+  UiButtonComponent,
+  UiPageHeaderComponent,
+  UiPillComponent,
+} from "@shared/ui";
+import { createPager } from "@shared/pager";
 
 type Vue = "a-rapprocher" | "candidats" | "liees";
 
@@ -32,6 +36,7 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
 @Component({
   selector: "app-comptes-page",
   imports: [
+    PaginationComponent,
     FormsModule,
     RouterLink,
     LucideAngularModule,
@@ -49,17 +54,19 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
       />
 
       <div class="mb-4 flex flex-wrap gap-2 rounded-md border bg-muted/30 p-2">
-        @for (opt of vueOptions(); track opt.key) {
+        @for (viewOption of vueOptions(); track viewOption.key) {
           <button
             type="button"
             class="flex min-w-[8rem] flex-1 items-center gap-2 rounded-md px-3 py-2 text-left text-sm"
-            [class.bg-card]="vue() === opt.key"
-            [class.shadow-sm]="vue() === opt.key"
-            (click)="setVue(opt.key)"
+            [class.bg-card]="vue() === viewOption.key"
+            [class.shadow-sm]="vue() === viewOption.key"
+            (click)="setVue(viewOption.key)"
           >
-            <lucide-angular [img]="opt.icon" class="size-4 shrink-0 text-muted-foreground" />
-            <span class="min-w-0 font-medium">{{ opt.label }}</span>
-            <span class="ml-auto tabular text-xs text-muted-foreground">{{ opt.count }}</span>
+            <lucide-angular [img]="viewOption.icon" class="size-4 shrink-0 text-muted-foreground" />
+            <span class="min-w-0 font-medium">{{ viewOption.label }}</span>
+            <span class="ml-auto tabular text-xs text-muted-foreground">{{
+              viewOption.count
+            }}</span>
           </button>
         }
       </div>
@@ -78,7 +85,7 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
         />
       </div>
 
-      @if (vue() === 'a-rapprocher') {
+      @if (vue() === "a-rapprocher") {
         <div class="surface overflow-x-auto">
           <div class="border-b bg-muted/40 px-4 py-3">
             <h2 class="text-sm font-semibold">{{ t()("comptes.identity.title") }}</h2>
@@ -96,27 +103,31 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 </tr>
               </thead>
               <tbody class="divide-y">
-                @for (u of toMatch(); track u.id) {
+                @for (account of matchPager.items(); track account.id) {
                   <tr class="hover:bg-muted/40">
                     <td class="py-3 pl-4">
-                      <div class="font-medium">{{ u.name }}</div>
-                      <div class="text-xs text-muted-foreground">{{ u.email }}</div>
-                      <div class="text-xs text-muted-foreground tabular">{{ maskPhone(u.phone) }}</div>
+                      <div class="font-medium">{{ account.name }}</div>
+                      <div class="text-xs text-muted-foreground">{{ account.email }}</div>
+                      <div class="text-xs text-muted-foreground tabular">
+                        {{ store.phone(account.phone) }}
+                      </div>
                     </td>
-                    <td>{{ locale.tEnum("role", u.role) }}</td>
+                    <td>{{ store.roleLabel(account.role) }}</td>
                     <td class="text-muted-foreground">
-                      {{ u.scoopId ? scoopName(u.scoopId) : t()("comptes.scopeAll") }}
+                      {{ account.scoopId ? scoopName(account.scoopId) : t()("comptes.scopeAll") }}
                     </td>
                     <td>
-                      @if (u.active) {
+                      @if (account.active) {
                         <ui-pill tone="success">{{ t()("comptes.state.active") }}</ui-pill>
                       } @else {
                         <ui-pill tone="neutral">{{ t()("comptes.state.inactive") }}</ui-pill>
                       }
                     </td>
                     <td class="pr-4 text-right">
-                      @if (pickerUser()?.id === u.id) {
-                        <div class="inline-flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                      @if (pickerUser()?.id === account.id) {
+                        <div
+                          class="inline-flex flex-col items-end gap-2 sm:flex-row sm:items-center"
+                        >
                           <input
                             class="h-8 w-56 rounded-md border border-input bg-background px-2 text-sm"
                             [placeholder]="t()('comptes.picker.placeholder')"
@@ -129,19 +140,24 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                             (ngModelChange)="pickerProducerId.set($event)"
                           >
                             <option value="">—</option>
-                            @for (p of pickerHits(); track p.id) {
-                              <option [ngValue]="p.id">
-                                {{ p.code }} · {{ p.firstName }} {{ p.lastName }} — {{ p.village }}
+                            @for (hit of pickerHits(); track hit.id) {
+                              <option [ngValue]="hit.id">
+                                {{ hit.code }} · {{ hit.firstName }} {{ hit.lastName }} —
+                                {{ hit.village }}
                               </option>
                             }
                           </select>
-                          <ui-button size="sm" [disabled]="!pickerProducerId()" (click)="applyManualLink(u)">
+                          <ui-button
+                            size="sm"
+                            [disabled]="!pickerProducerId()"
+                            (click)="applyManualLink(account)"
+                          >
                             {{ t()("comptes.dlg.link.action") }}
                           </ui-button>
                           <ui-button variant="ghost" size="sm" (click)="closePicker()">×</ui-button>
                         </div>
                       } @else {
-                        <ui-button size="sm" variant="outline" (click)="openPicker(u)">
+                        <ui-button size="sm" variant="outline" (click)="openPicker(account)">
                           <lucide-angular [img]="icons.userSearch" class="size-4" />
                           {{ t()("comptes.picker.button") }}
                         </ui-button>
@@ -151,6 +167,7 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 }
               </tbody>
             </table>
+            <ui-pagination class="px-4 pb-4" [pager]="matchPager" />
           } @else {
             <div class="px-4 py-10 text-center text-muted-foreground">
               <lucide-angular [img]="icons.userSearch" class="mx-auto mb-2 size-10 opacity-50" />
@@ -158,14 +175,16 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 {{ needle() ? t()("comptes.empty.noAccount") : t()("comptes.empty.allMatched") }}
               </div>
               <p class="mt-1 text-sm">
-                {{ needle() ? t()("comptes.empty.editSearch") : t()("comptes.empty.allMatchedDesc") }}
+                {{
+                  needle() ? t()("comptes.empty.editSearch") : t()("comptes.empty.allMatchedDesc")
+                }}
               </p>
             </div>
           }
         </div>
       }
 
-      @if (vue() === 'candidats') {
+      @if (vue() === "candidats") {
         <div class="surface overflow-x-auto">
           @if (cands().length) {
             <table class="w-full text-sm">
@@ -173,58 +192,68 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 <tr>
                   <th class="py-3 pl-4 font-semibold">{{ t()("comptes.col.account") }}</th>
                   <th class="font-semibold">{{ t()("comptes.col.candidate") }}</th>
-                  <th class="hidden font-semibold lg:table-cell">{{ t()("comptes.col.scoopOrg") }}</th>
+                  <th class="hidden font-semibold lg:table-cell">
+                    {{ t()("comptes.col.scoopOrg") }}
+                  </th>
                   <th class="font-semibold">{{ t()("comptes.col.score") }}</th>
-                  <th class="hidden font-semibold xl:table-cell">{{ t()("comptes.col.signals") }}</th>
+                  <th class="hidden font-semibold xl:table-cell">
+                    {{ t()("comptes.col.signals") }}
+                  </th>
                   <th class="pr-4 text-right font-semibold">{{ t()("comptes.col.decision") }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y">
-                @for (c of cands(); track c.id) {
+                @for (candidate of candPager.items(); track candidate.id) {
                   <tr class="hover:bg-muted/40">
                     <td class="py-3 pl-4">
-                      <div class="font-medium">{{ user(c.userId)?.name ?? t()("comptes.unknown") }}</div>
+                      <div class="font-medium">
+                        {{ user(candidate.userId)?.name ?? t()("comptes.unknown") }}
+                      </div>
                       <div class="text-xs text-muted-foreground">
-                        {{ locale.tEnum("role", user(c.userId)?.role ?? "technicien") }} ·
-                        {{ maskPhone(user(c.userId)?.phone ?? "") }}
+                        {{ store.roleLabel(user(candidate.userId)?.role ?? "technicien") }} ·
+                        {{ store.phone(user(candidate.userId)?.phone) }}
                       </div>
                     </td>
                     <td>
-                      @if (prod(c.producerId); as p) {
+                      @if (prod(candidate.producerId); as producer) {
                         <a
-                          [routerLink]="['/producteurs', p.id]"
+                          [routerLink]="['/dashboard/producteurs', producer.id]"
                           class="font-medium hover:text-primary hover:underline"
                         >
-                          {{ p.code }} · {{ p.firstName }} {{ p.lastName }}
+                          {{ producer.code }} · {{ producer.firstName }} {{ producer.lastName }}
                         </a>
                       } @else {
                         {{ t()("comptes.unknown") }}
                       }
                     </td>
                     <td class="hidden text-muted-foreground lg:table-cell">
-                      @if (prod(c.producerId); as p) {
-                        {{ scoopName(p.scoopId) }} · {{ orgName(p.orgId) }}
+                      @if (prod(candidate.producerId); as producer) {
+                        {{ scoopName(producer.scoopId) }} · {{ orgName(producer.orgId) }}
                       } @else {
                         {{ t()("comptes.unknown") }}
                       }
                     </td>
                     <td>
-                      <ui-pill [tone]="scoreTone(c.score)">{{ c.score }} %</ui-pill>
+                      <ui-pill [tone]="scoreTone(candidate.score)">{{ candidate.score }} %</ui-pill>
                     </td>
                     <td class="hidden max-w-72 text-xs text-muted-foreground xl:table-cell">
-                      {{ c.signals.join(" · ") }}
+                      {{ candidate.signals.join(" · ") }}
                     </td>
                     <td class="pr-4 text-right">
                       <div class="inline-flex flex-wrap items-center justify-end gap-1">
                         <ui-button
                           size="sm"
                           class="h-8"
-                          [disabled]="!user(c.userId) || !prod(c.producerId)"
-                          (click)="confirmCandidate(c.userId, c.producerId)"
+                          [disabled]="!user(candidate.userId) || !prod(candidate.producerId)"
+                          (click)="confirmCandidate(candidate.userId, candidate.producerId)"
                         >
                           {{ t()("comptes.confirm") }}
                         </ui-button>
-                        <ui-button size="sm" variant="outline" (click)="rejectCandidate(c.id)">
+                        <ui-button
+                          size="sm"
+                          variant="outline"
+                          (click)="rejectCandidate(candidate.id)"
+                        >
                           {{ t()("comptes.action.reject") }}
                         </ui-button>
                       </div>
@@ -233,6 +262,7 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 }
               </tbody>
             </table>
+            <ui-pagination class="px-4 pb-4" [pager]="candPager" />
           } @else {
             <div class="px-4 py-10 text-center text-muted-foreground">
               <lucide-angular [img]="icons.sparkles" class="mx-auto mb-2 size-10 opacity-50" />
@@ -240,7 +270,9 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 {{ needle() ? t()("comptes.empty.noProposal") : t()("comptes.empty.noCandidate") }}
               </div>
               <p class="mt-2 text-sm">
-                {{ needle() ? t()("comptes.empty.editSearch") : t()("comptes.empty.noCandidateDesc") }}
+                {{
+                  needle() ? t()("comptes.empty.editSearch") : t()("comptes.empty.noCandidateDesc")
+                }}
               </p>
               @if (!needle() && unmatched().length > 0) {
                 <ui-button variant="outline" class="mt-3" (click)="setVue('a-rapprocher')">
@@ -253,7 +285,7 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
         </div>
       }
 
-      @if (vue() === 'liees') {
+      @if (vue() === "liees") {
         <div class="surface overflow-x-auto">
           @if (linkedFiltered().length) {
             <table class="w-full text-sm">
@@ -267,30 +299,34 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 </tr>
               </thead>
               <tbody class="divide-y">
-                @for (l of linkedFiltered(); track l.id) {
+                @for (link of linkedPager.items(); track link.id) {
                   <tr class="hover:bg-muted/40">
                     <td class="py-3 pl-4">
-                      <div class="font-medium">{{ user(l.userId)?.name ?? t()("comptes.unknown") }}</div>
+                      <div class="font-medium">
+                        {{ user(link.userId)?.name ?? t()("comptes.unknown") }}
+                      </div>
                       <div class="text-xs text-muted-foreground tabular">
-                        {{ maskPhone(user(l.userId)?.phone ?? "") }}
+                        {{ store.phone(user(link.userId)?.phone) }}
                       </div>
                     </td>
                     <td>
-                      @if (prod(l.producerId); as p) {
+                      @if (prod(link.producerId); as producer) {
                         <a
-                          [routerLink]="['/producteurs', p.id]"
+                          [routerLink]="['/dashboard/producteurs', producer.id]"
                           class="font-medium hover:text-primary hover:underline"
                         >
-                          {{ p.code }} · {{ p.firstName }} {{ p.lastName }}
+                          {{ producer.code }} · {{ producer.firstName }} {{ producer.lastName }}
                         </a>
                       } @else {
                         {{ t()("comptes.unknown") }}
                       }
                     </td>
-                    <td class="whitespace-nowrap text-muted-foreground">{{ fmtDateTime(l.linkedAt) }}</td>
-                    <td class="hidden md:table-cell">{{ l.by }}</td>
+                    <td class="whitespace-nowrap text-muted-foreground">
+                      {{ fmtDateTime(link.linkedAt) }}
+                    </td>
+                    <td class="hidden md:table-cell">{{ link.by }}</td>
                     <td class="pr-4 text-right">
-                      <ui-button size="sm" variant="destructive" (click)="unlink(l)">
+                      <ui-button size="sm" variant="destructive" (click)="unlink(link)">
                         {{ t()("comptes.action.unlink") }}
                       </ui-button>
                     </td>
@@ -298,6 +334,7 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 }
               </tbody>
             </table>
+            <ui-pagination class="px-4 pb-4" [pager]="linkedPager" />
           } @else {
             <div class="px-4 py-10 text-center text-muted-foreground">
               <lucide-angular [img]="icons.users" class="mx-auto mb-2 size-10 opacity-50" />
@@ -305,7 +342,9 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
                 {{ needle() ? t()("comptes.empty.noLink") : t()("comptes.empty.noConfirmed") }}
               </div>
               <p class="mt-2 text-sm">
-                {{ needle() ? t()("comptes.empty.editSearch") : t()("comptes.empty.noConfirmedDesc") }}
+                {{
+                  needle() ? t()("comptes.empty.editSearch") : t()("comptes.empty.noConfirmedDesc")
+                }}
               </p>
               @if (!needle() && candidateRows().length > 0) {
                 <ui-button variant="outline" class="mt-3" (click)="setVue('candidats')">
@@ -319,7 +358,8 @@ type Vue = "a-rapprocher" | "candidats" | "liees";
       }
 
       <p class="mt-4 text-xs text-muted-foreground">
-        Parité complète avec les dialogues React (picker command, alert) : à brancher ultérieurement.
+        Parité complète avec les dialogues React (picker command, alert) : à brancher
+        ultérieurement.
       </p>
     </app-shell>
   `,
@@ -373,8 +413,7 @@ export default class ComptesPage {
     const s = this.store.state();
     return s.users.filter(
       (u) =>
-        !s.links.some((l) => l.userId === u.id) &&
-        !s.linkCandidates.some((c) => c.userId === u.id),
+        !s.links.some((l) => l.userId === u.id) && !s.linkCandidates.some((c) => c.userId === u.id),
     );
   });
 
@@ -405,7 +444,7 @@ export default class ComptesPage {
   protected readonly toMatch = computed(() => {
     const n = this.needle();
     return this.unmatched().filter((u) =>
-      this.hit(n, u.name, this.locale.tEnum("role", u.role), this.scoopName(u.scoopId)),
+      this.hit(n, u.name, this.store.roleLabel(u.role), this.scoopName(u.scoopId)),
     );
   });
 
@@ -504,4 +543,13 @@ export default class ComptesPage {
   unlink(l: AccountLink): void {
     if (confirm(this.t()("comptes.dlg.unlink.title"))) actions.unlinkLink(l.id);
   }
+
+  /** Pagination (toMatch) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly matchPager = createPager(() => this.toMatch());
+
+  /** Pagination (cands) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly candPager = createPager(() => this.cands());
+
+  /** Pagination (linkedFiltered) : mêmes règles que l'API (?page=&limit=). */
+  protected readonly linkedPager = createPager(() => this.linkedFiltered());
 }

@@ -3,9 +3,9 @@ import type { Permission } from "@/lib/permissions";
 
 /** Sections de l'espace « Qualité des données », dans l'ordre du menu à plat. */
 export const QUALITY_SECTIONS: { to: string; perm: Permission }[] = [
-  { to: "/qualite/doublons", perm: "quality.review" },
-  { to: "/qualite/alertes", perm: "alert.manage" },
-  { to: "/qualite/corrections", perm: "correction.manage" },
+  { to: "/dashboard/qualite/doublons", perm: "quality.review" },
+  { to: "/dashboard/qualite/alertes", perm: "alert.manage" },
+  { to: "/dashboard/qualite/corrections", perm: "correction.manage" },
 ];
 
 /**

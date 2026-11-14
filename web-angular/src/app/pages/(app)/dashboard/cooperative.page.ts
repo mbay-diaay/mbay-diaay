@@ -4,9 +4,9 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { map } from "rxjs";
 
 import { isConsolidated, scoopIdsOf } from "@/lib/scope";
-import { AppShellComponent } from "../shared/app-shell.component";
-import { LocaleService } from "../shared/locale.service";
-import { StoreService } from "../shared/store.service";
+import { AppShellComponent } from "@shared/app-shell.component";
+import { LocaleService } from "@shared/locale.service";
+import { StoreService } from "@shared/store.service";
 
 /**
  * Port de src/routes/cooperative.tsx — redirection vers la fiche SCOOP unique du périmètre
@@ -40,7 +40,7 @@ export default class CooperativePage {
       if (!session) return;
       const scoopQ = this.scoopQuery();
       if (scoopQ) {
-        void this.router.navigate(["/cooperatives", scoopQ], {
+        void this.router.navigate(["/dashboard/cooperatives", scoopQ], {
           replaceUrl: true,
           queryParams: {},
         });
@@ -49,9 +49,9 @@ export default class CooperativePage {
       const ids = [...scoopIdsOf(session)];
       const only = !isConsolidated(session) && ids.length === 1 ? ids[0] : undefined;
       if (only) {
-        void this.router.navigate(["/cooperatives", only], { replaceUrl: true });
+        void this.router.navigate(["/dashboard/cooperatives", only], { replaceUrl: true });
       } else {
-        void this.router.navigate(["/cooperatives"], { replaceUrl: true });
+        void this.router.navigate(["/dashboard/cooperatives"], { replaceUrl: true });
       }
     });
   }
