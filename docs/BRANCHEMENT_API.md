@@ -18,11 +18,8 @@
 
 ```bash
 cd /Users/moha/Dev/mbay-diaay-api
-bash infra/scripts/generate-env.sh .env   # si pas déjà fait
-# Docker Desktop allumé :
-docker compose -f infra/compose/docker-compose.yml \
-  -f infra/compose/docker-compose.override.yml \
-  --env-file .env up -d postgres redis minio minio-init
+# Docker Desktop allumé : services de développement (voir le README du dépôt API pour apps/api/.env)
+docker compose -f infra/compose/docker-compose.dev.yml up -d
 cd apps/api && pnpm migrate && pnpm start:dev
 ```
 
