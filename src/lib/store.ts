@@ -923,6 +923,93 @@ export const actions = {
     if (u && !u.active && state.session?.email.toLowerCase() === u.email.toLowerCase())
       actions.logout();
   },
+  /**
+   * Invite un technicien : compte inactif jusqu'à l'activation (lien d'invitation), qui couvre une ou
+   * plusieurs coopératives du périmètre de la personne connectée.
+   */
+  inviteTechnician(input: {
+    name: string;
+    email: string;
+    phone?: string;
+    scoopIds: string[];
+  }): ActionResult<{ userId: string }> {
+    const denied = access("user.manage");
+    if (denied) return denied;
+    const who = actor();
+    if (!who) return fail("errors.technician.notFound");
+    const name = input.name.trim().replace(/\s+/g, " ");
+    const email = input.email.trim();
+    if (name.split(" ").length < 2) return fail("errors.technician.name");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("errors.technician.email");
+    if (
+      [...state.users.map((u) => u.email), ...state.members.map((m) => m.email)].some(
+        (e) => e && e.toLowerCase() === email.toLowerCase(),
+      )
+    )
+      return fail("errors.technician.emailTaken");
+    const scoopIds = [...new Set(input.scoopIds)];
+    if (!scoopIds.length) return fail("errors.technician.scoops");
+    if (
+      inScope(scoopIds.map((scoopId) => ({ scoopId })), who.session).length !== scoopIds.length ||
+      scoopIds.some((id) => isArchived(id))
+    )
+      return fail("errors.technician.scope");
+    const at = new Date().toISOString();
+    const user: AppUser = {
+      id: nextId("u", state.users),
+      name,
+      email,
+      phone: input.phone?.trim() ?? "",
+      role: "technicien",
+      scoopIds,
+      active: false,
+      invited: { sentAt: at, expiresAt: new Date(Date.now() + INVITATION_TTL_MS).toISOString() },
+    };
+    set((s) => ({ users: [...s.users, user] }));
+    audit(
+      "Technicien invité",
+      `Utilisateur ${name}`,
+      scoopIds.map((id) => scoopName(id)).join(", "),
+      scoopIds[0],
+    );
+    audit("Invitation envoyée", `Utilisateur ${name}`, email, scoopIds[0]);
+    return { ok: true, userId: user.id };
+  },
+  /**
+   * Coopératives couvertes par un technicien (ajout ou retrait). Un technicien couvre toujours au moins une
+   * coopérative ; les coopératives hors du périmètre de la personne connectée restent inchangées.
+   */
+  setTechnicianScoops(userId: string, scoopIds: string[]): ActionResult {
+    const denied = access("user.manage");
+    if (denied) return denied;
+    const who = actor();
+    const user = state.users.find((u) => u.id === userId);
+    if (!who || !user || user.role !== "technicien") return fail("errors.technician.notFound");
+    const wanted = [...new Set(scoopIds)];
+    if (
+      inScope(wanted.map((scoopId) => ({ scoopId })), who.session).length !== wanted.length ||
+      wanted.some((id) => isArchived(id))
+    )
+      return fail("errors.technician.scope");
+    const current = user.scoopIds ?? (user.scoopId ? [user.scoopId] : []);
+    const outside = current.filter((id) => !inScope([{ scoopId: id }], who.session).length);
+    const next = [...new Set([...outside, ...wanted])];
+    if (!next.length) return fail("errors.technician.scoops");
+    set((s) => ({
+      users: s.users.map((u) => (u.id === userId ? { ...u, scoopIds: next, scoopId: undefined } : u)),
+    }));
+    const added = next.filter((id) => !current.includes(id)).map((id) => scoopName(id));
+    const removed = current.filter((id) => !next.includes(id)).map((id) => scoopName(id));
+    audit(
+      "Coopératives du technicien",
+      `Utilisateur ${user.name}`,
+      [added.length ? `+ ${added.join(", ")}` : "", removed.length ? `- ${removed.join(", ")}` : ""]
+        .filter(Boolean)
+        .join(" ; "),
+      next[0],
+    );
+    return { ok: true };
+  },
   addImport(b: ImportBatch) {
     requirePermission("import.manage");
     set((s) => ({ imports: [b, ...s.imports] }));

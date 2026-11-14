@@ -25,6 +25,8 @@ export const GUARDED: [string, "result" | "throws", Permission | Permission[]][]
   ["addUser", "throws", "user.manage"],
   ["replaceUsersFromApi", "throws", "user.manage"],
   ["toggleUser", "throws", "user.manage"],
+  ["inviteTechnician", "result", "user.manage"],
+  ["setTechnicianScoops", "result", "user.manage"],
   ["addImport", "throws", "import.manage"],
   ["submitCorrection", "throws", "producer.read"],
   ["decideCorrection", "throws", "correction.manage"],

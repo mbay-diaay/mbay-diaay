@@ -10,6 +10,7 @@ export type Permission =
   | "producer.edit"
   | "producer.export_nominatif"
   | "cni.read"
+  | "contact.read"
   | "org.read"
   | "org.manage"
   | "quality.review"
