@@ -5,7 +5,7 @@ test("une demande de correction ne change pas la fiche avant décision, puis l'a
   page,
 }) => {
   await signIn(page, "admin");
-  await goto(page, "/producteurs/p2");
+  await goto(page, "/dashboard/producteurs/p2");
   // La page est chargée à la demande : on attend son contenu, pas seulement l'adresse.
   await expect(page.getByRole("button", { name: "Demander une modification" })).toBeVisible();
   const code = (await page.locator("main").innerText()).match(/NIA-[A-Z]-[A-Z]+-\d+/)?.[0];
@@ -24,7 +24,7 @@ test("une demande de correction ne change pas la fiche avant décision, puis l'a
   await expect(page.getByText("Aucune modification depuis l'import")).toBeVisible();
 
   // 2. Un gestionnaire habilité examine la demande avant/après et l'approuve.
-  await goto(page, "/qualite/corrections");
+  await goto(page, "/dashboard/qualite/corrections");
   await page.getByLabel("Rechercher un producteur").fill(code!);
   await page.getByRole("button", { name: "Examiner" }).first().click();
   const review = page.getByRole("dialog");
@@ -33,7 +33,7 @@ test("une demande de correction ne change pas la fiche avant décision, puis l'a
   await expect(toast(page, /Demande approuvée/)).toBeVisible();
 
   // 3. La fiche porte maintenant la modification, tracée dans son historique.
-  await goto(page, "/producteurs/p2");
+  await goto(page, "/dashboard/producteurs/p2");
   await page.getByRole("button", { name: "Historique" }).click();
   await expect(page.getByText("Téléphone", { exact: false }).first()).toBeVisible();
   await expect(page.getByText("Aucune modification depuis l'import")).toHaveCount(0);

@@ -6,7 +6,7 @@ test.describe("documents de la coopérative", () => {
     page,
   }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await expect(page.getByRole("heading", { name: "Documents", level: 1 })).toBeVisible();
     await expect(page.getByText("statuts_scoop.pdf")).toBeVisible();
 
@@ -31,11 +31,11 @@ test.describe("documents de la coopérative", () => {
     ]);
     expect(download.suggestedFilename()).toBe("convention_marche.pdf.txt");
 
-    await goto(page, "/audit");
+    await goto(page, "/dashboard/audit");
     await expect(page.getByText("Téléchargement de pièce").first()).toBeVisible();
     await expect(page.getByText("Document ajouté").first()).toBeVisible();
 
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await page
       .getByRole("listitem")
       .filter({ hasText: "convention_marche.pdf" })
@@ -48,7 +48,7 @@ test.describe("documents de la coopérative", () => {
 
   test("un fichier trop lourd est refusé avec un message clair", async ({ page }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await page.getByRole("button", { name: "Ajouter un document" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Fichier").setInputFiles({
@@ -62,7 +62,7 @@ test.describe("documents de la coopérative", () => {
 
   test("le procès-verbal d'une réunion propose le lien vers la réunion", async ({ page }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await expect(page.getByRole("link", { name: /Voir la réunion/ })).toHaveCount(1);
   });
 
@@ -70,7 +70,7 @@ test.describe("documents de la coopérative", () => {
     page,
   }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await expect(page.getByRole("heading", { name: "Documents", level: 1 })).toBeVisible();
     await expect(page.getByText("reglement_interieur.pdf")).toBeVisible();
     await expect(page.getByRole("button", { name: "Télécharger" })).toHaveCount(0);
@@ -81,13 +81,13 @@ test.describe("documents de la coopérative", () => {
 
   test("la faîtière n'a pas accès aux documents", async ({ page }) => {
     await signIn(page, "faitiere");
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 
   test("le profil ventes n'a pas accès aux documents", async ({ page }) => {
     await signIn(page, "ventes");
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 });

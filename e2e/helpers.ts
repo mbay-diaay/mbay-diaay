@@ -1,15 +1,19 @@
 import { expect, type Page } from "@playwright/test";
 
-/** Comptes de démonstration (web-angular/src/lib/auth/demo-service.ts) : libellé du bouton sur la page de connexion. */
+/**
+ * Comptes de démonstration (web-angular/src/lib/auth/demo-service.ts, docs/COMPTES_DEMO.md).
+ * Ils ne sont plus listés sur la page de connexion : les tests saisissent e-mail et mot de passe.
+ */
+export const DEMO_PASSWORD = "Demonstration2026";
 export const ROLES = {
-  admin: "Administrateur CRADESC",
-  gestionnaire: "Gestionnaire de SCOOP",
-  faitiere: "Faîtière (USCN)",
-  technicien: "Technicien",
-  representant: "Représentant de SCOOP",
-  secretaire: "Secrétaire de SCOOP",
-  ventes: "Responsable des ventes",
-  rapports: "Responsable des rapports",
+  admin: "aissatou.ndiaye@cradesc.example",
+  gestionnaire: "babacar.fall@scoop-kms.example",
+  faitiere: "ousmane.gueye@uscn.example",
+  technicien: "fatou.sarr@cradesc.example",
+  representant: "moussa.diouf@scoop-kms.example",
+  secretaire: "aminata.ba@scoop-kms.example",
+  ventes: "ibrahima.seck@scoop-kms.example",
+  rapports: "rokhaya.diallo@scoop-kms.example",
 } as const;
 export type Role = keyof typeof ROLES;
 
@@ -28,13 +32,19 @@ export async function hydrated(page: Page) {
 }
 
 /**
- * Connexion complète : compte de démonstration, mot de passe, puis code à 6 chiffres.
+ * Connexion complète : e-mail et mot de passe d'un compte de démonstration, puis code à 6 chiffres.
  * En démonstration, le code est affiché dans l'encadré « courriel simulé ».
  */
+/** Saisit les identifiants d'un compte de démonstration sur la page de connexion. */
+export async function fillCredentials(page: Page, role: Role = "admin") {
+  await page.locator("#email").fill(ROLES[role]);
+  await page.locator("#password").fill(DEMO_PASSWORD);
+}
+
 export async function signIn(page: Page, role: Role = "admin") {
   await page.goto("/login");
   await hydrated(page);
-  await page.locator("#demo-accounts ~ ul").getByRole("button", { name: ROLES[role] }).click();
+  await fillCredentials(page, role);
   await page.getByRole("button", { name: "Se connecter" }).click();
   await expect(page.getByText("Vérification en deux étapes")).toBeVisible();
   await hydrated(page);
@@ -42,7 +52,8 @@ export async function signIn(page: Page, role: Role = "admin") {
   expect(code, "le code simulé doit être affiché").toBeTruthy();
   await page.locator("#otp").click();
   await page.keyboard.type(code!);
-  await page.waitForURL((url) => url.pathname === "/");
+  // Après connexion, chaque rôle arrive sur son tableau de bord : /dashboard/<rôle>.
+  await page.waitForURL((url) => url.pathname === `/dashboard/${role}`);
   await expect(page.getByRole("heading", { name: "Tableau de bord" })).toBeVisible();
 }
 

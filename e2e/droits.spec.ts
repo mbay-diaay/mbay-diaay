@@ -23,18 +23,18 @@ test.describe("droits et périmètre par rôle", () => {
     await expect(menu.getByRole("link", { name: "Utilisateurs & rôles" })).toHaveCount(0);
     await expect(menu.getByRole("link", { name: "Sauvegarde & export" })).toHaveCount(0);
 
-    await goto(page, "/donnees");
+    await goto(page, "/dashboard/donnees");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 
   test("le gestionnaire ne voit que les producteurs de sa SCOOP", async ({ page, browser }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/producteurs");
+    await goto(page, "/dashboard/producteurs");
     const scoped = await page.getByText(/producteur\(s\) trouvé\(s\)/).innerText();
 
     const admin = await (await browser.newContext()).newPage();
     await signIn(admin, "admin");
-    await goto(admin, "/producteurs");
+    await goto(admin, "/dashboard/producteurs");
     const all = await admin.getByText(/producteur\(s\) trouvé\(s\)/).innerText();
 
     // Les milliers sont séparés par une espace insécable : on ne garde que les chiffres du début du texte.
@@ -49,7 +49,7 @@ test.describe("droits et périmètre par rôle", () => {
     const menu = page.getByRole("navigation").first();
     await expect(menu.getByRole("button", { name: /^Qualité des données/ })).toHaveCount(0);
     await expect(menu.getByRole("link", { name: "Qualité des données" })).toHaveCount(0);
-    await goto(page, "/qualite/doublons");
+    await goto(page, "/dashboard/qualite/doublons");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 });

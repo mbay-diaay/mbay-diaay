@@ -18,22 +18,22 @@ test.describe("téléphone 360 px", () => {
     test.setTimeout(240_000);
     await signIn(page, "admin");
     const pages: [string, RegExp][] = [
-      ["/producteurs", /Producteurs/],
-      ["/organisations", /Organisations/],
-      ["/qualite/alertes", /Qualité des données/],
-      ["/comptes", /Comptes & liaisons/],
-      ["/appareils", /Appareils/],
-      ["/referentiels", /Référentiels/],
-      ["/imports", /Imports/],
-      ["/donnees", /Sauvegarde & export/],
-      ["/audit", /Journal d'audit/],
-      ["/cotisations", /Cotisations/],
-      ["/reunions", /Réunions et procès-verbaux/],
-      ["/documents", /Documents/],
-      ["/cooperatives", /Coopératives/],
-      ["/equipe", /Équipe/],
-      ["/dossiers", /Dossiers/],
-      ["/cooperatives/s1", /./],
+      ["/dashboard/producteurs", /Producteurs/],
+      ["/dashboard/organisations", /Organisations/],
+      ["/dashboard/qualite/alertes", /Qualité des données/],
+      ["/dashboard/comptes", /Comptes & liaisons/],
+      ["/dashboard/appareils", /Appareils/],
+      ["/dashboard/referentiels", /Référentiels/],
+      ["/dashboard/imports", /Imports/],
+      ["/dashboard/donnees", /Sauvegarde & export/],
+      ["/dashboard/audit", /Journal d'audit/],
+      ["/dashboard/cotisations", /Cotisations/],
+      ["/dashboard/reunions", /Réunions et procès-verbaux/],
+      ["/dashboard/documents", /Documents/],
+      ["/dashboard/cooperatives", /Coopératives/],
+      ["/dashboard/personnel", /Personnel/],
+      ["/dashboard/dossiers", /Dossiers/],
+      ["/dashboard/cooperatives/s1", /./],
     ];
     for (const [path, title] of pages) {
       await goto(page, path);

@@ -4,7 +4,7 @@ import { goto, signIn } from "./helpers";
 test.describe("circuit des dossiers producteurs", () => {
   test("le technicien soumet un dossier complet à la coopérative", async ({ page }) => {
     await signIn(page, "technicien");
-    await goto(page, "/dossiers/dos1");
+    await goto(page, "/dashboard/dossiers/dos1");
     await page.getByRole("button", { name: "Soumettre à la coopérative" }).click();
     await expect(page.getByRole("button", { name: "Soumettre à la coopérative" })).toHaveCount(0);
     await expect(page.getByText("soumis", { exact: false }).first()).toBeVisible();
@@ -12,7 +12,7 @@ test.describe("circuit des dossiers producteurs", () => {
 
   test("un dossier incomplet ne part pas, et le technicien ne décide jamais", async ({ page }) => {
     await signIn(page, "technicien");
-    await goto(page, "/dossiers/dos2");
+    await goto(page, "/dashboard/dossiers/dos2");
     await page.getByRole("button", { name: "Soumettre à la coopérative" }).click();
     await expect(page.getByRole("button", { name: "Approuver", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Refuser", exact: true })).toHaveCount(0);
@@ -22,7 +22,7 @@ test.describe("circuit des dossiers producteurs", () => {
 
   test("le gestionnaire doit trancher le doublon avant d'approuver", async ({ page }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/dossiers/dos3");
+    await goto(page, "/dashboard/dossiers/dos3");
     await page.getByRole("button", { name: "Approuver", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Approuver ce dossier" });
     await expect(dialog).toBeVisible();
@@ -34,7 +34,7 @@ test.describe("circuit des dossiers producteurs", () => {
 
   test("la secrétaire instruit sans décider ni voir la CNI", async ({ page }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/dossiers/dos3");
+    await goto(page, "/dashboard/dossiers/dos3");
     await expect(page.getByRole("button", { name: "Prendre en examen" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approuver", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Refuser", exact: true })).toHaveCount(0);
@@ -44,13 +44,13 @@ test.describe("circuit des dossiers producteurs", () => {
 
   test("le responsable des ventes n'a pas accès aux dossiers", async ({ page }) => {
     await signIn(page, "ventes");
-    await goto(page, "/dossiers");
+    await goto(page, "/dashboard/dossiers");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 
   test("le technicien voit « C'est à vous » sur son brouillon", async ({ page }) => {
     await signIn(page, "technicien");
-    await goto(page, "/dossiers/dos1");
+    await goto(page, "/dashboard/dossiers/dos1");
     await expect(page.getByRole("heading", { name: "Où en est ce dossier ?" })).toBeVisible();
     await expect(page.getByText("C'est à vous", { exact: false }).first()).toBeVisible();
     await expect(page.getByRole("list", { name: "Progression du dossier" })).toBeVisible();
@@ -58,14 +58,14 @@ test.describe("circuit des dossiers producteurs", () => {
 
   test("la secrétaire voit que la décision revient à la coopérative", async ({ page }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/dossiers/dos3");
+    await goto(page, "/dashboard/dossiers/dos3");
     await expect(page.getByText("La décision finale revient à la coopérative")).toBeVisible();
     await expect(page.getByRole("button", { name: "Approuver", exact: true })).toHaveCount(0);
   });
 
   test("un dossier refusé indique qu'il est clos", async ({ page }) => {
     await signIn(page, "admin");
-    await goto(page, "/dossiers/dos7");
+    await goto(page, "/dashboard/dossiers/dos7");
     await expect(page.getByText("Personne : le dossier est clos")).toBeVisible();
     await expect(
       page.getByText("un dossier refusé ne se rouvre pas", { exact: false }).first(),
@@ -75,7 +75,7 @@ test.describe("circuit des dossiers producteurs", () => {
   test("les filtres restent visibles à 360 px, sans défilement horizontal", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 740 });
     await signIn(page, "gestionnaire");
-    await goto(page, "/dossiers");
+    await goto(page, "/dashboard/dossiers");
     const group = page.getByRole("region", { name: "Afficher les dossiers" });
     for (const name of [
       /^À traiter/,

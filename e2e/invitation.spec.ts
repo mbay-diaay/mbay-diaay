@@ -9,7 +9,7 @@ test.describe("invitation du gestionnaire d'une nouvelle coopérative", () => {
     page,
   }) => {
     await signIn(page, "admin");
-    await goto(page, "/cooperatives");
+    await goto(page, "/dashboard/cooperatives");
     await page.getByRole("button", { name: "Créer une coopérative" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Nom de la coopérative").fill("SCOOP Invitation");
@@ -57,7 +57,7 @@ test.describe("invitation du gestionnaire d'une nouvelle coopérative", () => {
     expect(code).toBeTruthy();
     await page.locator("#otp").click();
     await page.keyboard.type(code!);
-    await page.waitForURL((url) => url.pathname === "/");
+    await page.waitForURL((url) => url.pathname === "/dashboard/gestionnaire");
     await expect(page.getByText("SCOOP Invitation").first()).toBeVisible();
   });
 });

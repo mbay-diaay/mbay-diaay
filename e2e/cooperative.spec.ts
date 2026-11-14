@@ -25,7 +25,7 @@ test.describe("Ma coopérative : redirection vers la fiche", () => {
     page,
   }) => {
     await signIn(page, "gestionnaire");
-    await visit(page, "/cooperative");
+    await visit(page, "/dashboard/cooperative");
     await expect(page).toHaveURL(/\/cooperatives\/s1/);
     await expect(page.getByRole("heading", { name: "Adhésions en attente" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Cotisations", level: 2 })).toBeVisible();
@@ -38,20 +38,20 @@ test.describe("Ma coopérative : redirection vers la fiche", () => {
 
   test("l'adresse ouverte directement redirige aussi", async ({ page }) => {
     await signIn(page, "gestionnaire");
-    await page.goto("/cooperative");
+    await page.goto("/dashboard/cooperative");
     await expect(page).toHaveURL(/\/cooperatives\/s1/);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
   test("l'administrateur est mené à la liste", async ({ page }) => {
     await signIn(page, "admin");
-    await visit(page, "/cooperative");
+    await visit(page, "/dashboard/cooperative");
     await expect(page).toHaveURL(/\/cooperatives$/);
   });
 
   test("la faîtière ne voit pas le bloc documents", async ({ page }) => {
     await signIn(page, "faitiere");
-    await goto(page, "/cooperatives/s1");
+    await goto(page, "/dashboard/cooperatives/s1");
     await expect(page.getByRole("heading", { name: "Cotisations", level: 2 })).toBeVisible();
     await expect(page.getByTestId("bloc-documents")).toHaveCount(0);
     await expectNoDeadLinks(page);

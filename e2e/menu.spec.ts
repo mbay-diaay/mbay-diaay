@@ -39,7 +39,7 @@ test.describe("menu Module 1 (Administratif)", () => {
 
   test("la section de la page courante s'ouvre toujours", async ({ page }) => {
     await signIn(page, "admin");
-    await goto(page, "/audit");
+    await goto(page, "/dashboard/audit");
     await expect(
       page.getByRole("navigation").first().getByRole("link", { name: "Journal d'audit" }),
     ).toBeVisible();
@@ -59,7 +59,7 @@ test.describe("menu Module 1 (Administratif)", () => {
   }) => {
     await signIn(page, "faitiere");
     const menu = page.getByRole("navigation").first();
-    await menu.getByRole("link", { name: "Organisations et GIE" }).click();
+    await menu.getByRole("link", { name: "GIE & Organisation" }).click();
     await expect(page.getByRole("heading", { name: "Organisations", level: 1 })).toBeVisible();
     await expect(page.getByRole("checkbox")).toHaveCount(0);
   });
@@ -68,7 +68,7 @@ test.describe("menu Module 1 (Administratif)", () => {
     await signIn(page, "ventes");
     const menu = page.getByRole("navigation").first();
     await expect(menu.getByRole("link", { name: "Producteurs", exact: true })).toHaveCount(0);
-    await goto(page, "/producteurs");
+    await goto(page, "/dashboard/producteurs");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 });

@@ -6,7 +6,7 @@ test.describe("rapports", () => {
     page,
   }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/rapports");
+    await goto(page, "/dashboard/rapports");
     await expect(page.getByText("Aucun rapport pour le moment")).toBeVisible();
 
     await page.getByRole("button", { name: "Générer" }).first().click();
@@ -19,19 +19,19 @@ test.describe("rapports", () => {
     ]);
     expect(download.suggestedFilename()).toMatch(/\.csv$/);
 
-    await goto(page, "/audit");
+    await goto(page, "/dashboard/audit");
     await expect(page.getByText("Téléchargement de rapport").first()).toBeVisible();
   });
 
   test("la secrétaire n'a pas accès aux rapports", async ({ page }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/rapports");
+    await goto(page, "/dashboard/rapports");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 
   test("la faîtière choisit une coopérative parmi toutes celles du périmètre", async ({ page }) => {
     await signIn(page, "faitiere");
-    await goto(page, "/rapports");
+    await goto(page, "/dashboard/rapports");
     const select = page.getByLabel("Coopérative");
     await expect(select).toBeVisible();
     expect(await select.locator("option").count()).toBeGreaterThan(2);

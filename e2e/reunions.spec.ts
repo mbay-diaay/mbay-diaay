@@ -6,7 +6,7 @@ test.describe("réunions et procès-verbaux", () => {
     page,
   }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/reunions");
+    await goto(page, "/dashboard/reunions");
     await expect(
       page.getByRole("heading", { name: "Réunions et procès-verbaux", level: 1 }),
     ).toBeVisible();
@@ -47,7 +47,7 @@ test.describe("réunions et procès-verbaux", () => {
 
   test("l'annulation demande un motif", async ({ page }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/reunions/meet3");
+    await goto(page, "/dashboard/reunions/meet3");
     await page.getByRole("button", { name: "Annuler la réunion" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("button", { name: "Annuler la réunion" })).toBeDisabled();
@@ -62,32 +62,32 @@ test.describe("réunions et procès-verbaux", () => {
 
   test("le gestionnaire ne voit pas la réunion d'une autre coopérative", async ({ page }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/reunions");
+    await goto(page, "/dashboard/reunions");
     await expect(page.getByText("Assemblée générale ordinaire 2026")).toBeVisible();
     await expect(page.getByText("Assemblée générale 2026", { exact: true })).toHaveCount(0);
-    await goto(page, "/reunions/meet4");
+    await goto(page, "/dashboard/reunions/meet4");
     await expect(page.getByText("Réunion introuvable")).toBeVisible();
   });
 
   test("la faîtière lit les réunions sans bouton d'écriture", async ({ page }) => {
     await signIn(page, "faitiere");
-    await goto(page, "/reunions");
+    await goto(page, "/dashboard/reunions");
     await expect(page.getByRole("heading", { name: "Réunions et procès-verbaux" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Nouvelle réunion" })).toHaveCount(0);
-    await goto(page, "/reunions/meet3");
+    await goto(page, "/dashboard/reunions/meet3");
     await expect(
       page.getByRole("heading", { name: /Assemblée extraordinaire/, level: 1 }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Marquer comme tenue" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Annuler la réunion" })).toHaveCount(0);
-    await goto(page, "/reunions/meet2");
+    await goto(page, "/dashboard/reunions/meet2");
     await expect(page.getByLabel("Texte du procès-verbal")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Valider le procès-verbal" })).toHaveCount(0);
   });
 
   test("le profil ventes n'a pas accès aux réunions", async ({ page }) => {
     await signIn(page, "ventes");
-    await goto(page, "/reunions");
+    await goto(page, "/dashboard/reunions");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 });
@@ -95,7 +95,7 @@ test.describe("réunions et procès-verbaux", () => {
 test.describe("calendrier des réunions", () => {
   test("la bascule affiche le calendrier et le choix reste dans l'adresse", async ({ page }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/reunions");
+    await goto(page, "/dashboard/reunions");
     await page.getByRole("radio", { name: "Calendrier" }).click();
     await expect(page).toHaveURL(/vue=calendrier/);
     await expect(page.getByRole("radio", { name: "Mois" })).toBeVisible();
@@ -108,7 +108,7 @@ test.describe("calendrier des réunions", () => {
 
   test("un clic sur une réunion du calendrier ouvre sa fiche", async ({ page }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/reunions?vue=calendrier");
+    await goto(page, "/dashboard/reunions?vue=calendrier");
     // La vue liste de l'agenda montre la période affichée : novembre contient l'assemblée extraordinaire.
     await page
       .getByRole("radiogroup", { name: "Type d'affichage" })

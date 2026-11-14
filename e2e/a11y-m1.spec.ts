@@ -8,18 +8,18 @@ import { goto, signIn } from "./helpers";
  * au clavier ni un essai avec un lecteur d'écran.
  */
 const SCREENS = [
-  "/cooperatives/s1",
-  "/equipe",
-  "/dossiers",
-  "/dossiers/dos3",
-  "/producteurs",
-  "/organisations",
-  "/cotisations",
-  "/reunions",
-  "/reunions/meet1",
-  "/documents",
-  "/cooperatives",
-  "/audit",
+  "/dashboard/cooperatives/s1",
+  "/dashboard/personnel",
+  "/dashboard/dossiers",
+  "/dashboard/dossiers/dos3",
+  "/dashboard/producteurs",
+  "/dashboard/organisations",
+  "/dashboard/cotisations",
+  "/dashboard/reunions",
+  "/dashboard/reunions/meet1",
+  "/dashboard/documents",
+  "/dashboard/cooperatives",
+  "/dashboard/audit",
 ];
 
 /** `main` : le contenu de l'écran ; la coquille (menu, en-tête) est contrôlée à part. */

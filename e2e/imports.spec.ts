@@ -7,7 +7,7 @@ test.describe("import et export", () => {
     page,
   }) => {
     await signIn(page, "admin");
-    await goto(page, "/imports");
+    await goto(page, "/dashboard/imports");
     await page
       .locator('input[type="file"]')
       .setInputFiles(path.resolve("e2e/fixtures/producteurs.csv"));
@@ -19,10 +19,10 @@ test.describe("import et export", () => {
     // Rapport à blanc : une ligne rejetée avec son motif, rien d'écrit encore.
     await expect(page.getByText("Rapport d'import à blanc")).toBeVisible();
     await expect(page.getByText(/attendu F ou H/)).toBeVisible();
-    await goto(page, "/producteurs");
+    await goto(page, "/dashboard/producteurs");
     await expect(page.getByText(/^1\s317 producteur/)).toBeVisible();
 
-    await goto(page, "/imports");
+    await goto(page, "/dashboard/imports");
     await page
       .locator('input[type="file"]')
       .setInputFiles(path.resolve("e2e/fixtures/producteurs.csv"));
@@ -30,13 +30,13 @@ test.describe("import et export", () => {
     await page.getByRole("button", { name: /Confirmer l'import/ }).click();
     await expect(page.getByText(/importé/).first()).toBeVisible();
 
-    await goto(page, "/producteurs");
+    await goto(page, "/dashboard/producteurs");
     await expect(page.getByText(/^1\s319 producteur/)).toBeVisible(); // 2 lignes valides sur 3
   });
 
   test("le journal d'audit se télécharge en CSV", async ({ page }) => {
     await signIn(page, "admin");
-    await goto(page, "/audit");
+    await goto(page, "/dashboard/audit");
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: /Exporter \(CSV\)/ }).click();
     expect((await download).suggestedFilename()).toMatch(/^journal_audit.*\.csv$/);
@@ -44,7 +44,7 @@ test.describe("import et export", () => {
 
   test("le classeur Excel complet se télécharge depuis Sauvegarde & export", async ({ page }) => {
     await signIn(page, "admin");
-    await goto(page, "/donnees");
+    await goto(page, "/dashboard/donnees");
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Classeur Excel complet" }).click();
     expect((await download).suggestedFilename()).toMatch(/^mbay_diaay_export_.*\.xlsx$/);

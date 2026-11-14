@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { hydrated, ROLES, signIn } from "./helpers";
+import { fillCredentials, hydrated, signIn } from "./helpers";
 
 test.describe("authentification", () => {
   test("un mauvais mot de passe est refusé sans révéler si le compte existe", async ({ page }) => {
@@ -26,7 +26,7 @@ test.describe("authentification", () => {
   test("un code incorrect est refusé et on reste sur la vérification", async ({ page }) => {
     await page.goto("/login");
     await hydrated(page);
-    await page.locator("#demo-accounts ~ ul").getByRole("button", { name: ROLES.admin }).click();
+    await fillCredentials(page, "admin");
     await page.getByRole("button", { name: "Se connecter" }).click();
     await page.locator("#otp").click();
     await page.keyboard.type("000000");
@@ -41,10 +41,10 @@ test.describe("authentification", () => {
     await page.reload();
     await expect(page.getByRole("heading", { name: "Tableau de bord" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Compte et profil de démonstration" }).click();
+    await page.getByRole("button", { name: "Compte", exact: true }).click();
     await page.getByRole("menuitem", { name: "Se déconnecter" }).click();
     await expect(page).toHaveURL(/\/login/);
-    await page.goto("/producteurs");
+    await page.goto("/dashboard/producteurs");
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -53,5 +53,13 @@ test.describe("authentification", () => {
     await hydrated(page);
     await page.getByRole("link", { name: "Mot de passe oublié" }).click();
     await expect(page).toHaveURL(/mot-de-passe-oublie/);
+  });
+
+  test("les comptes de démonstration ne sont plus listés sur la page de connexion", async ({ page }) => {
+    await page.goto("/login");
+    await hydrated(page);
+    await expect(page.getByText("Comptes de démonstration")).toHaveCount(0);
+    await expect(page.getByText("aissatou.ndiaye@cradesc.example")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Visiter le site du CRADESC" }).first()).toBeAttached();
   });
 });

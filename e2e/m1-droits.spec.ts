@@ -19,7 +19,7 @@ test.describe("M1 Administratif : droits par rôle", () => {
 
   test("le représentant enregistre un paiement", async ({ page }) => {
     await signIn(page, "representant");
-    await goto(page, "/cotisations");
+    await goto(page, "/dashboard/cotisations");
     await expect(page.getByRole("button", { name: "Modifier la règle" })).toBeVisible();
     await page.getByRole("button", { name: /^Jamais payé/ }).click();
     await page.locator("tbody tr").first().click();
@@ -35,14 +35,14 @@ test.describe("M1 Administratif : droits par rôle", () => {
     page,
   }) => {
     await signIn(page, "faitiere");
-    await goto(page, "/cotisations");
+    await goto(page, "/dashboard/cotisations");
     await expect(page.getByRole("heading", { level: 1, name: "Cotisations" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Modifier la règle" })).toHaveCount(0);
-    await goto(page, "/reunions");
+    await goto(page, "/dashboard/reunions");
     await expect(page.getByRole("heading", { level: 1, name: "Réunions" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Nouvelle réunion" })).toHaveCount(0);
     await expect(menu(page).getByRole("link", { name: "Documents" })).toHaveCount(0);
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 
@@ -50,7 +50,7 @@ test.describe("M1 Administratif : droits par rôle", () => {
     page,
   }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/documents");
+    await goto(page, "/dashboard/documents");
     await expect(page.getByRole("button", { name: "Ajouter un document" })).toBeVisible();
     await expect(page.getByText(/cni/i)).toHaveCount(0);
   });
@@ -80,7 +80,7 @@ test.describe("M1 Administratif : droits par rôle", () => {
       await expect(page).toHaveURL(/\/cooperatives\/.+/);
       await expect(page.getByRole("button", { name: "Créer une coopérative" })).toHaveCount(0);
       // La liste, ouverte à la main, ne contient que sa coopérative.
-      await goto(page, "/cooperatives");
+      await goto(page, "/dashboard/cooperatives");
       await expect(page.locator("tbody tr")).toHaveCount(1);
     });
   }
@@ -89,7 +89,7 @@ test.describe("M1 Administratif : droits par rôle", () => {
     test(`le profil ${role} n'ouvre pas les coopératives`, async ({ page }) => {
       await signIn(page, role);
       await expect(menu(page).getByRole("link", { name: "Coopératives" })).toHaveCount(0);
-      await goto(page, "/cooperatives");
+      await goto(page, "/dashboard/cooperatives");
       await expect(page.getByText("Accès non autorisé")).toBeVisible();
     });
   }
@@ -99,7 +99,7 @@ test.describe("M1 Administratif : droits par rôle", () => {
       page,
     }) => {
       await signIn(page, role);
-      for (const path of ["/cotisations", "/reunions", "/documents"]) {
+      for (const path of ["/dashboard/cotisations", "/dashboard/reunions", "/dashboard/documents"]) {
         await goto(page, path);
         await expect(page.getByText("Accès non autorisé"), `${path} pour ${role}`).toBeVisible();
       }

@@ -4,8 +4,8 @@ import { goto, signIn } from "./helpers";
 const rows = (page: Page) => page.locator("tbody tr");
 
 async function firstProducerFiche(page: Page) {
-  await goto(page, "/producteurs");
-  await page.locator("a[href^='/producteurs/']:visible").first().click();
+  await goto(page, "/dashboard/producteurs");
+  await page.locator("a[href^='/dashboard/producteurs/']:visible").first().click();
   await page.waitForURL(/\/producteurs\/.+/);
 }
 
@@ -14,7 +14,7 @@ test.describe("journal et pièces limités par rôle", () => {
     page,
   }) => {
     await signIn(page, "admin");
-    await goto(page, "/audit");
+    await goto(page, "/dashboard/audit");
     await expect(rows(page).first()).toBeVisible();
     const all = await rows(page).count();
 
@@ -22,7 +22,7 @@ test.describe("journal et pièces limités par rôle", () => {
     await page.context().clearCookies();
     await page.goto("/login");
     await signIn(page, "gestionnaire");
-    await goto(page, "/audit");
+    await goto(page, "/dashboard/audit");
     await expect(rows(page).first()).toBeVisible();
     const mine = await rows(page).count();
     expect(mine).toBeGreaterThan(0);
@@ -31,7 +31,7 @@ test.describe("journal et pièces limités par rôle", () => {
 
   test("le technicien n'ouvre pas le journal", async ({ page }) => {
     await signIn(page, "technicien");
-    await goto(page, "/audit");
+    await goto(page, "/dashboard/audit");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 

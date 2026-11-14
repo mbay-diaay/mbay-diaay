@@ -6,7 +6,7 @@ test.describe("cotisations", () => {
     page,
   }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/cotisations");
+    await goto(page, "/dashboard/cotisations");
     await expect(page.getByRole("heading", { level: 1, name: "Cotisations" })).toBeVisible();
     await expect(page.getByText("Règle à confirmer avec la coopérative")).toBeVisible();
     await expect(page.getByRole("button", { name: "Modifier la règle" })).toBeVisible();
@@ -34,7 +34,7 @@ test.describe("cotisations", () => {
     page,
   }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/cotisations");
+    await goto(page, "/dashboard/cotisations");
     await page.getByRole("button", { name: /^À jour/ }).click();
     await page.locator("tbody tr").first().click();
     const sheet = page.getByRole("dialog").filter({ hasText: "Paiements enregistrés" });
@@ -56,7 +56,7 @@ test.describe("cotisations", () => {
     page,
   }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/cotisations");
+    await goto(page, "/dashboard/cotisations");
     await page.getByLabel("Chercher un membre par son nom").fill("zzzzzz");
     await expect(page.getByText("Aucun résultat")).toBeVisible();
     await page.getByRole("button", { name: "Tout afficher" }).click();
@@ -65,7 +65,7 @@ test.describe("cotisations", () => {
 
   test("la secrétaire lit les cotisations sans bouton d'écriture", async ({ page }) => {
     await signIn(page, "secretaire");
-    await goto(page, "/cotisations");
+    await goto(page, "/dashboard/cotisations");
     await expect(page.getByRole("heading", { level: 1, name: "Cotisations" })).toBeVisible();
     await expect(page.locator("tbody tr").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Modifier la règle" })).toHaveCount(0);
@@ -78,7 +78,7 @@ test.describe("cotisations", () => {
 
   test("le profil ventes n'a pas accès aux cotisations", async ({ page }) => {
     await signIn(page, "ventes");
-    await goto(page, "/cotisations");
+    await goto(page, "/dashboard/cotisations");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 });

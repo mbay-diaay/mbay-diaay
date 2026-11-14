@@ -4,7 +4,7 @@ import { goto, signIn, toast } from "./helpers";
 test.describe("coopératives", () => {
   test("l'administrateur crée, modifie, archive et réactive une coopérative", async ({ page }) => {
     await signIn(page, "admin");
-    await goto(page, "/cooperatives");
+    await goto(page, "/dashboard/cooperatives");
     await expect(page.getByRole("heading", { name: "Coopératives", level: 1 })).toBeVisible();
 
     // Création : champs invalides refusés avec un message, bouton désactivé.
@@ -76,7 +76,7 @@ test.describe("coopératives", () => {
 
   test("l'administrateur ouvre une coopérative et parcourt les six onglets", async ({ page }) => {
     await signIn(page, "admin");
-    await goto(page, "/cooperatives");
+    await goto(page, "/dashboard/cooperatives");
     await page.getByRole("row", { name: /And Sam Luniou Bokk/ }).click();
     await expect(page).toHaveURL(/\/cooperatives\/[^/?]+$/);
     await expect(
@@ -104,7 +104,7 @@ test.describe("coopératives", () => {
 
   test("l'onglet GIE se filtre et mène à la fiche de l'organisation", async ({ page }) => {
     await signIn(page, "admin");
-    await goto(page, "/cooperatives/s1?onglet=gie");
+    await goto(page, "/dashboard/cooperatives/s1?onglet=gie");
     const panel = page.getByRole("tabpanel");
     await expect(panel.getByRole("button", { name: /^Tous/ })).toBeVisible();
     await panel.getByRole("button", { name: /^Qualifiés/ }).click();
@@ -118,13 +118,13 @@ test.describe("coopératives", () => {
 
   test("une coopérative inconnue est introuvable", async ({ page }) => {
     await signIn(page, "admin");
-    await goto(page, "/cooperatives/inconnue");
+    await goto(page, "/dashboard/cooperatives/inconnue");
     await expect(page.getByText("Coopérative introuvable")).toBeVisible();
   });
 
   test("la faîtière lit la liste et la fiche sans bouton d'écriture", async ({ page }) => {
     await signIn(page, "faitiere");
-    await goto(page, "/cooperatives");
+    await goto(page, "/dashboard/cooperatives");
     await expect(page.getByRole("heading", { name: "Coopératives", level: 1 })).toBeVisible();
     await expect(page.getByRole("button", { name: "Créer une coopérative" })).toHaveCount(0);
     await page.getByRole("row").nth(1).click();
@@ -135,17 +135,17 @@ test.describe("coopératives", () => {
 
   test("le gestionnaire n'a que sa coopérative", async ({ page }) => {
     await signIn(page, "gestionnaire");
-    await goto(page, "/cooperatives");
+    await goto(page, "/dashboard/cooperatives");
     await expect(page.getByRole("heading", { name: "Coopératives", level: 1 })).toBeVisible();
     await expect(page.getByRole("button", { name: "Créer une coopérative" })).toHaveCount(0);
     await expect(page.getByRole("row")).toHaveCount(2);
-    await goto(page, "/cooperatives/s2");
+    await goto(page, "/dashboard/cooperatives/s2");
     await expect(page.getByText("Coopérative introuvable")).toBeVisible();
   });
 
   test("le responsable des ventes n'a pas accès", async ({ page }) => {
     await signIn(page, "ventes");
-    await goto(page, "/cooperatives");
+    await goto(page, "/dashboard/cooperatives");
     await expect(page.getByText("Accès non autorisé")).toBeVisible();
   });
 });
