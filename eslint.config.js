@@ -12,7 +12,6 @@ export default tseslint.config(
       ".output",
       ".vinxi",
       ".wrangler",
-      ".vercel",
       ".nitro",
       ".tanstack",
       "coverage",

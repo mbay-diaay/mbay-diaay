@@ -1,0 +1,1 @@
+import{F as e,Hn as t,I as n}from"./_router-chunk-H0-n0SZI.js";import{c as r}from"./ui-CQhTckzj.js";function i(i,a=10){let o=t(a),s=e(()=>i().length),c=n({source:s,computation:()=>1}),l=e(()=>r(i(),{page:c(),limit:o()}));return{result:l,items:e(()=>l().items),setPage:e=>c.set(e),setSize:e=>{o.set(e),c.set(1)}}}export{i as t};

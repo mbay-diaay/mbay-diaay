@@ -121,7 +121,7 @@ export function reportError(
 
 const CHUNK_RELOAD_KEY = "mbd.chunk-reload";
 
-/** Détecte un chunk lazy obsolète (déploiement Vercel pendant une session ouverte). */
+/** Détecte un chunk lazy obsolète (nouveau déploiement pendant une session ouverte). */
 export function isChunkLoadError(error: unknown): boolean {
   const msg = describeThrown(error);
   return (

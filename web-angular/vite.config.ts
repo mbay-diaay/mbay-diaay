@@ -32,10 +32,10 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: ["es2022"],
   },
-  // Évite les reloads parasites quand un `pnpm build` écrit `.vercel/output` à côté du dev server.
+  // Évite les reloads parasites quand un `pnpm build` écrit `dist/` à côté du dev server.
   server: {
     watch: {
-      ignored: ["**/.vercel/**", "**/dist/**"],
+      ignored: ["**/dist/**"],
     },
   },
   resolve: {
@@ -45,15 +45,8 @@ export default defineConfig(({ mode }) => ({
     analogRoutesNoCache(),
     tsconfigPaths(),
     tailwindcss(),
-    analog({
-      nitro: {
-        preset: "vercel",
-        // Cookie __vdpl quand Skew Protection est activé sur le projet Vercel.
-        vercel: {
-          skewProtection: true,
-        },
-      },
-    }),
+    // Site statique (aucun rendu serveur) : application derrière connexion, rien à référencer.
+    analog({ ssr: false }),
   ],
   test: {
     globals: true,

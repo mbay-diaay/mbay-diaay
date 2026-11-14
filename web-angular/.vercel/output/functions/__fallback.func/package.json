@@ -1,0 +1,29 @@
+{
+  "name": "mbay-diaay-angular-prod",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@analogjs/content": "2.9.5",
+    "@angular/common": "22.2.4",
+    "@angular/core": "22.2.4",
+    "@angular/platform-browser": "22.2.4",
+    "@angular/router": "22.2.4",
+    "@kurkle/color": "0.3.4",
+    "chart.js": "4.6.1",
+    "clsx": "2.1.1",
+    "date-fns": "4.4.0",
+    "esprima": "4.0.1",
+    "front-matter": "4.0.2",
+    "github-slugger": "2.0.0",
+    "js-yaml": "3.15.2",
+    "leaflet": "1.9.4",
+    "marked": "15.0.12",
+    "marked-gfm-heading-id": "4.1.4",
+    "marked-mangle": "1.1.14",
+    "rxjs": "7.8.2",
+    "tailwind-merge": "2.6.1",
+    "xlsx": "0.20.3",
+    "zod": "4.6.7"
+  }
+}

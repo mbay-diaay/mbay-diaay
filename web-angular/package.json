@@ -10,11 +10,10 @@
   "scripts": {
     "dev": "vite",
     "start": "vite",
-    "build": "vite build && node scripts/patch-vercel-assets-404.mjs",
+    "build": "vite build",
     "watch": "vite build --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "preview": "node dist/analog/server/index.mjs",
     "check:host": "node ../scripts/check-host.mjs",
     "ci": "pnpm check:host && pnpm typecheck && pnpm build"
   },

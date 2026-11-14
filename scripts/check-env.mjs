@@ -4,9 +4,8 @@
  * Sans `VITE_DEMO_MODE`, l'application publiée est fermée (aucune connexion possible) ; mieux vaut
  * échouer ici que publier un site inutilisable, ou ouvert par oubli.
  *
- * Source de vérité : `.env.production` (versionné). Ne pas compter sur `vercel.json` → `env`
- * (runtime des fonctions uniquement, pas le build). Hors production (CI locale sans VERCEL_ENV,
- * poste de dev), aucune exigence.
+ * Source de vérité : `.env.production` (versionné). Hors production (CI locale, poste de dev),
+ * aucune exigence.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -33,7 +32,7 @@ function loadEnvFile(relativePath) {
   return true;
 }
 
-const isProduction = process.env.VERCEL_ENV === "production";
+const isProduction = process.env.NODE_ENV === "production";
 
 if (isProduction) {
   // Aligné sur Vite (mode production) : .env puis .env.production ; process.env gagne.
@@ -54,8 +53,7 @@ if (isProduction && value !== "true" && value !== "false") {
     }).\n` +
       `  - "true" : prototype avec données fictives (comptes de démonstration, courriel simulé affichés).\n` +
       `  - "false" : application fermée tant que l'API réelle n'est pas branchée.\n` +
-      `  Correction : ${fileHint}.\n` +
-      `  Ne pas compter sur vercel.json "env" (runtime seulement). Ni uniquement sur le tableau de bord Vercel.`,
+      `  Correction : ${fileHint}.`,
   );
   process.exit(1);
 }

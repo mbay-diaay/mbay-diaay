@@ -1,0 +1,30 @@
+var initialsOf = (name) => name.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+var TONE = {
+  succes: {
+    bg: "var(--v2-sauge)",
+    fg: "var(--v2-vert-pousse)"
+  },
+  info: {
+    bg: "var(--v2-info-bg)",
+    fg: "var(--v2-info-fg)"
+  },
+  attente: {
+    bg: "var(--v2-attente-bg)",
+    fg: "var(--v2-attente-fg)"
+  },
+  erreur: {
+    bg: "var(--v2-erreur-bg)",
+    fg: "var(--v2-erreur-fg)"
+  },
+  culture: {
+    bg: "var(--v2-culture-bg)",
+    fg: "var(--v2-culture-fg)"
+  },
+  neutre: {
+    bg: "var(--v2-lin)",
+    fg: "var(--v2-gris-texte)"
+  }
+};
+
+export { TONE as T, initialsOf as i };
+//# sourceMappingURL=v2-page.styles-DN_FuKKd.mjs.map

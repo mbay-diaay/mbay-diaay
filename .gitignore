@@ -38,7 +38,6 @@ data/revue-doublons/
 
 # Sorties de build et outils de plateforme (jamais versionnées)
 .output/
-.vercel/
 .wrangler/
 .nitro/
 .tanstack/
@@ -53,7 +52,6 @@ coverage/
 .env.*
 !.env.example
 !.env.production
-.claude/settings.local.json
 
 # Données personnelles ou bases réelles : ne jamais versionner
 *.xlsx
@@ -62,5 +60,4 @@ coverage/
 # Tests de parcours (Playwright)
 test-results/
 playwright-report/
-.vercel
 .playwright-cli/

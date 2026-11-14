@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-13T20:56:48.005Z",
+  "preset": "vercel",
+  "framework": {
+    "name": "nitro",
+    "version": "2.13.5"
+  },
+  "versions": {
+    "nitro": "2.13.5"
+  },
+  "commands": {
+    "preview": "",
+    "deploy": "npx vercel deploy --prebuilt"
+  },
+  "config": {
+    "vercel": {
+      "skewProtection": true
+    }
+  }
+}

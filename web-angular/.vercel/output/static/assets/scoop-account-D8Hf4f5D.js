@@ -1,0 +1,1 @@
+function e(e,t){let n=e.filter(e=>e.role===`gestionnaire`&&e.scoopId===t);return n.find(e=>e.active)??n[0]}function t(e,t){return e?e.active?`active`:e.invited?new Date(e.invited.expiresAt).getTime()<t?`expired`:`invited`:`closed`:`none`}export{e as n,t};

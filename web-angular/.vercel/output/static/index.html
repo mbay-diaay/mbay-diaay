@@ -1,0 +1,206 @@
+<!DOCTYPE html><html lang="fr"><head>
+    <meta charset="utf-8">
+    <title>Mbay Diaay</title>
+    <base href="/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script type="module" crossorigin="" src="/assets/index-B8S1FFME.js"></script>
+    <link rel="modulepreload" crossorigin="" href="/assets/_router-chunk-H0-n0SZI.js">
+    <link rel="stylesheet" crossorigin="" href="/assets/index-DavyDijA.css">
+  <style>
+    .icon-btn[_ngcontent-ng-c2954352267] {
+      height: 40px;
+      width: 40px;
+      place-items: center;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    .rail-toggle[_ngcontent-ng-c2954352267] {
+      color: color-mix(in oklab, var(--v2-blanc) 70%, transparent);
+    }
+    .rail-toggle[_ngcontent-ng-c2954352267]:hover {
+      background: var(--v2-foret-carte);
+      color: var(--v2-blanc);
+    }
+    .top-btn[_ngcontent-ng-c2954352267] {
+      cursor: pointer;
+      transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease;
+    }
+    .top-btn[_ngcontent-ng-c2954352267]:hover {
+      border-color: var(--v2-gris-trait);
+    }
+    .icon-btn[_ngcontent-ng-c2954352267]:focus-visible, 
+   .top-btn[_ngcontent-ng-c2954352267]:focus-visible, 
+   .menu-item[_ngcontent-ng-c2954352267]:focus-visible {
+      outline: 2px solid var(--v2-foret);
+      outline-offset: 2px;
+    }
+    .rail-toggle[_ngcontent-ng-c2954352267]:focus-visible, 
+   .cradesc-card[_ngcontent-ng-c2954352267]:focus-visible {
+      outline: 2px solid var(--v2-citron);
+      outline-offset: 2px;
+    }
+    .menu-item[_ngcontent-ng-c2954352267] {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      gap: 10px;
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .menu-item[_ngcontent-ng-c2954352267]:hover {
+      background: var(--v2-sauge);
+    }
+    .round-btn[_ngcontent-ng-c2954352267] {
+      position: relative;
+      display: grid;
+      height: 44px;
+      width: 44px;
+      place-items: center;
+      border-radius: 14px;
+      color: var(--v2-ardoise);
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .round-btn[_ngcontent-ng-c2954352267]:hover, 
+   .round-btn.on[_ngcontent-ng-c2954352267] {
+      background: var(--v2-blanc);
+      color: var(--v2-foret);
+      box-shadow: inset 0 0 0 1px var(--v2-bord-carte);
+    }
+    .round-btn[_ngcontent-ng-c2954352267]:focus-visible {
+      outline: 2px solid var(--v2-foret);
+      outline-offset: 2px;
+    }
+    .count[_ngcontent-ng-c2954352267] {
+      position: absolute;
+      top: 5px;
+      right: 4px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      padding: 0 5px;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 18px;
+      text-align: center;
+      background: var(--v2-erreur-fg);
+      color: var(--v2-blanc);
+      box-shadow: 0 0 0 2px var(--v2-creme);
+    }
+    .pop[_ngcontent-ng-c2954352267] {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 10px);
+      z-index: 60;
+      max-width: calc(100vw - 24px);
+      border-radius: 20px;
+      border: 1px solid var(--v2-bord-carte);
+      background: var(--v2-blanc);
+      color: var(--v2-encre);
+      box-shadow: var(--v2-ombre-modale);
+      animation: _ngcontent-ng-c2954352267_pop-in 0.18s ease both;
+    }
+    @keyframes _ngcontent-ng-c2954352267_pop-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .notif[_ngcontent-ng-c2954352267] {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      border-radius: 14px;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .notif[_ngcontent-ng-c2954352267]:hover, 
+   .pop-item[_ngcontent-ng-c2954352267]:hover {
+      background: var(--v2-sauge);
+    }
+    .pop-item[_ngcontent-ng-c2954352267] {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      gap: 12px;
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .pop-item.is-soon[_ngcontent-ng-c2954352267] {
+      cursor: not-allowed;
+      color: var(--v2-gris-texte);
+    }
+    .pop-item.is-soon[_ngcontent-ng-c2954352267]:hover {
+      background: none;
+    }
+    .pop-link[_ngcontent-ng-c2954352267] {
+      font-weight: 700;
+      color: var(--v2-foret-clair);
+      cursor: pointer;
+    }
+    .pop-link[_ngcontent-ng-c2954352267]:hover {
+      text-decoration: underline;
+    }
+    .soon-pill[_ngcontent-ng-c2954352267] {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--v2-lin);
+      color: var(--v2-gris-texte);
+    }
+    .kbd[_ngcontent-ng-c2954352267] {
+      border-radius: 8px;
+      border: 1px solid var(--v2-bord-carte);
+      padding: 1px 6px;
+      font-family: var(--v2-font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--v2-creme);
+    }
+    .seg[_ngcontent-ng-c2954352267] {
+      display: inline-flex;
+      gap: 2px;
+      border-radius: 10px;
+      padding: 2px;
+      background: var(--v2-creme);
+    }
+    .seg[_ngcontent-ng-c2954352267]   button[_ngcontent-ng-c2954352267] {
+      border-radius: 8px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--v2-gris-texte);
+      cursor: pointer;
+    }
+    .seg[_ngcontent-ng-c2954352267]   button.on[_ngcontent-ng-c2954352267] {
+      background: var(--v2-foret);
+      color: var(--v2-blanc);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pop[_ngcontent-ng-c2954352267] { animation: none; }
+    }
+    .sidebar[_ngcontent-ng-c2954352267] {
+      transition: width 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sidebar[_ngcontent-ng-c2954352267] {
+        transition: none;
+      }
+    }</style></head>
+  <body><!--nghm-->
+    <app-root ng-version="22.2.4" ngh="2" ng-server-context="ssr-analog"><router-outlet></router-outlet><app-layout-page ngh="0"><app-layout _nghost-ng-c2954352267="" ngh="1"><!----><div _ngcontent-ng-c2954352267="" class="charte-v2 flex min-h-screen items-center justify-center gap-2 text-sm font-semibold" style="color: var(--v2-gris-texte);"><lucide-angular _ngcontent-ng-c2954352267="" aria-hidden="true" class="animate-spin" ngh="0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56" key="13zald"></path></svg></lucide-angular> Chargement en cours </div><!----><!----><!----><!----></app-layout></app-layout-page><!----></app-root>
+    
+  
+
+<script id="ng-state" type="application/json">{"__nghData__":[{},{"t":{"0":"t0","1":"t1","2":"t2","3":"t3","4":"t4"},"c":{"0":[],"1":[{"i":"t1","r":1}],"2":[],"3":[],"4":[]}},{"c":{"0":[{"i":"c1385118688","r":1}]}}]}</script></body></html>

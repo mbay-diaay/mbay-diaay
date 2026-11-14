@@ -32,9 +32,8 @@ export default defineConfig(({ command }) => ({
       // Entrée serveur qui enveloppe les erreurs de rendu (src/server.ts).
       server: { entry: "server" },
     }),
-    // Hébergeur : Vercel. Ne pas remettre cloudflare-module / node-server ici
-    // sans aligner vercel.json et la doc (sinon build sans .vercel/output → erreur dist).
-    ...(command === "build" ? [nitro({ preset: "vercel" })] : []),
+    // Archive React : serveur Node autonome, comme l'application Angular (voir docs/DEPLOY_FRONT.md).
+    ...(command === "build" ? [nitro({ preset: "node-server" })] : []),
     react(),
   ],
 }));

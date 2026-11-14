@@ -1,5 +1,4 @@
 /dist
-/.vercel
 /tmp
 /out-tsc
 /node_modules

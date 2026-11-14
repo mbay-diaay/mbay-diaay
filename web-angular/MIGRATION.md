@@ -3,7 +3,7 @@
 Started 2026-11-05 on branch `feat/angular-migration`, per explicit user
 direction (not yet committed — see repo root for the commit-discipline rule).
 This directory is a **new, separate app** living alongside the React app in
-`src/`. Nothing here is wired into Vercel, CI, or `docs/DEVELOPPEMENT.md` yet.
+`src/`. Nothing here is wired into the hosting, CI, or `docs/DEVELOPPEMENT.md` yet.
 The React app in `src/` remains the live, production-headed app until this
 migration is much further along — do not remove or stop maintaining it.
 
@@ -14,14 +14,14 @@ not a finished migration. Porting everything is a multi-week effort.
 
 ## Why Analog.js, not plain Angular CLI
 
-AGENTS.md pins the hosting setup hard: **Vercel + Nitro `preset: "vercel"`**,
-output at `.vercel/output`. Plain Angular CLI's SSR (`@angular/ssr`) has no
+AGENTS.md pins the hosting setup hard: **Nitro `preset`**,
+output at `dist/client`. Plain Angular CLI's SSR (`@angular/ssr`) has no
 Nitro integration, which would have meant redesigning hosting from scratch.
 [Analog.js](https://analogjs.org) is an Angular meta-framework built on
 **Vite + Nitro**, the same two pieces TanStack Start already uses here — its
-`analog()` Vite plugin takes a `nitro: { preset: 'vercel' }` option exactly
+`analog()` Vite plugin takes a `nitro: { preset }` option exactly
 like the current app's Nitro config. Verified end-to-end: `vite build`
-produces a valid `.vercel/output/` (static assets + a Vercel serverless
+produces a valid `dist/client/` (static assets + a serverless
 function), confirming the hosting setup survives the framework swap.
 
 ## What's ported verbatim (framework-agnostic — just copied)
@@ -115,7 +115,7 @@ TypeScript and ported as-is:
   Angular templates (`strictTemplates`) — only the real Angular compiler
   does, which runs during `vite build`/`vite dev`. Always verify with an
   actual build, not just `tsc`, after touching a `.page.ts` template.
-- A real `vite build` produces a valid `.vercel/output/` (see above).
+- A real `vite build` produces a valid `dist/client/` (see above).
 - Zero browser console errors throughout.
 - **Gotcha hit during testing**: clicking an element immediately after it
   appears in the DOM (right after `waitForSelector`) can race Angular's
@@ -131,7 +131,7 @@ TypeScript and ported as-is:
   markup, not reusable components like `src/components/ui/*`).
 - No charting library installed (dashboard charts not ported — see above).
 - No ESLint/Prettier config in this directory yet.
-- Not in `pnpm ci` / GitHub Actions / Vercel yet.
+- Not in `pnpm ci` / GitHub Actions yet.
 - `lucide-angular` (not `@lucide/angular`) is used deliberately — see
   `src/lib/nav.ts`'s inline note.
 
@@ -139,7 +139,7 @@ TypeScript and ported as-is:
 
 Every React route under `src/routes/` (except `__root`) has an Analog
 counterpart under `web-angular/src/app/pages/`. No `ui-stub-page` left in
-nav screens. `pnpm build` green (client + SSR + `.vercel/output`).
+nav screens. `pnpm build` green (client + SSR + `dist/client`).
 
 **Deep / interactive ports**: login (+OTP), invitation, mot-de-passe-oublié,
 dashboard (Chart.js client-only), producteurs (+fiche Leaflet `app-plot-map`,
@@ -155,7 +155,7 @@ audit, rapports, cooperative redirect. CommandPalette (⌘K) + GlobalFilters
 
 **Production** : Angular couvre les parcours métier critiques (login,
 dossiers, réunions, import, qualité, producteur, shell). Build +
-`pnpm typecheck` verts. Cutover Vercel : Root Directory `web-angular/`.
+`pnpm typecheck` verts. Cutover en production : Build Path `web-angular/`.
 React `src/` reste disponible pour rollback (Root Directory → `.`).
 
 **Encore plus mince que React** : UI kit `select` partagé ; toasts pas
@@ -165,11 +165,11 @@ CSV encore en dialog HTML natif.
 ## Next milestones, roughly in order of leverage
 
 1. **Cutover** (sans basculer prod tant que non validé) — checklist :
-   - [x] `web-angular/vercel.json` + `.env.production` (`VITE_DEMO_MODE`) + `.nvmrc` (`22`)
-   - [x] Nitro `preset: "vercel"` → sortie `.vercel/output` (pas `dist` forcé)
+   - [x] `web-angular/hébergeur.json` + `.env.production` (`VITE_DEMO_MODE`) + `.nvmrc` (`22`)
+   - [x] Nitro `preset` → sortie `dist/client` (pas `dist` forcé)
    - [x] `pnpm check:host` depuis `web-angular/` (script partagé `../scripts/check-host.mjs`)
    - [x] Job CI `angular` (check:host + typecheck + build) — React `verify` reste prod
-   - [x] Projet Vercel **prod** : Root Directory `web-angular/`, Node **22.x**,
+   - [x] Projet de production : Build Path `web-angular/`, Node **22.x**,
          overrides Build/Output/Install **OFF**, Framework Angular, Toolbar off (CSP)
    - [x] Cutover prod (redeploy après commit de `web-angular/`)
    - [ ] Retirer / archiver `src/` React quand le rollback n’est plus nécessaire
