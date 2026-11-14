@@ -30,7 +30,7 @@ Autres documents : besoins fonctionnels dans [`docs/prd/`](prd/), avancement dan
 
 | Outil | Version | Vérification |
 |---|---|---|
-| Node.js | **22.x** (LTS Active ; pin Vercel + `engines` / `.nvmrc`, pas `>=22`) | `node -v` |
+| Node.js | **22.x** (LTS Active ; pin `engines` / `.nvmrc`, pas `>=22`) | `node -v` |
 | pnpm | 11 ou plus | `pnpm -v` (sinon `corepack enable`) |
 | Git | récent | `git --version` |
 
@@ -151,7 +151,7 @@ Cases à cocher dans *Settings* du dépôt, dans cet ordre :
 - **Prévisualisation** de chaque PR sur une adresse temporaire pour la recette.
 - **Production** depuis `main` après validation, `VITE_DEMO_MODE=false`, secrets uniquement chez l'hébergeur.
 - **Versions** : étiquette `vMAJEUR.MINEUR.PATCH` ; retour arrière en redéployant l'étiquette précédente.
-- **Hébergeur actuel : Vercel** (Nitro `preset: "vercel"`, fichier `vercel.json`, sortie `.vercel/output`). Un changement d'hébergeur exige de changer le preset **et** la config d'hébergement dans le même lot (`pnpm check:host`).
+- **Hébergement : site statique** (`analog({ ssr: false })`, sortie `web-angular/dist/client`), voir `docs/DEPLOY_FRONT.md`. Tout changement de mode de rendu se fait avec la mise à jour de ce guide et de `pnpm check:host` dans le même lot.
 
 ### Revue de code, par ordre de priorité
 
@@ -160,7 +160,7 @@ Cases à cocher dans *Settings* du dépôt, dans cet ordre :
 3. Une donnée sensible fuit-elle (journal, URL, export, message d'erreur) ?
 4. Ce code existe-t-il déjà ailleurs ?
 5. Le test échouerait-il si la règle était cassée ?
-6. **Déploiement** : le preset Nitro (`vite.config.ts`) correspond-il à l'hébergeur (`vercel.json`) ? Pas de sortie `dist` attendue pour TanStack Start + Nitro. Lancer `pnpm check:host` si l'un des deux fichiers change.
+6. **Déploiement** : le front reste-t-il statique (`analog({ ssr: false })` dans `vite.config.ts`) ? Lancer `pnpm check:host` si ce fichier change.
 
 ## 4. Sécurité
 
@@ -233,7 +233,7 @@ Pages : `/login` et `/mot-de-passe-oublie`. Code : `src/lib/auth/` (règles, ser
 
 Codes d'erreur : `invalid_credentials`, `locked`, `otp_invalid`, `otp_expired`, `otp_attempts`, `rate_limited`, `weak_password`, `reset_expired`, `unavailable`. Le serveur limite aussi les requêtes par adresse IP et journalise chaque échec sans consigner mot de passe ni code.
 
-**En-têtes de sécurité** (`vercel.json`) : HSTS, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy` fermée, `X-Robots-Tag: noindex`, et une politique `Content-Security-Policy` en **mode rapport seulement** (`Content-Security-Policy-Report-Only`) — les alertes console ne bloquent pas l'app. Elle autorise les tuiles de carte Esri (`server.arcgisonline.com` : World Street Map pour le plan, World Imagery pour le satellite), fixe `media-src 'self'` et `frame-src 'none'`. Pas de `tile.openstreetmap.org` (les serveurs bénévoles OSM bloquent les apps hors politique d'usage). **Prototype** : ne pas ouvrir la CSP à `vercel.live` ; désactiver la barre Feedback / Vercel Toolbar dans le Dashboard du projet (Settings → Toolbar / Comments) pour supprimer les rapports `feedback.js`, iframes et sons `data:audio` (AbortError `play()`/`pause()`). Elle passera en mode bloquant quand les scripts en ligne du rendu serveur recevront un nonce. Toute nouvelle ressource externe (police, service d'images, adresse de `VITE_ERROR_REPORT_URL`) s'ajoute à la politique dans le même lot.
+**En-têtes de sécurité** (posés sur le routeur du serveur, voir `docs/DEPLOY_FRONT.md`) : HSTS, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy` fermée, `X-Robots-Tag: noindex`, et une politique `Content-Security-Policy` en **mode rapport seulement** (`Content-Security-Policy-Report-Only`) — les alertes console ne bloquent pas l'app. Elle autorise les tuiles de carte Esri (`server.arcgisonline.com` : World Street Map pour le plan, World Imagery pour le satellite), fixe `media-src 'self'` et `frame-src 'none'`. Pas de `tile.openstreetmap.org` (les serveurs bénévoles OSM bloquent les apps hors politique d'usage). **Prototype** : ne pas ouvrir la CSP à `domaine tiers` ; désactiver la barre Feedback / l’hébergeur Toolbar dans le Dashboard du projet (Settings → Toolbar / Comments) pour supprimer les rapports `feedback.js`, iframes et sons `data:audio` (AbortError `play()`/`pause()`). Elle passera en mode bloquant quand les scripts en ligne du rendu serveur recevront un nonce. Toute nouvelle ressource externe (police, service d'images, adresse de `VITE_ERROR_REPORT_URL`) s'ajoute à la politique dans le même lot.
 
 **Mode démonstration** (`VITE_DEMO_MODE`, voir `.env.example`) : `true` affiche huit comptes fictifs, le mot de passe commun et un encadré « Courriel simulé » avec le code ; `false` masque ces aides **et** refuse toute connexion, pour qu'un build publié sans API ne laisse aucune porte ouverte. **Fermé par défaut** : la variable absente ferme le mode dans un build publié (elle reste ouverte en développement local) ; un déploiement de production doit la fixer à `true` ou `false`, sinon `pnpm build` échoue (`scripts/check-env.mjs`).
 
@@ -429,7 +429,7 @@ Sens des dépendances : `routes` → `components/app` et `components/auth` → `
 
 # C. Backend
 
-Le backend vit dans le dépôt dédié **[mbay-diaay/mbay-diaay-api](https://github.com/mbay-diaay/mbay-diaay-api)** (VPS, `api.mbaydiaay.com`). Le front Module 1 reste sur Vercel.
+Le backend vit dans le dépôt dédié **[mbay-diaay/mbay-diaay-api](https://github.com/mbay-diaay/mbay-diaay-api)** (`api.mbaydiaay.com`). Le front Module 1 est un site statique.
 
 | | |
 |---|---|

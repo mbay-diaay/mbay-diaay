@@ -21,7 +21,7 @@ Date : 31 octobre 2026 (MAJ 8 nov. 2026 : production = `web-angular/`). Source :
 - `src/lib/permissions.ts`, `scope.ts`, `store.ts`, `mock/*` (données mock encore riches ; UI M2–M5 retirée)
 - `src/lib/i18n/`, shell (`AppShell`, nav, palette)
 - Leaflet **lazy** uniquement sur mini-carte fiche producteur (pas d’écran `/carte`)
-- Production Vercel : Root Directory `web-angular/` (Analog + Nitro `preset: "vercel"`), `.env.production` → `VITE_DEMO_MODE=false` + API
+- Production : Build Path `web-angular/` (Analog, site statique `dist/client`), `.env.production` → `VITE_DEMO_MODE=false` + API
 - Pack recette : [`RECETTE_MODULE1.md`](RECETTE_MODULE1.md)
 
 ## Exclus (routes retirées)

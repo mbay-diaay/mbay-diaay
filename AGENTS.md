@@ -4,7 +4,7 @@
 Mbay Diaay Module 1 administratif SCOOP (Zone des Niayes, client CRADESC). Données fictives en mémoire (réinitialisées au rechargement), pas de backend ici (API Nest dans le dépôt frère `mbay-diaay-api`). Modules M2–M5 hors menu. Textes UI, commentaires, docs et commits en français ; format de commit `type(périmètre): sujet` (impératif présent).
 
 ## Deux apps, un dépôt
-- `web-angular/` (Analog.js = Angular 22 + Vite + Nitro) : app **production** Vercel et référence fonctionnelle. Nouveaux parcours ici.
+- `web-angular/` (Analog.js = Angular 22 + Vite + Nitro) : app **production** (site statique) et référence fonctionnelle. Nouveaux parcours ici.
 - `src/` (React 19 + TanStack Start) : archive locale pour rollback. Ne plus y développer de nouveautés. `e2e/` et Playwright ciblent Angular.
 - Commandes à la racine = archive React (port 8080). Pour Angular, `cd web-angular`. Dépendances séparées : CI utilise `pnpm install --ignore-workspace`.
 
@@ -15,8 +15,8 @@ Angular (depuis `web-angular/`) :
 - `pnpm dev` — vite
 - `pnpm typecheck` — `tsc --noEmit -p tsconfig.app.json`
 - `pnpm test` — `vitest run` (seul test actuel : `src/app/app.spec.ts`)
-- `pnpm build` — `vite build` + `patch-vercel-assets-404`
-- `pnpm check:host` — garde-fou Nitro/`vercel.json`/`.env.production`
+- `pnpm build` — `vite build` (site statique dans `dist/client`)
+- `pnpm check:host` — garde-fou site statique / `.env.production`
 - `pnpm ci` — `check:host` + `typecheck` + `build`
 
 E2E Playwright (depuis la racine, démarre `web-angular` sur le port 4173) :
@@ -41,10 +41,10 @@ React archive (depuis la racine) :
 - Leaflet : chargé côté client seulement, après montage (React : `React.lazy`, Angular : `plot-map.component.ts`).
 
 ## Hébergement / pièges de déploiement
-- Vercel + Nitro `preset: "vercel"` + `vercel.json`, sortie `.vercel/output` (pas de `dist`). Ne jamais changer de preset sans aligner `vercel.json` et la doc dans le même commit ; vérifier avec `pnpm check:host`.
-- Dashboard Vercel : Root Directory `web-angular/`, Node 22.x, overrides Build/Output/Install **OFF**. Rollback React : remettre Root Directory à `.`.
-- `VITE_DEMO_MODE` (`true|false`) doit être commitée dans `.env.production` (lue par Vite et `scripts/check-env.mjs`) ; `vercel.json` → `env` n'alimente que le runtime des fonctions, pas le build.
-- CSP en **Report-Only** (`vercel.json`) ; tuiles Esri autorisées, pas d'OSM.org ; ne pas autoriser `vercel.live`. Désactiver la barre Feedback/Toolbar Vercel dans le Dashboard pour éviter le bruit CSP, iframes et sons `data:audio` + AbortError `play()`/`pause()`.
+- Le front Angular est un **site statique** (`analog({ ssr: false })`, sortie `dist/client`), voir `docs/DEPLOY_FRONT.md`. Ne pas rétablir le rendu serveur sans mettre à jour ce guide et `pnpm check:host` dans le même commit.
+- Hébergement : Build Path `web-angular/`, Node 22.x, dossier publié `dist/client`, mode SPA activé.
+- `VITE_DEMO_MODE` (`true|false`) doit être commitée dans `.env.production` (lue par Vite et `scripts/check-env.mjs`) ; les variables `VITE_*` sont lues à la construction.
+- CSP en **Report-Only**, posée sur le routeur du serveur (voir `docs/DEPLOY_FRONT.md`) ; tuiles Esri autorisées, pas d'OSM.org.
 
 ## Workflow
 - `pnpm run ci` (React) / `pnpm ci` (Angular) doit passer avant chaque commit ; un commit par intention ; branches `type/sujet`.

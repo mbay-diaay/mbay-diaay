@@ -2,7 +2,7 @@
 
 Date : 8 novembre 2026 · Statut : **prêt pour recette testeurs** (signature client externe).
 
-Front production : Angular Analog (`web-angular/`) sur Vercel · API : NestJS sur VPS (`api.mbaydiaay.com`).
+Front production : Angular Analog (`web-angular/`) · API : NestJS (`api.mbaydiaay.com`).
 
 Comptes détaillés : [`mbay-diaay-api` → `docs/COMPTES_RECETTE.md`](https://github.com/mbay-diaay/mbay-diaay-api/blob/main/docs/COMPTES_RECETTE.md).
 
@@ -54,7 +54,6 @@ Cocher à chaque écran : pas de débordement horizontal · contrastes lisibles 
 | Navigation clavier login + menu principal | [ ] |
 | Focus visible sur boutons / liens | [ ] |
 | `axe` WCAG A/AA sur les écrans M1 (`e2e/a11y-m1.spec.ts` en local) | [ ] |
-| Pas de barre Feedback Vercel (Toolbar désactivée projet) | [ ] |
 
 ---
 

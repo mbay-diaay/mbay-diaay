@@ -54,7 +54,7 @@ Créer ces labels (couleurs libres) :
 
 Ajouter **sans doublon** :
 
-- Terminé : Brancher Vercel ; DNS `api.mbaydiaay.com` ; 4 cartes UX (confiance / operate / parcours / polish)
+- Terminé : Brancher le déploiement ; DNS `api.mbaydiaay.com` ; 4 cartes UX (confiance / operate / parcours / polish)
 - Backlog : remplacer « Backend API réel » par **Backend NestJS + Docker sur VPS** (ou mettre à jour le titre/description)
 
 ### Automatisation API (non faite ici)
@@ -67,4 +67,4 @@ Quand tu auras un jeton : créer un board via l’API Trello ou Power-Up « CSV 
 - Module 1 : https://github.com/mbay-diaay/mbay-diaay  
 - Proto référence : https://github.com/MohaPeth/mbaydiaay-proto  
 - Guide Moha : [`../MISSION_MODULE1_ET_TRELLO.md`](../MISSION_MODULE1_ET_TRELLO.md)  
-- Domaines / API : [`../HEBERGEMENT_VERCEL_ORG.md`](../HEBERGEMENT_VERCEL_ORG.md) §8 — `api.mbaydiaay.com` → VPS  
+- Domaines / API : [`../DEPLOY_FRONT.md`](../DEPLOY_FRONT.md) §8 — `api.mbaydiaay.com` → VPS  

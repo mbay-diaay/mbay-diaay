@@ -4,7 +4,7 @@ Document d’explication (mis à jour **8 novembre 2026**). Pas besoin de jargon
 
 ## En une phrase
 
-Le dépôt GitHub officiel **mbay-diaay** porte le **Module 1 (Administratif)** : front **Angular** en production sur **Vercel** (`www.mbaydiaay.com`), API NestJS sur VPS (`api.mbaydiaay.com`), pack de recette prêt pour les testeurs.
+Le dépôt GitHub officiel **mbay-diaay** porte le **Module 1 (Administratif)** : front **Angular** en production (`www.mbaydiaay.com`), API NestJS (`api.mbaydiaay.com`), pack de recette prêt pour les testeurs.
 
 ---
 
@@ -40,13 +40,13 @@ Sur la page d’accueil des modules, M2–M5 apparaissent comme **« à venir »
 |---|---|
 | **URL** | https://github.com/mbay-diaay/mbay-diaay |
 | **Branche** | `main` |
-| **Front prod** | Analog Angular dans `web-angular/` (Root Directory Vercel) · https://www.mbaydiaay.com |
+| **Front prod** | Analog Angular dans `web-angular/` (Build Path `web-angular/`) · https://www.mbaydiaay.com |
 | **API** | [`mbay-diaay/mbay-diaay-api`](https://github.com/mbay-diaay/mbay-diaay-api) · `api.mbaydiaay.com` |
 
 Travail effectué (jalons) :
 
 1. Base M1 (permissions, mock store, i18n, UX Operate).
-2. Migration Angular Analog + cutover Vercel (Node 22.x, Nitro `vercel`).
+2. Migration Angular Analog + cutover en production (Node 22.x, site statique).
 3. Auth API (sign-in + OTP stub `000000`) + seed multi-rôles.
 4. Polish recette : Rapports bout-en-bout, shell prod, Appareils, Toolbar Feedback OFF.
 5. Pack testeurs : [`docs/RECETTE_MODULE1.md`](RECETTE_MODULE1.md).
@@ -66,7 +66,7 @@ Fichiers : `BOARD.md`, `cartes.csv`, `cartes.json` (pack du 31/10/2026 — à co
 | Statut | Contenu |
 |---|---|
 | **Fait (M1 UI)** | Personnes, vie coopérative, rapports, admin, shell prod, i18n, droits |
-| **Fait (hébergement)** | Front Vercel Angular · API VPS TLS · domaines `www` / `api` |
+| **Fait (hébergement)** | Front Angular · API TLS · domaines `www` / `api` |
 | **Fait (recette pack)** | `RECETTE_MODULE1.md` + `COMPTES_RECETTE.md` · M1-7 doc |
 | **En cours / à valider** | Signature UAT gestionnaire SCOOP · décisions client (INF 30, D4–D17) · remap métier API |
 | **Reste M1 (non bloquant recette)** | PDF exports, bilingue wolof relu, Assistance D17 |
@@ -92,5 +92,5 @@ Fichiers : `BOARD.md`, `cartes.csv`, `cartes.json` (pack du 31/10/2026 — à co
 | État projet | [`docs/ETAT_DU_PROJET.md`](ETAT_DU_PROJET.md) |
 | Branchement API | [`docs/BRANCHEMENT_API.md`](BRANCHEMENT_API.md) |
 | Audit UX M1 | [`docs/AUDIT_UX_M1.md`](AUDIT_UX_M1.md) |
-| Hébergement Vercel | [`docs/HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md) |
+| Déploiement du front | [`docs/DEPLOY_FRONT.md`](DEPLOY_FRONT.md) |
 | Suivi Trello | [`docs/suivi-trello/BOARD.md`](suivi-trello/BOARD.md) |

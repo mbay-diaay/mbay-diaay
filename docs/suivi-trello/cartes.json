@@ -127,8 +127,8 @@
       "criteres_done": "17+ tests auth ; bandeau mode démo"
     },
     {
-      "titre": "Hébergement Vercel + Nitro",
-      "description": "preset vercel, Node 22.x, VITE_DEMO_MODE dans .env.production.",
+      "titre": "Hébergement du front",
+      "description": "site statique, Node 22.x, VITE_DEMO_MODE dans .env.production.",
       "colonne": "Terminé",
       "module": "Transversal",
       "responsable": "R-Dev-B",
@@ -136,20 +136,20 @@
       "deadline": null,
       "liens": [
         "AGENTS.md",
-        "vercel.json"
+        "hébergeur.json"
       ],
       "criteres_done": "pnpm check:host vert ; pas d override dist"
     },
     {
       "titre": "CSP Report-Only + tuiles Esri",
-      "description": "CSP non bloquante ; server.arcgisonline.com ; pas vercel.live.",
+      "description": "CSP non bloquante ; server.arcgisonline.com ; aucun domaine tiers.",
       "colonne": "Terminé",
       "module": "Transversal",
       "responsable": "R-Dev-B",
       "priorite": "P1-Haute",
       "deadline": null,
       "liens": [
-        "vercel.json"
+        "hébergeur.json"
       ],
       "criteres_done": "Console propre si Toolbar Feedback désactivée au Dashboard"
     },
@@ -180,7 +180,7 @@
       "criteres_done": "M2-M5 = à venir sur page modules uniquement"
     },
     {
-      "titre": "Brancher Vercel sur mbay-diaay",
+      "titre": "Brancher le déploiement sur mbay-diaay",
       "description": "Projet relié à l'org GitHub ; Node 22.x ; overrides OFF ; push main → deploy.",
       "colonne": "Terminé",
       "module": "Transversal",
@@ -188,7 +188,7 @@
       "priorite": "P1-Haute",
       "deadline": null,
       "liens": [
-        "docs/HEBERGEMENT_VERCEL_ORG.md"
+        "docs/DEPLOY_FRONT.md"
       ],
       "criteres_done": "Déploiement production vert ; VITE_DEMO_MODE=true"
     },
@@ -201,9 +201,9 @@
       "priorite": "P0-Critique",
       "deadline": null,
       "liens": [
-        "docs/HEBERGEMENT_VERCEL_ORG.md §8"
+        "docs/DEPLOY_FRONT.md"
       ],
-      "criteres_done": "Résolution DNS vers le serveur ; pas collé sur Vercel Domains"
+      "criteres_done": "Résolution DNS vers le serveur ; pas collé sur l’hébergeur Domains"
     },
     {
       "titre": "UX confiance A-01…A-03",
@@ -403,7 +403,7 @@
       "criteres_done": "CSP Esri OK ; React.lazy après mount"
     },
     {
-      "titre": "Désactiver Vercel Toolbar Feedback",
+      "titre": "Console démo propre (sans bruit CSP)",
       "description": "Éviter bruit CSP, iframes, sons data:audio.",
       "colonne": "Backlog",
       "module": "Transversal",
@@ -411,7 +411,7 @@
       "priorite": "P2-Normale",
       "deadline": null,
       "liens": [
-        "Dashboard Vercel → Settings → Toolbar"
+        "Réglages du routeur"
       ],
       "criteres_done": "Console démo sans AbortError play/pause"
     },

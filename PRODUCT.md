@@ -27,7 +27,7 @@ Un seul outil web pour les coopératives des Niayes et leur faîtière, borné a
 ## Operating Context
 
 - Client / maître d’ouvrage : **CRADESC** ; mission CANAS.
-- UI de référence fonctionnelle : **Angular Analog** (`web-angular/`). React `src/` reste l’app production Vercel jusqu’au cutover.
+- UI de référence fonctionnelle : **Angular Analog** (`web-angular/`). React `src/` n'est plus qu'une archive, bientôt supprimée.
 - Données : mock / store en mémoire jusqu’à branchement API Nest (`mbay-diaay-api`).
 - Auth démo OTP ; session perdue au rechargement en mode démo.
 - Locales : français (défaut) et wolof (jamais traduit automatiquement).
@@ -42,7 +42,7 @@ Un seul outil web pour les coopératives des Niayes et leur faîtière, borné a
 - Marron CRADESC (`#4E3228`) non négociable.
 - Permissions via `permissions.ts` / store — pas de checks de rôle en dur dans les composants.
 - Leaflet chargé côté client uniquement (SSR-safe).
-- Node 22.x ; hébergement Vercel + Nitro `preset: "vercel"`.
+- Node 22.x ; front statique (`analog({ ssr: false })`), voir `docs/DEPLOY_FRONT.md`.
 
 **Ouvert :** graphie officielle du nom / tagline / logo SVG transparent ; cutover prod Angular ; photos producteurs (Kobo).
 

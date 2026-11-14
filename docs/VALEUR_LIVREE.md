@@ -22,7 +22,7 @@ Document pour la direction / les bailleurs : ce que le prototype **dépasse** d�
 | **Auth e-mail + OTP** | Connexion, mot de passe oublié, invitations | Plus réaliste que le seul SMS du PRD initial |
 | **Périmètre SCOOP** | `scope.ts` partout (listes, fiche, carte, rapports) | Sécurité démontrable en démo |
 | **Rapports** | Catalogue générable Excel / CSV + historique | Prêt pour bailleurs (mise en forme charte = suite) |
-| **CI / sécurité** | Tests Vitest + Playwright, audit deps, CodeQL, garde-fou hébergeur Vercel | Crédibilité livraison |
+| **CI / sécurité** | Tests Vitest + Playwright, audit deps, CodeQL, garde-fou de build | Crédibilité livraison |
 
 ## 3. Ce qui reste clairement « à vendre » (pas encore livré)
 

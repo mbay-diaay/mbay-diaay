@@ -14,7 +14,7 @@ Ce dépôt contient le **prototype web borné au Module 1** (données fictives e
 
 ## Prérequis
 
-- **Node.js** **22.x** (pin Vercel / `engines.node`)
+- **Node.js** **22.x** (pin `engines.node`)
 - **pnpm** 11+ (`npm install -g pnpm` ou `corepack enable`)
 
 Vérifier :

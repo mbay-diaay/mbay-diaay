@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Front | [`mbay-diaay/mbay-diaay`](https://github.com/mbay-diaay/mbay-diaay) — **`web-angular/`** (Vercel, production) |
+| Front | [`mbay-diaay/mbay-diaay`](https://github.com/mbay-diaay/mbay-diaay) — **`web-angular/`** (site statique, production) |
 | API | [`mbay-diaay/mbay-diaay-api`](https://github.com/mbay-diaay/mbay-diaay-api) (`api.mbaydiaay.com`) |
 | Date | 8 novembre 2026 |
 
@@ -53,7 +53,7 @@ Création d’utilisateur : écran **Utilisateurs & rôles** (rôle admin) → `
 
 Comptes multi-rôles : [API `COMPTES_RECETTE.md`](https://github.com/mbay-diaay/mbay-diaay-api/blob/main/docs/COMPTES_RECETTE.md).
 
-## Production (Vercel + VPS)
+## Production
 
 **Guide serveur :** [`COMMANDES_SERVEUR.md`](https://github.com/mbay-diaay/mbay-diaay-api/blob/main/docs/COMMANDES_SERVEUR.md)
 

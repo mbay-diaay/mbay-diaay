@@ -1,4 +1,4 @@
-# Prompt Claude Design — Application web Mbay Diaay
+# Prompt de design — Application web Mbay Diaay
 
 **À joindre avec le prompt :** `PRD_Web_Mbay_Diaay_v0.1.md` et `design-tokens.json` (dossier `PRD/`).
 **À ne PAS joindre :** la base CRADESC, le classeur de revue des doublons, ni aucune donnée réelle (noms, CNI, téléphones).
@@ -69,7 +69,7 @@ Un prototype navigable avec le système de design, les écrans du lot 1 d'abord,
 
 ## Conseils d'utilisation
 
-- Si Claude Design peine sur l'ensemble, envoie le prompt tel quel pour le **système de design + lot 1**, puis demande le lot 2 dans un second message.
+- Si l'outil de design peine sur l'ensemble, envoie le prompt tel quel pour le **système de design + lot 1**, puis demande le lot 2 dans un second message.
 - Ne rends pas le prototype public : il reste fictif mais il montre l'architecture de l'outil.
 - Après génération, vérifie en priorité : les parcours B (fusion réversible) et C (deux contours), les états « accès refusé », et que la CNI n'apparaît jamais en clair par défaut.
 - Quand tu valides le web, je prépare le prompt mobile (PRD Mobile : hors connexion, GPS, synchronisation) avec le même système de design.

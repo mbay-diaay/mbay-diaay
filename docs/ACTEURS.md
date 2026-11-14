@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Date** | 25 octobre 2026 |
-| **Statut** | Aligné sur la vision Claude du 25 oct. (`Mbay Diaay vision, rôles et suivi du module Administratif`) |
+| **Statut** | Aligné sur la vision initiale du 25 oct. (`Mbay Diaay vision, rôles et suivi du module Administratif`) |
 | **Sources** | PDF / MD vision @PethDev · note de cadrage · PRD · prototype |
 
-Ce document reprend **ce que Claude a déjà traité** pour la vision, les rôles et le module Administratif (M1). À relire avec les coopératives : plusieurs droits sont encore « proposés ».
+Ce document reprend **ce qui a déjà été traité** pour la vision, les rôles et le module Administratif (M1). À relire avec les coopératives : plusieurs droits sont encore « proposés ».
 
 > **Écart dépôt local :** dans *ce* clone, `src/lib/permissions.ts` n’a encore que 4 rôles (`admin`, `gestionnaire`, `faitiere`, `technicien`). La vision ci-dessous décrit **8 rôles** et un M1 quasi complet (cotisations, réunions, dossiers, etc.). Vérifier la branche / session A–B avant de coder par-dessus.
 
@@ -101,7 +101,7 @@ Toute action sensible (CNI, export, téléchargement, décision, création SCOOP
 
 ---
 
-## 6. Décisions Claude (repères)
+## 6. Décisions (repères)
 
 | # | Sujet | État |
 |---|---|---|
@@ -119,7 +119,7 @@ Toute action sensible (CNI, export, téléchargement, décision, création SCOOP
 
 ---
 
-## 7. Avancement M1 (selon vision Claude, 25 oct.)
+## 7. Avancement M1 (selon la vision du 25 oct.)
 
 Annoncé comme fait dans le prototype vision : producteurs, orgs/GIE, membres, rôles par représentant, dossiers producteurs, pièces, **créer / archiver SCOOP + inviter gestionnaire**, fiche SCOOP à onglets, cotisations, réunions/PV, documents, journal, rapports.
 

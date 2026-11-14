@@ -65,5 +65,5 @@ Un gestionnaire SCOOP, le matin, doit répondre en **moins de 2 clics** à : « 
 ## Liens
 
 - [`CNI_LECTURE.md`](CNI_LECTURE.md)
-- [`HEBERGEMENT_VERCEL_ORG.md`](HEBERGEMENT_VERCEL_ORG.md) (dont §8 Domaines / `api.mbaydiaay.com`)
+- [`DEPLOY_FRONT.md`](DEPLOY_FRONT.md) (déploiement du front)
 - [`MISSION_MODULE1_ET_TRELLO.md`](MISSION_MODULE1_ET_TRELLO.md)

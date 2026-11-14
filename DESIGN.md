@@ -207,4 +207,4 @@ Système **plat avec surfaces** : `.surface` = fond blanc + bordure légère, pa
 - **Don't** hardcoder des hex dans les templates Angular.
 - **Don't** utiliser `text-3xl` hors échelle tokens.
 - **Don't** traduire automatiquement le wolof.
-- **Don't** autoriser `vercel.live` / toolbar dans la CSP du prototype.
+- **Don't** élargir la CSP du prototype au-delà des tuiles Esri et de l'API.

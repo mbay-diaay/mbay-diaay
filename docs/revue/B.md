@@ -7,7 +7,7 @@ Revue du 26 octobre 2026, dépôt au commit `c797904`. Chaque constat a été v�
 **Corrigé et poussé** (commits `4927294`, `3e894f1`, `8c0d494`, `6f1ef21`, `c2e28e9`, `d7b9abb`, `55373e2`) :
 
 - Session falsifiable, changement de profil hors démonstration, rôle relu dans les comptes (fait par la session A dans `store.ts`, lot 0 store).
-- `DEMO_MODE` fermé par défaut + contrôle du build de production (`scripts/check-env.mjs`) : **une variable `VITE_DEMO_MODE=true` ou `false` est désormais obligatoire dans les réglages de production de Vercel**, sinon `pnpm build` échoue.
+- `DEMO_MODE` fermé par défaut + contrôle du build de production (`scripts/check-env.mjs`) : **une variable `VITE_DEMO_MODE=true` ou `false` est désormais obligatoire dans les réglages de production**, sinon `pnpm build` échoue.
 - Injection de script dans les infobulles de la carte (échappement + test avec un nom piégé).
 - En-têtes de sécurité (HSTS, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-Robots-Tag) et CSP en mode rapport ; `robots.txt` fermé.
 - Plafond des codes de réinitialisation, réponses identiques pour un compte inconnu, jeton d'invitation retiré de l'adresse.
@@ -47,7 +47,7 @@ Revue du 26 octobre 2026, dépôt au commit `c797904`. Chaque constat a été v�
 | Gravité | Constat | Fichier:ligne | Action | Resp. |
 |---|---|---|---|---|
 | haute (production) | Injection de script (XSS stockée) : prénom, nom et culture d'un producteur sont insérés sans échappement dans le HTML des infobulles Leaflet (`bindTooltip(string)`). Source : import CSV/XLSX et restauration de sauvegarde. | `src/routes/carte.tsx:245-249`, `src/components/map/PlotMap.tsx:140,153`, `src/lib/io/validate.ts:285-286` | `escapeHtml` ou nœud DOM construit avec `textContent` ; test avec un nom `<img onerror=…>`. | B |
-| moyenne (production) | Aucun en-tête de sécurité : CSP, HSTS, `frame-ancestors`/X-Frame-Options, `nosniff`, Referrer-Policy, Permissions-Policy. | `vercel.json:1-6`, `src/start.ts:27-29` | Bloc `headers` dans `vercel.json` ; CSP autorisant les tuiles Leaflet et `VITE_ERROR_REPORT_URL`. | B |
+| moyenne (production) | Aucun en-tête de sécurité : CSP, HSTS, `frame-ancestors`/X-Frame-Options, `nosniff`, Referrer-Policy, Permissions-Policy. | `src/start.ts:27-29` | En-têtes posés sur le routeur du serveur ; CSP autorisant les tuiles Leaflet et `VITE_ERROR_REPORT_URL`. | B |
 | basse | Le rapporteur d'erreurs envoie `Response.url` avec sa query (peut contenir `jeton=`). | `src/lib/error-reporting.ts:47,60-70` | Retirer la query, garder origine et chemin. | A |
 | basse | `robots.txt` autorise tout, application d'administration privée. | `public/robots.txt:1-14` | `Disallow: /` et `X-Robots-Tag: noindex` global. | B |
 | basse | Le serveur de développement écoute sur toutes les interfaces. | `vite.config.ts:9` | `localhost` par défaut. | B |
@@ -70,7 +70,7 @@ Revue du 26 octobre 2026, dépôt au commit `c797904`. Chaque constat a été v�
 | basse | `overrides` de `package.json` (`vite >=8.1.6`) ignoré par pnpm : le verrou est illusoire. | `package.json:31-34`, `pnpm-lock.yaml:7-8` | Déplacer dans `pnpm-workspace.yaml` ou supprimer. | B |
 | basse | Nitro en version bêta pour la production. | `package.json:108` | Version stable avant la mise en production. | B |
 | basse | `dependency-review` désactivé (`if: false`), CodeQL en `upload: never` (résultats invisibles). | `ci.yml:83`, `codeql.yml:34` | Réactiver dès que GHAS est disponible. | B |
-| basse | Documentation périmée : `README.md:39` (« bun.lock conservé pour Lovable »), `DEVELOPPEMENT.md:163` (« vercel.json / Cloudflare »), `ETAT_DU_PROJET.md:581` (config Vite « Nitro Cloudflare »). | fichiers cités | Mettre à jour. | B |
+| basse | Documentation périmée : `README.md:39` (« bun.lock conservé pour Lovable »), `DEVELOPPEMENT.md:163` (« Cloudflare »), `ETAT_DU_PROJET.md:581` (config Vite « Nitro Cloudflare »). | fichiers cités | Mettre à jour. | B |
 | basse (à confirmer) | `docs/cadrage/` (documents confidentiels du client) est versionné dans le dépôt privé. | `git ls-files docs/cadrage` | Confirmer que c'est voulu ; sinon sortir du dépôt et purger l'historique. | utilisateur |
 
 ## 5 bis. Tests unitaires et parcours navigateur
